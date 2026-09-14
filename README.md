@@ -373,8 +373,11 @@ the same `ProxyController` interface.
   menu to the panel and reports no clicks, so the menu's first item is the way
   back to the window.
 - The exit-IP readout asks a third-party echo service (`ip.sb`, `ifconfig.co`),
-  which sees the tunnel's exit address. It runs on connect and on node switch;
-  there is no setting to turn it off yet.
+  which sees the address the request leaves from. It runs automatically on connect
+  and on node switch, and goes through the tunnel; there is no setting to turn it
+  off yet. The refresh button beside it also works while disconnected, where the
+  request goes direct and reports your own address — that only happens when you
+  press it, never on its own.
 - Custom rules cover one matcher and one destination each. Anything needing two
   conditions at once is a config file, which this app renders but does not accept
   hand edits to.

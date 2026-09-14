@@ -217,6 +217,17 @@ class AppState extends ChangeNotifier {
   var _busyOperations = 0;
   Future<void>? _shutdownFuture;
 
+  /// The outbound tags in the config the running engine actually has, or null
+  /// while nothing is running.
+  ///
+  /// Not derivable from [_nodes]: a tag is the node's *name* plus its id, so
+  /// renaming a node renames its outbound, and a subscription refresh that
+  /// renames or adds nodes leaves the live engine knowing a set of tags the app
+  /// no longer renders. Selecting one of those absent tags fails, which read as
+  /// a node tap doing nothing at all. Recorded at start and reload so
+  /// [_syncLiveOutbounds] can tell the two apart.
+  Set<String>? _liveOutboundTags;
+
   /// Invalidates a pending connect/reload as soon as the newer runtime intent is
   /// issued, rather than waiting for the older controller call to return.
   var _runtimeOperationId = 0;

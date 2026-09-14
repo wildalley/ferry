@@ -107,6 +107,10 @@ class FakeProxyController implements ProxyController {
   /// against a list that also counts starts.
   final reloadedConfigs = <String>[];
 
+  /// When set, [reload] throws instead of accepting the config, standing in for
+  /// an engine that could not be restarted on it.
+  bool reloadFails = false;
+
   @override
   Future<void> clearLogs() async {
     clearLogsCount++;
@@ -115,6 +119,7 @@ class FakeProxyController implements ProxyController {
   @override
   Future<void> reload(String configJson) async {
     lifecycleCalls.add('reload');
+    if (reloadFails) throw StateError('reload refused');
     reloadedConfigs.add(configJson);
   }
 

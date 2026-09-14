@@ -562,26 +562,51 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
     emitError('sing-box exited with code $code$tail', session: session);
   }
 
-  /// Releases everything the running engine owned. Safe to call twice.
+  /// Releases everything the running engine owned.
+  ///
+  /// Safe to call twice, and safe to call twice *concurrently* — which a stop
+  /// always does. [_stopInternal] awaits this after the process exits, and the
+  /// child's own exit handler reaches it first from [_onExit], so two runs are
+  /// interleaved on every disconnect rather than only in a rare race.
+  /// The last step is in a `finally` on purpose. Restoring the desktop's proxy
+  /// settings is the one thing here that the *rest of the machine* depends on:
+  /// leave it undone and every application on the host is pointed at a port with
+  /// nothing behind it. So a failure in any earlier step is logged and stepped
+  /// over rather than allowed to skip it — which is exactly what the
+  /// ConcurrentModificationError above used to do.
   Future<void> _teardown() async {
-    _groupPoll?.cancel();
-    _groupPoll = null;
-    await _trafficSub?.cancel();
-    _trafficSub = null;
-    // The killed process closes its pipes, and a listener left on them outlives
-    // the session it belonged to.
-    for (final sub in _outputSubs) {
-      await sub.cancel();
-    }
-    _outputSubs.clear();
-    _client?.dispose();
-    _client = null;
-    final proxy = _systemProxy;
-    if (proxy != null) {
-      await proxy.restore();
-    } else {
-      final dataDir = await appDataDirectory();
-      if (dataDir != null) await _proxyFor(dataDir).restore();
+    try {
+      _groupPoll?.cancel();
+      _groupPoll = null;
+      await _trafficSub?.cancel();
+      _trafficSub = null;
+      // The killed process closes its pipes, and a listener left on them
+      // outlives the session it belonged to.
+      //
+      // Drained into a local before the first await, never iterated in place:
+      // the other run's `clear()` lands while this one is suspended on a cancel,
+      // and iterating the field directly threw ConcurrentModificationError out
+      // of the disconnect. Taking the list also divides the work — whichever run
+      // gets here first owns every subscription, and the other finds none.
+      final subs = List.of(_outputSubs);
+      _outputSubs.clear();
+      for (final sub in subs) {
+        await sub.cancel();
+      }
+      _client?.dispose();
+      _client = null;
+    } on Object catch (error) {
+      // Not rethrown: this runs on the disconnect path, where the caller would
+      // turn it into a failure notice for a stop that did in fact happen.
+      log('teardown: $error');
+    } finally {
+      final proxy = _systemProxy;
+      if (proxy != null) {
+        await proxy.restore();
+      } else {
+        final dataDir = await appDataDirectory();
+        if (dataDir != null) await _proxyFor(dataDir).restore();
+      }
     }
   }
 

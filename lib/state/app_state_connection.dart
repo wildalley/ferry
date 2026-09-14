@@ -148,9 +148,72 @@ extension _AppStateConnection on AppState {
   Future<void> _selectAutoIntent() =>
       _enqueue(() => _select(AppState.autoSelection, ConfigTags.auto));
 
+  /// Reloads the live engine so it is running the config the app now renders.
+  ///
+  /// The engine only knows the outbounds it was started with. A subscription
+  /// refresh renames and adds nodes without touching the runtime — panels
+  /// routinely re-issue the same endpoint under a new display name, and the
+  /// outbound tag is derived from that name — so the app can end up asking the
+  /// selector for a tag the running config never contained. That switch fails,
+  /// and a failed switch reads as a node tap doing nothing.
+  ///
+  /// Compared against the tags actually handed over rather than a "did anything
+  /// change" flag: a reload restarts sing-box and drops every connection, so it
+  /// happens only when the live engine really is missing what is being asked of
+  /// it. Returns false when the reload failed, having reported it.
+  Future<bool> _syncLiveOutbounds() async {
+    if (!isConnected) return true;
+    final live = _liveOutboundTags;
+    // Null means nothing recorded a live set — an older session, or a platform
+    // path that never went through _renderConfig. Leave it alone rather than
+    // restart a working tunnel on a guess.
+    if (live == null) return true;
+    final rendered = {
+      for (final node in _nodes) ConfigBuilder.outboundTag(node),
+    };
+    if (rendered.difference(live).isEmpty) return true;
+    return _reloadLive();
+  }
+
+  /// Hands the current config to the running engine, reporting either failure.
+  ///
+  /// Shared by every caller that changes something the engine has to be
+  /// restarted to see: a detour edit, a settings change, and a node set that has
+  /// drifted from the live engine's. All three had this block written out
+  /// separately; one copy means a fix to the reporting reaches every path that
+  /// reloads. The operation-id guard keeps a notice from a superseded reload off
+  /// the screen.
+  Future<bool> _reloadLive() async {
+    final operationId = _runtimeOperationId;
+    try {
+      await _controller.reload(_renderConfig());
+      return true;
+    } on FormatException catch (error) {
+      // Named for what it is rather than folded into reloadFailed: the live
+      // tunnel is still up on the previous config, which is the opposite of
+      // what "reload failed" leads a user to check.
+      if (_runtimeOperationId == operationId) {
+        _notify(
+          AppNotice.error(NoticeKind.configInvalid, detail: error.message),
+        );
+      }
+      return false;
+    } on Object catch (error) {
+      if (_runtimeOperationId == operationId) {
+        _notify(
+            AppNotice.error(NoticeKind.reloadFailed, detail: _short(error)));
+      }
+      return false;
+    }
+  }
+
   /// Records a selection and, while connected, moves the live selector to it.
   Future<void> _select(String id, String outboundTag) async {
     final previousId = _selectedNodeId;
+    // Before the connected check below, and before the tag is used: a refresh
+    // that renamed this node left the engine without the tag being selected,
+    // and the reload is what puts it there.
+    if (!await _syncLiveOutbounds()) return;
     final connected = isConnected;
     try {
       if (connected) {
@@ -215,21 +278,7 @@ extension _AppStateConnection on AppState {
     notifyListeners();
 
     if (!isConnected) return;
-    final operationId = _runtimeOperationId;
-    try {
-      await _controller.reload(_renderConfig());
-    } on FormatException catch (error) {
-      if (_runtimeOperationId == operationId) {
-        _notify(
-          AppNotice.error(NoticeKind.configInvalid, detail: error.message),
-        );
-      }
-    } on Object catch (error) {
-      if (_runtimeOperationId == operationId) {
-        _notify(
-            AppNotice.error(NoticeKind.reloadFailed, detail: _short(error)));
-      }
-    }
+    await _reloadLive();
   }
 
   /// Persists settings and only reloads when the rendered runtime config changes.
@@ -243,23 +292,6 @@ extension _AppStateConnection on AppState {
     notifyListeners();
 
     if (!runtimeChanged || !isConnected) return;
-    final operationId = _runtimeOperationId;
-    try {
-      await _controller.reload(_renderConfig());
-    } on FormatException catch (error) {
-      // Named for what it is rather than folded into reloadFailed: the live
-      // tunnel is still up on the previous config, which is the opposite of
-      // what "reload failed" leads a user to check.
-      if (_runtimeOperationId == operationId) {
-        _notify(
-          AppNotice.error(NoticeKind.configInvalid, detail: error.message),
-        );
-      }
-    } on Object catch (error) {
-      if (_runtimeOperationId == operationId) {
-        _notify(
-            AppNotice.error(NoticeKind.reloadFailed, detail: _short(error)));
-      }
-    }
+    await _reloadLive();
   }
 }

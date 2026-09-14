@@ -275,6 +275,24 @@ because runtime node switching (`selectOutbound`) has to name the same tag the
 config declared, and because it is the only mapping that leads from a tag the
 engine reports back to a node: URL-test delays arrive keyed by tag.
 
+A tag is `'${name}-${id}'`, so it is derived from the node's **display name**, and
+that makes it drift. A subscription refresh replaces names — panels routinely
+re-issue the same endpoint under a new one — while the running engine keeps the
+outbounds it was started with. The app would then ask the selector for a member
+that config never contained, the switch would fail, and a failed switch reads as
+a node tap doing nothing at all. This is the ordinary path rather than a corner,
+because every connect also triggers an automatic subscription refresh.
+
+So `_renderConfig` records the tag set it hands over in `AppState._liveOutboundTags`
+— it is the one gate every platform's config leaves through — and `_select` calls
+`_syncLiveOutbounds()` before naming a tag, reloading when the rendered tags are
+no longer a subset of the live ones. Compared against the tags actually handed
+over rather than a "something changed" flag, because on the desktop a reload is a
+stop and a start and costs the tunnel every open connection: a refresh that
+renames nothing must leave it alone. The field is nullable, and null means "no
+record", which reloads nothing — a session that never went through `_renderConfig`
+is not grounds for restarting a working tunnel on a guess.
+
 ## Secrets
 
 Subscription tokens, UUIDs, passwords, and private keys must stay out of logs,

@@ -53,6 +53,43 @@
   Clash.Meta 扩展、sing-box 并不实现，因此逐个成员测速；而 Windows 的 `urlTest()` 正是在调
   这个接口。两份实现各自演化正是计划里担心的风险，已在下方「抽取共享桌面运行时」记录待办。
 
+- **实机联调修正的三处缺陷（切换分组无响应、出口 IP 显示错误、断开连接报错）**：三个症状分别属于
+  两个独立根因，加上一处状态层与 UI 的自相矛盾。
+
+  其一，**live outbound 标签漂移**（`app_state_config` / `app_state_connection`）。outbound tag 由
+  `ConfigBuilder.outboundTag` 从节点**显示名**生成，而机场经常把同一个 endpoint 换个显示名重新下发；
+  订阅刷新会替换节点名，却从不 reload 运行中的引擎。于是应用去选 `Tokyo_09-a`，运行中的配置里只有
+  `Tokyo-a`，`selectOutbound` 失败、`_select` 回滚选择，表现为「点了没反应」。这不是边角情形——
+  `_maybeAutoRefreshSubscriptions` 每次连接都会跑。修法是让 `_renderConfig()`（所有平台配置离开状态层
+  的唯一出口）记录交出去的标签集合 `_liveOutboundTags`，`_select` 先调 `_syncLiveOutbounds()`，
+  仅当渲染出的标签不是实际标签的子集时才 reload。刻意用真实标签集合比对而非「是否变更过」的脏标记：
+  reload 在桌面端是 stop+start，会断掉所有现有连接，所以只在引擎确实缺少被请求的成员时才付这个代价。
+  该字段可空，未经 `_renderConfig` 的会话（旧版本或其他路径）宁可不动也不凭猜测重启正常隧道。
+  出口 IP 显示错误是同一根因的下游表现：切换被拒后地址停在上一个节点，且不会发起新查询。
+
+  其二，**Linux `_teardown()` 并发自撞**（`linux_proxy_controller`）。断开时它必然并发执行两次：
+  `_stopInternal` 发 SIGTERM 后等退出，进程自己的退出回调先跑 `unawaited(_teardown())`，随后
+  `_stopInternal` 恢复再 `await _teardown()`。两者都进入 `for (final sub in _outputSubs)` 循环，
+  一边挂在 `await sub.cancel()` 上、另一边 `clear()`，前者恢复时抛 `ConcurrentModificationError`
+  （报错里的 `length:0` 正是被清空后的列表，也是定位的关键）。改为在第一个 await 之前把列表取到局部
+  变量，谁先到谁负责全部。同时把函数体包起来、让恢复系统代理走 `finally`——原先异常发生在
+  `_client = null` 和代理恢复**之前**，一次崩掉的 teardown 会把整台机器的代理留在一个死端口上，
+  这比那条报错横幅严重得多。Windows 侧不存在同一模式（其 `_stopInternal` 以
+  `identical(_process, process)` 加了守卫），已查证。
+
+  其三，**未连接时出口 IP 永远刷不出来**（`app_state_runtime`）。存储结果的判断额外要求
+  `isConnected`，而刷新按钮的注释明确写着「未连接时故意保持可用：这正是用户查看自己地址的方式」。
+  两者直接矛盾：请求确实发出（走直连，路由正确）、服务也答了，回复却在赋值那一步被丢弃，于是每点
+  一次都真的发一个网络请求、界面永远显示「未知」。判断过期本就是 `_exitLookupGeneration` 的职责而非
+  连接标志——连接、断开、切换节点都会递增它，跨状态的旧请求已在此基础上被丢弃。注意只去掉赋值处的
+  该条件：do-while 重试条件里的 `isConnected` 必须保留（合并重试是为了追上 in-flight 请求所不知道的
+  新状态，而值得追的状态都意味着已连接；断开时反复点刷新，自己的地址不会变），去掉会让断开时的三次
+  点击从 1 个请求变成 2 个。
+
+  三处都先写临时复现确认了根因、再动手，改完用同一复现验证；`_liveOutboundTags` 的行为固化为
+  `test/live_outbound_sync_test.dart`（含「刷新未改任何标签时不得重启隧道」这条反向断言）。
+  顺带把三处重复的 reload + 报错块合并为 `_reloadLive()`——第三处本就是复制第二处而来。
+
 后续计划（Windows 单实例/提权 IPC、API 超时轮询、WinINet journal、系统代理接管状态等 P0/P1 项）仍在
 本计划范围内待实施。本重构时的全量验证：`flutter analyze` 无告警，`flutter test` 全绿。
 

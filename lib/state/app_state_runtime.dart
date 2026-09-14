@@ -129,10 +129,32 @@ extension _AppStateRuntime on AppState {
   /// system-proxy mode, so it would claim the tunnel was doing nothing when it
   /// was working. See `ip_lookup.dart`.
   ///
+  /// Runs while disconnected too, and keeps what it finds. Nothing here starts
+  /// such a lookup on its own — the automatic ones all hang off a tunnel coming
+  /// up — so a disconnected reading only ever happens because the user pressed
+  /// refresh, and then their own address is precisely the answer they asked for.
+  /// Storing the result used to also require [isConnected], which meant the
+  /// request went out, the service answered, and the reply was dropped on the
+  /// floor: the button reported "unknown" forever while quietly making a request
+  /// per tap.
+  ///
+  /// Staleness is [_exitLookupGeneration]'s job, not the connection flag's. Every
+  /// connect, disconnect and node switch bumps it — see [_onProxyState] and
+  /// `_select` — so a lookup that outlives the state it was started in is already
+  /// discarded on that basis, whichever direction the tunnel moved.
+  ///
   /// Overlapping calls are coalesced rather than queued. Switching nodes a few
   /// times in a row should leave one request on the wire at a time, not one per
   /// switch. The newest request is kept pending so a rapid final switch is not
   /// left displaying no address after the earlier request completes.
+  ///
+  /// That retry is the one thing here that *is* connected-only. It exists to
+  /// catch up with a state the in-flight request predates, and the states worth
+  /// catching up with — a node switch, a tunnel coming up — all mean connected;
+  /// a user tapping refresh twice while disconnected has not changed where their
+  /// own traffic leaves from, so the second request would ask the same question
+  /// twice. A connect landing mid-flight still gets its reading, because by the
+  /// time the loop re-tests this the tunnel is up.
   Future<void> _refreshExitAddress() async {
     if (!_acceptingWork) return;
     if (_checkingExitAddress) {
@@ -153,9 +175,7 @@ extension _AppStateRuntime on AppState {
           // A failed lookup clears the reading rather than leaving the last one
           // on screen: a stale address beside a tunnel that has since moved is
           // worse than admitting the check did not answer.
-          if (!_disposed &&
-              generation == _exitLookupGeneration &&
-              isConnected) {
+          if (!_disposed && generation == _exitLookupGeneration) {
             _exitAddress = address;
           }
         } on Object {

@@ -42,6 +42,18 @@ extension _AppStateConfig on AppState {
     // The decoded map, not the encoded string: the desktop path parses the JSON
     // again on the far side, and there is nothing to learn from doing it twice.
     ConfigFacts.fromMap(config);
+    // Every config that reaches a runtime leaves through here, which is why the
+    // record of what the engine is running is taken here too. An outbound tag is
+    // derived from the node's *name*, so a subscription that renames a node
+    // changes every tag under it while the live engine keeps the old ones — and
+    // `selectOutbound` would then name a member that does not exist. See
+    // [AppState._liveOutboundTags].
+    // Deduplicated the same way the builder does, so this holds exactly the
+    // members the rendered selector lists and nothing that was collapsed out.
+    _liveOutboundTags = {
+      for (final node in deduplicateProxyNodes(_nodes))
+        ConfigBuilder.outboundTag(node),
+    };
     return ConfigBuilder.encode(config);
   }
 
