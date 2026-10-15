@@ -26,14 +26,17 @@ class SingBoxApp extends StatefulWidget {
 }
 
 class _SingBoxAppState extends State<SingBoxApp> with WidgetsBindingObserver {
-  /// The two settings [MaterialApp] actually reads, as a notifier that only
-  /// fires when one of them changes.
-  late final _presentation =
-      ValueNotifier<({AppThemeMode theme, AppLanguage language})>(_read());
+  var _lifecycleVisible = true;
 
-  ({AppThemeMode theme, AppLanguage language}) _read() => (
+  /// Presentation changes only; traffic and logs do not rebuild MaterialApp.
+  late final _presentation =
+      ValueNotifier<({AppThemeMode theme, AppLanguage language, bool visible})>(
+          _read());
+
+  ({AppThemeMode theme, AppLanguage language, bool visible}) _read() => (
         theme: widget.state.settings.themeMode,
         language: widget.state.settings.language,
+        visible: widget.state.isWindowVisible && _lifecycleVisible,
       );
 
   @override
@@ -45,6 +48,13 @@ class _SingBoxAppState extends State<SingBoxApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _lifecycleVisible = false;
+    } else if (state == AppLifecycleState.resumed) {
+      _lifecycleVisible = true;
+    }
+    _onStateChanged();
     // Android's VPN is a foreground service whose lifetime is intentionally
     // independent from the Flutter engine. Desktop has no such owner, so a
     // real engine detach still uses the awaited shutdown path.
@@ -76,7 +86,8 @@ class _SingBoxAppState extends State<SingBoxApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<({AppThemeMode theme, AppLanguage language})>(
+    return ValueListenableBuilder<
+        ({AppThemeMode theme, AppLanguage language, bool visible})>(
       valueListenable: _presentation,
       builder: (context, settings, _) {
         return MaterialApp(
@@ -99,6 +110,12 @@ class _SingBoxAppState extends State<SingBoxApp> with WidgetsBindingObserver {
           locale: settings.language.code == null
               ? null
               : Locale(settings.language.code!),
+          // Retain navigation and scroll state, but stop native painting and
+          // animation allocations while the tunnel runs in the background.
+          builder: (context, child) => TickerMode(
+            enabled: settings.visible,
+            child: Offstage(offstage: !settings.visible, child: child),
+          ),
           home: AppShell(state: widget.state),
         );
       },

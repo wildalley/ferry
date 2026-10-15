@@ -72,6 +72,9 @@ Shared by Linux and Windows.
 - Closing the window hides it and leaves the tunnel running; it falls back to
   quitting when no tray icon could be installed, so the window is never hidden
   behind an icon that cannot bring it back
+- Hiding or minimizing pauses painting, animations, and the dashboard clock;
+  restoring the window keeps the selected page and scroll position. Proxy
+  traffic and bounded statistics continue in the background
 - Quitting stops the engine and restores the desktop proxy settings before the
   process exits, rather than leaving the machine pointed at a dead port
 - A second launch raises the first instance's window instead of starting a
@@ -247,13 +250,14 @@ flutter analyze
 flutter test
 ```
 
-567 tests pass and 17 are skipped: share-link parsing — including the uTLS
+574 tests pass and 19 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
 placement, import format detection, the Clash API client both desktop runtimes
 drive, the polkit capability grant, the Linux system-proxy backend against fakes,
-the shutdown path, the single-instance socket, tray menu construction, UI
-interaction against a fake controller, live-throughput artwork, and
+the shutdown path, the single-instance socket, tray menu construction, background
+animation suspension and bounded log-follow callbacks, UI interaction against a
+fake controller, live-throughput artwork, and
 localization/theme coverage including palette contrast ratios. Windows privilege
 decisions have unit coverage; its WinINet bridge, Job Object, and live TUN
 adapter still need a Windows session.
@@ -271,11 +275,16 @@ verified in an automated way and needs a real subscription to exercise. The same
 holds for anything that depends on what the engine reports at runtime, including
 the URL-test delays behind latency sorting.
 
-Three desktop paths are covered by unit tests but have not been exercised on a
-live desktop session: the tray icon appearing on a panel and its menu opening,
-the polkit/UAC prompt a first TUN start puts up, and the window hide/show cycle.
-Their logic is tested against fakes — menu contents, quit ordering, `pkexec`
-argv, socket handoff — which is not the same as having watched them happen.
+Automated coverage of the tray menu, first-start polkit/UAC prompt, and window
+hide/show cycle uses fakes for menu contents, quit ordering, `pkexec` arguments,
+and socket handoff. These checks still need broader live validation across
+desktop environments and Windows installations.
+
+The `0.1.5-12` Linux build includes background presentation fixes following a
+report of roughly 1.2 GiB client memory after prolonged tray use. The package was
+installed and its loaded application library verified after restart; long-run
+memory stability is still unverified. See the
+[memory investigation and verification notes](docs/memory-investigation-2026-10.md).
 
 ## Localization
 

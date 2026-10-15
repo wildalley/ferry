@@ -21,6 +21,7 @@ class LogsPage extends StatefulWidget {
 class _LogsPageState extends State<LogsPage> {
   final _scrollController = ScrollController();
   var _follow = true;
+  var _followScheduled = false;
 
   @override
   void initState() {
@@ -36,7 +37,8 @@ class _LogsPageState extends State<LogsPage> {
   }
 
   void _onStateChanged() {
-    if (!_follow) return;
+    if (!_follow || _followScheduled) return;
+    _followScheduled = true;
     // `hasClients` is deliberately not checked here, only inside the callback.
     //
     // The first batch of lines arrives while the page is still showing its empty
@@ -48,7 +50,8 @@ class _LogsPageState extends State<LogsPage> {
     //
     // After the frame either way, or the extent is stale.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_follow || !_scrollController.hasClients) return;
+      _followScheduled = false;
+      if (!mounted || !_follow || !_scrollController.hasClients) return;
       final position = _scrollController.position;
       final target = position.maxScrollExtent;
       final gap = target - position.pixels;

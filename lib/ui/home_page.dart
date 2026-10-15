@@ -51,9 +51,18 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     widget.state.addListener(_onStateChanged);
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && widget.state.isConnected) setState(() {});
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ticker?.cancel();
+    _ticker = null;
+    if (TickerMode.valuesOf(context).enabled) {
+      _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && widget.state.isConnected) setState(() {});
+      });
+    }
   }
 
   @override

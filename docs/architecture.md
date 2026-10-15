@@ -209,6 +209,16 @@ both questions at once: whether anyone is home and how to talk to them. If
 neither connecting nor binding works the app runs unguarded, since the failure
 that matters is a user with no window, not a user with two.
 
+Window visibility is separate from tunnel state. After a successful hide/show,
+and on minimize/restore events, `DesktopShell` updates
+`AppState.isWindowVisible`. This explicit signal covers desktop window operations
+that do not reliably produce Flutter lifecycle events. `SingBoxApp` combines it
+with the hidden/paused/resumed lifecycle state, puts its navigator offstage while
+hidden, and disables its tickers. The widget tree stays mounted, preserving the
+current page and scroll position. The home page also cancels its uptime timer
+while ticker mode is disabled and restarts it when visible. Runtime streams,
+traffic histories, and tray status continue updating.
+
 ## Configuration flow
 
 1. Import a share link, subscription URL, sing-box JSON, or a file
@@ -266,9 +276,20 @@ so an append is O(1) and reads hand out the buffer rather than a copy — the na
 shape paid O(n) twice per line, exactly when lines arrived fastest.
 
 Above that, `MaterialApp` subscribes to a `ValueNotifier` carrying only the theme
-mode and locale, and the shell's chrome to one carrying only `isConnected`, so a
-traffic sample no longer rebuilds `Theme`, `Localizations`, and every page beneath
-them. Each page subscribes for itself through `PageBody`.
+mode, locale, and presentation visibility, and the shell's chrome to one carrying
+only `isConnected`, so a traffic sample no longer rebuilds `Theme`,
+`Localizations`, and every page beneath them. Each page subscribes for itself
+through `PageBody`.
+
+The log page coalesces follow-scroll work separately from state notifications:
+only one post-frame callback may be pending. A hidden window can keep receiving
+stream notifications while drawing no frames, so a bounded log buffer alone does
+not bound that callback queue. The callback clears its pending flag when it runs
+and checks that the page is still mounted before accessing the scroll controller.
+The latest 500 log entries and 60 samples per traffic chart remain the data caps.
+
+See the [October 2026 memory investigation](memory-investigation-2026-10.md) for
+the measured native-memory growth, regression coverage, and remaining limits.
 
 Outbound tags are generated in exactly one place — `ConfigBuilder.outboundTag` —
 because runtime node switching (`selectOutbound`) has to name the same tag the
@@ -333,5 +354,5 @@ tag` error while keeping the user's source list intact.
 - Release signing: `android/app/build.gradle.kts` still signs with debug keys.
 - Additional ABIs — `scripts/build-libbox.sh` builds arm64 only by default.
 - A setting for the exit-IP lookup, which currently always runs on connect.
-- Desktop paths verified against fakes but not a live session: the tray on a
-  panel, the polkit prompt, the hide/show cycle.
+- Broader live desktop validation of the tray on a panel, the polkit/UAC prompt,
+  and the hide/show cycle; automated coverage uses fakes.

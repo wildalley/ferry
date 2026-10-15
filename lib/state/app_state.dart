@@ -166,6 +166,17 @@ class AppState extends ChangeNotifier {
   var _proxyState = ProxyState.disconnected;
   var _traffic = ProxyTraffic.zero;
 
+  // Desktop hide/minimize does not reliably produce a Flutter lifecycle event.
+  // Keep presentation visibility separate from the tunnel's running state.
+  var _windowVisible = true;
+  bool get isWindowVisible => _windowVisible;
+
+  void setWindowVisible(bool visible) {
+    if (_disposed || _windowVisible == visible) return;
+    _windowVisible = visible;
+    notifyListeners();
+  }
+
   /// The address the outside world last reported back, or null when it has not
   /// been looked up or the lookup failed.
   ExitAddress? _exitAddress;

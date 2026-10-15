@@ -332,6 +332,17 @@ class DesktopShell with TrayListener, WindowListener {
   /// second process.
   void activate() => _showWindow();
 
+  @override
+  void onWindowMinimize() => state.setWindowVisible(false);
+
+  @override
+  void onWindowRestore() => state.setWindowVisible(!_hidden);
+
+  @override
+  void onWindowFocus() {
+    if (!_hidden) state.setWindowVisible(true);
+  }
+
   /// Shows and focuses the window, leaving [_hidden] truthful either way.
   ///
   /// The flag is set after the call, not before: it decides whether the menu
@@ -343,6 +354,7 @@ class DesktopShell with TrayListener, WindowListener {
       await windowManager.show();
       await windowManager.focus();
       _hidden = false;
+      state.setWindowVisible(true);
     } on Object catch (error) {
       debugPrint('window show: $error');
     }
@@ -358,6 +370,7 @@ class DesktopShell with TrayListener, WindowListener {
     try {
       await windowManager.hide();
       _hidden = true;
+      state.setWindowVisible(false);
     } on Object catch (error) {
       debugPrint('window hide: $error');
     }
