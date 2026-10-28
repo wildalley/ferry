@@ -285,6 +285,19 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
     throw StateError('sing-box did not confirm the selected node');
   }
 
+  @override
+  Future<void> selectGroupOutbound(String group, String outboundTag) async {
+    final client = _client;
+    if (client == null) throw StateError('not connected');
+    await client.select(group, outboundTag);
+    final deadline = DateTime.now().add(_selectionConfirmTimeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if ((await client.group(group))?.selected == outboundTag) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    throw StateError('sing-box did not confirm the selected node');
+  }
+
   /// Tests every member of the selector group and reports the results.
   ///
   /// One batched request, falling back to a member at a time. The comment here

@@ -33,6 +33,11 @@ abstract interface class ProxyController {
   /// Selects [outboundTag] inside the `selector` group at runtime.
   Future<void> selectOutbound(String outboundTag);
 
+  /// Selects [outboundTag] inside a policy group's selector, [group] being its
+  /// rendered tag. Confirms the switch like [selectOutbound], but reports no
+  /// group state: the app tracks the main selector's members, not these.
+  Future<void> selectGroupOutbound(String group, String outboundTag);
+
   /// Asks the engine to URL-test every member of the main selector group.
   Future<void> urlTest();
 

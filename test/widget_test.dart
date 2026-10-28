@@ -130,6 +130,16 @@ class FakeProxyController implements ProxyController {
     selectedOutbounds.add(outboundTag);
   }
 
+  /// (group tag, member tag) pairs, in the order they were asked for.
+  final groupSelections = <(String, String)>[];
+
+  @override
+  Future<void> selectGroupOutbound(String group, String outboundTag) async {
+    final error = selectOutboundError;
+    if (error != null) throw StateError(error);
+    groupSelections.add((group, outboundTag));
+  }
+
   @override
   Future<void> urlTest() async {
     urlTestCount++;

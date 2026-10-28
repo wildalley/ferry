@@ -57,6 +57,9 @@ class UnsupportedProxyController implements ProxyController {
   Future<void> selectOutbound(String outboundTag) async {}
 
   @override
+  Future<void> selectGroupOutbound(String group, String outboundTag) async {}
+
+  @override
   Future<void> urlTest() async {}
 
   @override

@@ -134,6 +134,8 @@ class MainActivity : FlutterActivity() {
 
             "selectOutbound" -> {
                 val tag = call.argument<String>("tag")
+                // Absent for the main selector; a policy group names its own.
+                val group = call.argument<String>("group") ?: PROXY_GROUP
                 if (tag.isNullOrEmpty()) {
                     result.error("bad_args", "tag is required", null)
                     return
@@ -143,7 +145,7 @@ class MainActivity : FlutterActivity() {
                     result.error("not_running", "The tunnel is not running", null)
                 } else {
                     try {
-                        service.selectOutbound(PROXY_GROUP, tag)
+                        service.selectOutbound(group, tag)
                         result.success(null)
                     } catch (error: Throwable) {
                         result.error(

@@ -8,6 +8,7 @@ import '../models/app_settings.dart';
 import '../models/custom_rule.dart';
 import '../state/app_state.dart';
 import 'notice_text.dart';
+import 'policy_groups.dart';
 import 'rule_sheet.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -18,8 +19,7 @@ class RulesPage extends StatelessWidget {
   final AppState state;
 
   @override
-  Widget build(BuildContext context) =>
-      PageBody(state: state, builder: _build);
+  Widget build(BuildContext context) => PageBody(state: state, builder: _build);
 
   Widget _build(BuildContext context) {
     final l10n = L10n.of(context);
@@ -54,6 +54,8 @@ class RulesPage extends StatelessWidget {
             ],
           ),
         ),
+        const SizedBox(height: 22),
+        PolicyGroupsSection(state: state),
         const SizedBox(height: 22),
         // Above the built-in list, because that is where they are matched: the
         // config renders these first, so a rule the user typed beats the bundled
@@ -350,9 +352,7 @@ class _RuleRow extends StatelessWidget {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: enabled
-                    ? tintFill(badgeColor)
-                    : palette.surface2,
+                color: enabled ? tintFill(badgeColor) : palette.surface2,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
                 border: Border.all(
                   color: enabled
@@ -445,6 +445,7 @@ Future<void> _addRule(BuildContext context, AppState state) async {
     context,
     rule: state.newCustomRule(),
     isNew: true,
+    groups: state.policyGroups,
   );
   if (rule != null) await state.addCustomRule(rule);
 }
@@ -482,7 +483,19 @@ class _CustomRuleRow extends StatelessWidget {
       RuleTarget.proxy => palette.violetSoft,
       RuleTarget.direct => palette.mint,
       RuleTarget.block => palette.danger,
+      RuleTarget.group => palette.sky,
     };
+    // A group rule's badge names the group, which is what the user chose; one
+    // whose group was deleted reads as the main exit it now takes.
+    final group = rule.target == RuleTarget.group
+        ? state.policyGroup(rule.groupId)
+        : null;
+    final badge = group != null
+        ? group.name
+        : ruleTargetText(
+            l10n,
+            rule.target == RuleTarget.group ? RuleTarget.proxy : rule.target,
+          ).toUpperCase();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
@@ -543,7 +556,7 @@ class _CustomRuleRow extends StatelessWidget {
             _ReorderButtons(state: state, index: index, total: total),
             const SizedBox(width: Gap.xs),
             _ActionBadge(
-              label: ruleTargetText(l10n, rule.target).toUpperCase(),
+              label: badge,
               color: active ? accent : palette.faint,
             ),
             const SizedBox(width: Gap.xs),
@@ -569,7 +582,12 @@ class _CustomRuleRow extends StatelessWidget {
   }
 
   Future<void> _edit(BuildContext context) async {
-    final edited = await showRuleSheet(context, rule: rule, isNew: false);
+    final edited = await showRuleSheet(
+      context,
+      rule: rule,
+      isNew: false,
+      groups: state.policyGroups,
+    );
     if (edited != null) await state.updateCustomRule(edited);
   }
 

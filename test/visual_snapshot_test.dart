@@ -18,7 +18,9 @@ import 'package:singbox_client/data/config_builder.dart';
 import 'package:singbox_client/data/storage.dart';
 import 'package:singbox_client/main.dart';
 import 'package:singbox_client/models/app_settings.dart';
+import 'package:singbox_client/models/custom_rule.dart';
 import 'package:singbox_client/models/node.dart';
+import 'package:singbox_client/models/policy_group.dart';
 import 'package:singbox_client/models/proxy_state.dart';
 import 'package:singbox_client/models/subscription.dart';
 import 'package:singbox_client/state/app_state.dart';
@@ -52,7 +54,7 @@ Future<void> _loadFonts() async {
   final flutterRoot =
       Platform.environment['FLUTTER_ROOT'] ?? '/home/cola/flutter';
   await add('Inter', 'assets/fonts/Inter.ttf');
-  await add('SpaceGrotesk', 'assets/fonts/SpaceGrotesk.ttf');
+  await add('SourceSerif4', 'assets/fonts/SourceSerif4.ttf');
   await add('JetBrainsMono', 'assets/fonts/JetBrainsMono-Regular.ttf');
   await add('JetBrainsMono', 'assets/fonts/JetBrainsMono-Medium.ttf');
   await add(
@@ -78,7 +80,24 @@ Future<void> _loadFonts() async {
       // Unreadable or an unsupported container; try the next candidate.
     }
   }
+
+  // The display face's Han fallback, so titles render in the serif that ships
+  // rather than falling through to the sans. Same degrade-to-tofu rule.
+  for (final path in _cjkSerifCandidates) {
+    if (!File(path).existsSync()) continue;
+    try {
+      await add(AppFonts.serifFallback.first, path);
+      break;
+    } on Object {
+      // Try the next candidate.
+    }
+  }
 }
+
+const _cjkSerifCandidates = <String>[
+  '/usr/share/fonts/noto-cjk/NotoSerifCJK-Bold.ttc',
+  '/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc',
+];
 
 /// Whether [_loadFonts] found a CJK face to register.
 bool _cjkLoaded = false;
@@ -206,6 +225,9 @@ Future<({AppState state, FakeProxyController controller})> _harness({
   /// Source ids the fixture starts folded away on the nodes page.
   Set<String> collapsed = const {},
   AppSettings settings = const AppSettings(themeMode: AppThemeMode.dark),
+
+  /// Seeds two policy groups and rules that use them, for the rules page.
+  bool groups = false,
 }) async {
   SharedPreferences.setMockInitialValues({});
   final storage = await Storage.open();
@@ -234,6 +256,27 @@ Future<({AppState state, FakeProxyController controller})> _harness({
       ),
   ]);
   await storage.writeSettings(settings);
+  if (groups) {
+    await storage.writePolicyGroups(const [
+      PolicyGroup(id: 'g1', name: 'AI', nodeId: 'la'),
+      PolicyGroup(id: 'g2', name: 'Streaming'),
+    ]);
+    await storage.writeCustomRules(const [
+      CustomRule(
+        id: 'r1',
+        matcher: RuleMatcher.domainSuffix,
+        value: 'openai.com',
+        target: RuleTarget.group,
+        groupId: 'g1',
+      ),
+      CustomRule(
+        id: 'r2',
+        matcher: RuleMatcher.domainSuffix,
+        value: 'work.example.cn',
+        target: RuleTarget.direct,
+      ),
+    ]);
+  }
   final controller = FakeProxyController();
   // Start already attached to the synthetic session. Emitting a connection
   // after AppState subscribes triggers real subscription/IP refresh work,
@@ -308,6 +351,7 @@ Future<void> _shot(
   int sources = 1,
   Set<String> collapsed = const {},
   AppSettings settings = const AppSettings(themeMode: AppThemeMode.dark),
+  bool groups = false,
   Future<void> Function()? navigate,
 }) async {
   tester.view
@@ -324,6 +368,7 @@ Future<void> _shot(
     sources: sources,
     collapsed: collapsed,
     settings: settings,
+    groups: groups,
   );
   addTearDown(harness.state.dispose);
   await tester.pumpWidget(SingBoxApp(state: harness.state));
@@ -518,6 +563,21 @@ void main() {
           'rules_mobile',
           size: const Size(390, 844),
           connected: false,
+          navigate: () async {
+            await tester.tap(find.byIcon(Icons.alt_route_outlined));
+            await tester.pump();
+          },
+        ),
+      );
+      testWidgets(
+        'rules / mobile / groups / light',
+        (tester) => _shot(
+          tester,
+          'rules_mobile_groups_light',
+          size: const Size(390, 844),
+          connected: false,
+          groups: true,
+          settings: const AppSettings(themeMode: AppThemeMode.light),
           navigate: () async {
             await tester.tap(find.byIcon(Icons.alt_route_outlined));
             await tester.pump();

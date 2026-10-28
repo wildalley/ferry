@@ -11,6 +11,7 @@ import 'dart:io';
 import '../models/app_settings.dart';
 import '../models/custom_rule.dart';
 import '../models/node.dart';
+import '../models/policy_group.dart';
 import 'rule_sets.dart';
 import 'share_link_parser.dart';
 
@@ -19,6 +20,10 @@ class ConfigTags {
   static const proxy = 'proxy';
   static const direct = 'direct';
   static const auto = 'auto';
+
+  /// A [PolicyGroup]'s selector. From the id, never the name, so a rename
+  /// leaves the config — and the live engine — untouched.
+  static String group(String id) => 'group-$id';
 }
 
 class ConfigBuilder {
@@ -77,6 +82,9 @@ class ConfigBuilder {
   /// [customRules] are the user's own rules, rendered above the bundled
   /// rule-sets so a specific answer wins over a general one — see [_route].
   /// Invalid and disabled entries are skipped here rather than at the call site.
+  /// [policyGroups] each become a selector over the same members as the main
+  /// one; a rule targeting a group that is not in the list falls back to the
+  /// main selector.
   static Map<String, dynamic> build({
     required List<ProxyNode> nodes,
     required String? selectedNodeId,
@@ -85,6 +93,7 @@ class ConfigBuilder {
     int clashApiPort = defaultClashApiPort,
     int localProxyPort = defaultLocalProxyPort,
     List<CustomRule> customRules = const [],
+    List<PolicyGroup> policyGroups = const [],
     String? ruleSetDir,
     bool? tunOnly,
     bool? android,
@@ -173,6 +182,24 @@ class ConfigBuilder {
       });
     }
 
+    // One selector per policy group, offering the same exits as the main one.
+    // Its default is the group's own node, or the urltest group when it has
+    // none — or when the node it named is gone, rather than a dangling member.
+    for (final group in policyGroups) {
+      final nodeTag = nodeTags[group.nodeId];
+      outbounds.add({
+        'type': 'selector',
+        'tag': ConfigTags.group(group.id),
+        'outbounds': proxyMembers.isEmpty
+            ? [ConfigTags.direct]
+            : [ConfigTags.auto, ...proxyMembers],
+        'default': proxyMembers.isEmpty
+            ? ConfigTags.direct
+            : nodeTag ?? ConfigTags.auto,
+        'interrupt_exist_connections': true,
+      });
+    }
+
     outbounds.add({'type': 'direct', 'tag': ConfigTags.direct});
 
     return {
@@ -193,7 +220,12 @@ class ConfigBuilder {
             : const [],
       ),
       'outbounds': outbounds,
-      'route': _route(settings, ruleSetDir, customRules),
+      'route': _route(
+        settings,
+        ruleSetDir,
+        customRules,
+        {for (final group in policyGroups) group.id},
+      ),
       'experimental': {
         'clash_api': {
           'external_controller': '127.0.0.1:$clashApiPort',
@@ -368,6 +400,7 @@ class ConfigBuilder {
     AppSettings settings,
     String? ruleSetDir,
     List<CustomRule> customRules,
+    Set<String> groupIds,
   ) {
     final rules = <Map<String, dynamic>>[
       // Sniff first so domain rules can match on TLS/HTTP hostnames.
@@ -424,6 +457,11 @@ class ConfigBuilder {
               RuleTarget.proxy => ConfigTags.proxy,
               RuleTarget.direct => ConfigTags.direct,
               RuleTarget.block => 'reject',
+              // A deleted group's rules keep working, through the main exit,
+              // instead of naming an outbound the engine would reject.
+              RuleTarget.group => groupIds.contains(rule.groupId)
+                  ? ConfigTags.group(rule.groupId!)
+                  : ConfigTags.proxy,
             },
           },
         ));

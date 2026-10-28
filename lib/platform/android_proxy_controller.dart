@@ -162,6 +162,14 @@ class AndroidProxyController implements ProxyController {
   }
 
   @override
+  Future<void> selectGroupOutbound(String group, String outboundTag) async {
+    await _method.invokeMethod<void>(
+      'selectOutbound',
+      {'group': group, 'tag': outboundTag},
+    );
+  }
+
+  @override
   Future<void> urlTest() async {
     await _method.invokeMethod<void>('urlTest');
   }

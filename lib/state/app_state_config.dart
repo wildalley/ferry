@@ -23,6 +23,7 @@ extension _AppStateConfig on AppState {
         clashApiPort: _clashApiPort,
         localProxyPort: _localProxyPort,
         customRules: _customRules,
+        policyGroups: _policyGroups,
         ruleSetDir: _ruleSetDir,
       );
 
@@ -53,6 +54,9 @@ extension _AppStateConfig on AppState {
     _liveOutboundTags = {
       for (final node in deduplicateProxyNodes(_nodes))
         ConfigBuilder.outboundTag(node),
+    };
+    _liveGroupTags = {
+      for (final group in _policyGroups) ConfigTags.group(group.id),
     };
     return ConfigBuilder.encode(config);
   }
@@ -133,6 +137,109 @@ extension _AppStateConfig on AppState {
       }
     }
   }
+}
+
+extension _AppStatePolicyGroups on AppState {
+  // ----------------------------------------------------------- policy groups
+
+  /// Makes a group on the engine's own pick, and puts it in a running config
+  /// so a rule can use it straight away. Returns null for a blank name.
+  Future<PolicyGroup?> _addPolicyGroupIntent(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final group = PolicyGroup(id: _newId(), name: trimmed);
+    await _enqueue(() async {
+      _policyGroups = [..._policyGroups, group];
+      await _storage.writePolicyGroups(_policyGroups);
+      notifyListeners();
+      // Nothing points at a new group yet, but a rule made next will, and the
+      // live engine has to know the selector before it can route to it.
+      if (isConnected) await _reloadLive();
+    });
+    return group;
+  }
+
+  /// Renames a group. Display only: the selector's tag comes from the id, so
+  /// the running config is already right.
+  Future<void> _renamePolicyGroupIntent(String id, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    await _enqueue(() async {
+      _policyGroups = [
+        for (final group in _policyGroups)
+          group.id == id ? group.copyWith(name: trimmed) : group,
+      ];
+      await _storage.writePolicyGroups(_policyGroups);
+      notifyListeners();
+    });
+  }
+
+  /// Deletes a group, and moves the rules that used it to the main exit.
+  ///
+  /// Moved explicitly rather than left to the builder's fallback: a rule still
+  /// saying "group" with nothing to name would show a target the user cannot
+  /// find anywhere on the page.
+  Future<void> _removePolicyGroupIntent(String id) => _enqueue(() async {
+        if (!_policyGroups.any((group) => group.id == id)) return;
+        _policyGroups = _policyGroups.where((group) => group.id != id).toList();
+        await _storage.writePolicyGroups(_policyGroups);
+        final rules = [
+          for (final rule in _customRules)
+            rule.target == RuleTarget.group && rule.groupId == id
+                ? rule.copyWith(target: RuleTarget.proxy)
+                : rule,
+        ];
+        // Persists the rules and reloads a running engine, which also drops
+        // the deleted selector from it.
+        await _writeCustomRules(rules);
+      });
+
+  /// Points a group at a node, live when connected.
+  ///
+  /// The same commit-after-confirm rule as the main selector: while connected,
+  /// the choice is saved only once the engine reports it took. A group or node
+  /// the running config does not have yet is reached by reloading instead.
+  Future<void> _selectGroupNodeIntent(String groupId, String? nodeId) =>
+      _enqueue(() async {
+        final group = policyGroup(groupId);
+        if (group == null) return;
+        ProxyNode? node;
+        for (final candidate in _nodes) {
+          if (candidate.id == nodeId) node = candidate;
+        }
+        // A node that vanished between the sheet opening and the tap means
+        // the engine's pick, which is also what the config would render.
+        final member =
+            node == null ? ConfigTags.auto : ConfigBuilder.outboundTag(node);
+        final next = group.copyWith(nodeId: () => node?.id);
+
+        Future<void> commit() async {
+          _policyGroups = [
+            for (final item in _policyGroups) item.id == groupId ? next : item,
+          ];
+          await _storage.writePolicyGroups(_policyGroups);
+          notifyListeners();
+        }
+
+        if (!isConnected) return commit();
+
+        final tag = ConfigTags.group(groupId);
+        final live = (_liveGroupTags?.contains(tag) ?? false) &&
+            (node == null || (_liveOutboundTags?.contains(member) ?? false));
+        if (!live) {
+          await commit();
+          await _reloadLive();
+          return;
+        }
+        try {
+          await _controller.selectGroupOutbound(tag, member);
+          await commit();
+        } on Object catch (error) {
+          _notify(
+            AppNotice.error(NoticeKind.switchFailed, detail: _short(error)),
+          );
+        }
+      });
 }
 
 const _maskedSecret = '<hidden>';

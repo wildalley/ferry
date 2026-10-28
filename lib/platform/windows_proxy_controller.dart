@@ -273,13 +273,29 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
     throw StateError('sing-box did not confirm the selected node');
   }
 
-  Future<String?> _selectedOutbound() async {
+  @override
+  Future<void> selectGroupOutbound(String group, String outboundTag) async {
+    _requireRunning();
+    await _apiRequest(
+      'PUT',
+      '/proxies/${Uri.encodeComponent(group)}',
+      body: jsonEncode({'name': outboundTag}),
+    );
+    final deadline = DateTime.now().add(_selectionConfirmTimeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (await _selectedOutbound(group) == outboundTag) return;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    throw StateError('sing-box did not confirm the selected node');
+  }
+
+  Future<String?> _selectedOutbound([String name = ConfigTags.proxy]) async {
     final body = await _apiRequest('GET', '/proxies');
     final decoded = jsonDecode(body);
     if (decoded is! Map) return null;
     final proxies = decoded['proxies'];
     if (proxies is! Map) return null;
-    final group = proxies[ConfigTags.proxy];
+    final group = proxies[name];
     if (group is! Map) return null;
     return group['now']?.toString();
   }

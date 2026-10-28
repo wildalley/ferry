@@ -1,4 +1,4 @@
-# SingBox Client architecture
+# 渡 Ferry architecture
 
 ## Layers
 
@@ -262,6 +262,29 @@ number, with nothing in the error naming the rule responsible. Editing a rule
 reloads a running tunnel, which costs the live connections; that is the honest
 price of changing where traffic goes, and it is the only way a rule applies now
 rather than at the next connect.
+
+### Policy groups
+
+A `PolicyGroup` is a named exit with its own node (or none, meaning the engine's
+`urltest` pick). Each renders as a `selector` tagged `group-<id>` over the same
+members as the main `proxy` selector, so a rule with `RuleTarget.group` can send
+one slice of traffic — AI services, streaming — through a different node than
+everything else. The tag comes from the id, never the name, so a rename touches
+nothing in the config.
+
+Every reference is made safe at render time: a group whose node is gone defaults
+to `auto`, and a rule whose group was deleted routes to `proxy`, because a
+selector default or route outbound that names nothing makes sing-box refuse to
+start. Deleting a group also rewrites its rules to `proxy` explicitly, so the
+rules page never shows a target that does not exist.
+
+Switching a group's node while connected goes through
+`ProxyController.selectGroupOutbound` — the Clash API on desktop, libbox's
+`selectOutbound` with the group's tag on Android — and is committed only after
+the engine confirms it, like the main selector. A group or node the running
+config does not contain yet (`_liveGroupTags`, `_liveOutboundTags`) is reached
+by a reload instead. Creating a group while connected reloads, so a rule made
+next can route to it immediately.
 
 ### Notifications and the log
 

@@ -14,6 +14,7 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../models/custom_rule.dart';
+import '../models/policy_group.dart';
 import 'notice_text.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -26,19 +27,27 @@ Future<CustomRule?> showRuleSheet(
   BuildContext context, {
   required CustomRule rule,
   required bool isNew,
+  List<PolicyGroup> groups = const [],
 }) {
   return showModalBottomSheet<CustomRule>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _RuleSheet(rule: rule, isNew: isNew),
+    builder: (context) => _RuleSheet(rule: rule, isNew: isNew, groups: groups),
   );
 }
 
 class _RuleSheet extends StatefulWidget {
-  const _RuleSheet({required this.rule, required this.isNew});
+  const _RuleSheet({
+    required this.rule,
+    required this.isNew,
+    required this.groups,
+  });
 
   final CustomRule rule;
   final bool isNew;
+
+  /// Policy groups the rule can be sent to, beside the three plain targets.
+  final List<PolicyGroup> groups;
 
   @override
   State<_RuleSheet> createState() => _RuleSheetState();
@@ -48,7 +57,13 @@ class _RuleSheetState extends State<_RuleSheet> {
   late final TextEditingController _value =
       TextEditingController(text: widget.rule.value);
   late RuleMatcher _matcher = widget.rule.matcher;
-  late RuleTarget _target = widget.rule.target;
+  // A rule whose group was deleted comes in pointing at nothing; it opens as
+  // proxy, which is where the config has been sending it.
+  late RuleTarget _target = widget.rule.target == RuleTarget.group &&
+          !widget.groups.any((group) => group.id == widget.rule.groupId)
+      ? RuleTarget.proxy
+      : widget.rule.target;
+  late String? _groupId = widget.rule.groupId;
 
   /// Only shown after the first edit or a failed save. Flagging "enter a value"
   /// on a field the user has not reached yet reads as an error they caused.
@@ -74,6 +89,7 @@ class _RuleSheetState extends State<_RuleSheet> {
         matcher: _matcher,
         value: _value.text.trim(),
         target: _target,
+        groupId: _groupId,
       );
 
   @override
@@ -141,11 +157,60 @@ class _RuleSheetState extends State<_RuleSheet> {
             SectionLabel(l10n.rulesSendTo),
             const SizedBox(height: Gap.sm),
             SegmentedChoice<RuleTarget>(
-              values: RuleTarget.values,
+              values: const [
+                RuleTarget.proxy,
+                RuleTarget.direct,
+                RuleTarget.block,
+              ],
               selected: _target,
               labelOf: (value) => ruleTargetText(l10n, value),
               onChanged: (value) => setState(() => _target = value),
             ),
+            if (widget.groups.isNotEmpty) ...[
+              const SizedBox(height: Gap.lg),
+              Text(
+                l10n.rulesSendToGroup,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: Gap.sm),
+              Wrap(
+                spacing: Gap.sm,
+                runSpacing: Gap.sm,
+                children: [
+                  for (final group in widget.groups)
+                    ChoiceChip(
+                      label: Text(group.name),
+                      avatar: Icon(
+                        Icons.call_split_rounded,
+                        size: 16,
+                        color: _isGroup(group)
+                            ? palette.violetSoft
+                            : palette.muted,
+                      ),
+                      selected: _isGroup(group),
+                      showCheckmark: false,
+                      backgroundColor: palette.surface,
+                      selectedColor: palette.violetSoft.withValues(alpha: .14),
+                      side: BorderSide(
+                        color: _isGroup(group)
+                            ? palette.violetSoft
+                            : palette.border,
+                      ),
+                      shape: const StadiumBorder(),
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            _isGroup(group) ? palette.violetSoft : palette.text,
+                      ),
+                      onSelected: (_) => setState(() {
+                        _target = RuleTarget.group;
+                        _groupId = group.id;
+                      }),
+                    ),
+                ],
+              ),
+            ],
             const SizedBox(height: Gap.xxl),
             Row(
               children: [
@@ -172,6 +237,9 @@ class _RuleSheetState extends State<_RuleSheet> {
       ),
     );
   }
+
+  bool _isGroup(PolicyGroup group) =>
+      _target == RuleTarget.group && _groupId == group.id;
 
   void _save() {
     final draft = _draft;
@@ -208,7 +276,7 @@ class _MatcherPicker extends StatelessWidget {
         child: DropdownButton<RuleMatcher>(
           value: selected,
           isExpanded: true,
-          dropdownColor: palette.surface2,
+          dropdownColor: palette.surface,
           borderRadius: BorderRadius.circular(AppRadius.md),
           icon: Icon(Icons.expand_more, size: 20, color: palette.muted),
           style: TextStyle(

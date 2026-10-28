@@ -73,7 +73,11 @@ enum RuleTarget {
   direct('direct'),
 
   /// Dropped.
-  block('block');
+  block('block'),
+
+  /// Through a [PolicyGroup]'s own choice of node; [CustomRule.groupId] says
+  /// which group.
+  group('group');
 
   const RuleTarget(this.key);
 
@@ -93,6 +97,7 @@ class CustomRule {
     required this.value,
     required this.target,
     this.enabled = true,
+    this.groupId,
   });
 
   final String id;
@@ -108,11 +113,20 @@ class CustomRule {
   /// text.
   final bool enabled;
 
+  /// The group a [RuleTarget.group] rule sends to. Ignored for other targets,
+  /// and kept rather than cleared so switching a rule to direct and back does
+  /// not lose which group it used.
+  ///
+  /// A group can be deleted out from under a rule; the config then falls back
+  /// to the main proxy selector rather than naming a missing outbound.
+  final String? groupId;
+
   CustomRule copyWith({
     RuleMatcher? matcher,
     String? value,
     RuleTarget? target,
     bool? enabled,
+    String? groupId,
   }) =>
       CustomRule(
         id: id,
@@ -120,6 +134,7 @@ class CustomRule {
         value: value ?? this.value,
         target: target ?? this.target,
         enabled: enabled ?? this.enabled,
+        groupId: groupId ?? this.groupId,
       );
 
   Map<String, dynamic> toJson() => {
@@ -128,6 +143,7 @@ class CustomRule {
         'value': value,
         'target': target.key,
         'enabled': enabled,
+        if (groupId != null) 'group': groupId,
       };
 
   static CustomRule fromJson(Map<String, dynamic> json) => CustomRule(
@@ -138,6 +154,7 @@ class CustomRule {
         // Absent means enabled: a record written before the flag existed was
         // one the user meant to be active.
         enabled: json['enabled'] as bool? ?? true,
+        groupId: json['group'] as String?,
       );
 
   /// Why this rule cannot be rendered, or null when it can.
@@ -199,8 +216,8 @@ class CustomRule {
       // Loose on purpose: a full IPv6 grammar is not worth carrying here, and
       // sing-box is the authority. This catches a typo, not every malformed
       // address.
-      final valid = RegExp(r'^[0-9a-fA-F:]+$').hasMatch(value) &&
-          !value.contains(':::');
+      final valid =
+          RegExp(r'^[0-9a-fA-F:]+$').hasMatch(value) && !value.contains(':::');
       return valid ? false : null;
     }
     final parts = value.split('.');
@@ -227,8 +244,9 @@ class CustomRule {
       other.matcher == matcher &&
       other.value == value &&
       other.target == target &&
-      other.enabled == enabled;
+      other.enabled == enabled &&
+      other.groupId == groupId;
 
   @override
-  int get hashCode => Object.hash(id, matcher, value, target, enabled);
+  int get hashCode => Object.hash(id, matcher, value, target, enabled, groupId);
 }
