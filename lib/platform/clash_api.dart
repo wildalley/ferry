@@ -234,6 +234,7 @@ class ClashApiClient {
   /// Cancelling the subscription closes all three sockets.
   Stream<ProxyTraffic> traffic() {
     var up = 0, down = 0, upTotal = 0, downTotal = 0, count = 0, memory = 0;
+    var list = const <ProxyConnection>[];
     late StreamController<ProxyTraffic> controller;
     final sockets = <ClashSocket>[];
     var cancelled = false;
@@ -248,6 +249,7 @@ class ClashApiClient {
           // read as twice the connections, so only inbound is filled.
           connectionsIn: count,
           memory: memory,
+          connectionList: list,
         ));
 
     Future<void> open() async {
@@ -267,6 +269,7 @@ class ClashApiClient {
             downTotal = _int(frame['downloadTotal']);
             final connections = frame['connections'];
             count = connections is List ? connections.length : 0;
+            list = parseConnections(connections);
             // Present on sing-box, absent on some Clash implementations; the
             // /memory socket below is the primary source either way.
             final inline = _int(frame['memory']);
@@ -366,6 +369,16 @@ class ClashApiClient {
   }
 
   static int _int(Object? value) => value is num ? value.toInt() : 0;
+
+  /// The `connections` array of a `/connections` frame, minus anything that is
+  /// not shaped like a connection.
+  static List<ProxyConnection> parseConnections(Object? raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final item in raw)
+        if (ProxyConnection.fromClash(item) case final c?) c,
+    ];
+  }
 
   static Future<ClashSocket> _openWebSocket(
     Uri uri,

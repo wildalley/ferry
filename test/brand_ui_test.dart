@@ -50,8 +50,9 @@ void main() {
     await tester.pumpWidget(SingBoxApp(state: harness.state));
     await tester.pumpAndSettle();
 
-    final heroCount = find.byWidgetPredicate(
-      (widget) => widget is AnimatedCount && widget.style.fontSize == 54,
+    final heroCount = find.descendant(
+      of: find.byKey(const Key('home-download-rate')),
+      matching: find.byType(AnimatedCount),
     );
     expect(
         find.descendant(of: heroCount, matching: find.text('1.0')), findsOne);

@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import '../data/config_builder.dart';
 import '../models/proxy_state.dart';
 import 'app_paths.dart';
+import 'clash_api.dart' show ClashApiClient;
 import 'config_facts.dart';
 import 'core_version.dart';
 import 'desktop_runtime.dart';
@@ -583,6 +584,7 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
         connectionsIn: _connections,
         connectionsOut: _connections,
         memory: _memory,
+        connectionList: ClashApiClient.parseConnections(decoded['connections']),
       ));
     } on Object {
       // A stopped process and a closing API socket are expected during

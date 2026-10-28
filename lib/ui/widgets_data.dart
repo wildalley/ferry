@@ -163,6 +163,22 @@ class _SparklinePainter extends CustomPainter {
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round,
     );
+
+    // Current value dot at the leading edge
+    if (points.isNotEmpty) {
+      canvas.drawCircle(
+        points.last,
+        4.0,
+        Paint()
+          ..color = secondColor.withValues(alpha: .30)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+      );
+      canvas.drawCircle(
+        points.last,
+        2.0,
+        Paint()..color = secondColor,
+      );
+    }
   }
 
   @override

@@ -239,6 +239,7 @@ class _LogsPageState extends State<LogsPage> {
       return palette.danger;
     }
     if (lower.contains('warn')) return palette.amber;
-    return palette.muted;
+    if (lower.contains('info') || lower.contains('started')) return palette.sky;
+    return palette.text;
   }
 }

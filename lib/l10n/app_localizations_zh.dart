@@ -223,6 +223,32 @@ class L10nZh extends L10n {
   String get homeUntestedNodes => '尚未测速';
 
   @override
+  String get homeRouting => '分流';
+
+  @override
+  String get homeActiveConnections => '活动连接';
+
+  @override
+  String get homeColHost => '目标';
+
+  @override
+  String get homeColRoute => '出口';
+
+  @override
+  String get homeColTraffic => '流量';
+
+  @override
+  String get homeColRule => '规则';
+
+  @override
+  String get homeNoConnections => '暂无连接';
+
+  @override
+  String homeConnectionsMore(int count) {
+    return '另有 $count 条未显示';
+  }
+
+  @override
   String get nodesTitle => '节点';
 
   @override

@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/proxy_state.dart' show formatRate;
 import '../state/app_state.dart';
 import '../version.dart';
 import 'brand.dart';
@@ -141,7 +142,6 @@ class _AppShellState extends State<AppShell> {
                       _DesktopRail(
                         state: widget.state,
                         selected: _tab,
-                        connected: connected,
                         onSelected: _goToTab,
                       ),
                       Expanded(child: transitioningPage),
@@ -225,32 +225,35 @@ class _Backdrop extends StatelessWidget {
   }
 }
 
-/// Keeps tab changes spatially continuous without making navigation feel like a
-/// route push. Reduced-motion users get an immediate replacement.
+/// Fade-through between tabs: the old page is gone before the new one appears.
+///
+/// It used to cross-fade the two while sliding them 1.2% sideways. Both pages
+/// were on screen at once for most of the 300ms, a few pixels apart, so every
+/// heading and label briefly drew twice — which reads as a rendering fault, not
+/// as motion. Splitting the timeline means at most one page has meaningful
+/// opacity at any instant, and nothing moves, so text never smears. Reduced
+/// motion gets an immediate replacement.
 class _TabTransition extends StatelessWidget {
   const _TabTransition({required this.tab, required this.child});
 
   final AppTab tab;
   final Widget child;
 
+  /// The outgoing page fades over the first part; the incoming over the rest.
+  static const _outEnd = .4;
+
   @override
   Widget build(BuildContext context) {
-    final duration = motionOf(context, Motion.normal);
+    final duration = motionOf(context, Motion.fast * 1.4);
     return AnimatedSwitcher(
       duration: duration,
       reverseDuration: duration,
-      switchInCurve: Motion.curve,
-      switchOutCurve: Curves.easeOut,
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(.012, 0),
-            end: Offset.zero,
-          ).animate(animation),
-          child: child,
-        ),
-      ),
+      // The incoming child runs 0→1 and the outgoing 1→0 on the same clock, so
+      // one interval per direction gives them disjoint windows.
+      switchInCurve: const Interval(_outEnd, 1, curve: Curves.easeOut),
+      switchOutCurve: const Interval(1 - _outEnd, 1, curve: Curves.easeIn),
+      transitionBuilder: (child, animation) =>
+          FadeTransition(opacity: animation, child: child),
       child: KeyedSubtree(key: ValueKey(tab), child: child),
     );
   }
@@ -260,78 +263,157 @@ class _DesktopRail extends StatelessWidget {
   const _DesktopRail({
     required this.state,
     required this.selected,
-    required this.connected,
     required this.onSelected,
   });
 
   final AppState state;
   final AppTab selected;
-  final bool connected;
   final ValueChanged<AppTab> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
     final palette = context.palette;
 
     return Container(
       width: 240,
-      padding: const EdgeInsets.fromLTRB(Gap.lg, 26, Gap.md, Gap.xl),
+      padding: const EdgeInsets.fromLTRB(Gap.lg, 26, Gap.lg, Gap.lg),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [palette.bg, Color.lerp(palette.bg, palette.surface, .45)!],
-        ),
+        color: Color.lerp(palette.bg, palette.surface, .35),
         border: Border(right: BorderSide(color: palette.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: Gap.md, bottom: Gap.xl),
+            padding: const EdgeInsets.only(left: Gap.xs, bottom: 28),
             child: const _Wordmark(),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
-            child: StatusPill(
-              label: connected ? l10n.stageConnected : l10n.stageDisconnected,
-              color: connected ? palette.mint : palette.muted,
-            ),
-          ),
-          const SizedBox(height: 24),
           for (final tab in AppTab.values)
             _RailItem(
               tab: tab,
               active: tab == selected,
               onTap: () => onSelected(tab),
             ),
-          Expanded(
-            child: ShaderMask(
-              blendMode: BlendMode.dstIn,
-              shaderCallback: (bounds) => const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.white, Colors.transparent],
-                stops: [0, .6, 1],
-              ).createShader(bounds),
-              child: ListenableBuilder(
-                listenable: state,
-                builder: (context, _) => SignalArtwork(
-                  opacity: .65,
-                  animate: connected && state.isConnected,
-                  downlink: state.downlinkHistory,
-                  uplink: state.uplinkHistory,
-                ),
-              ),
-            ),
+          const Spacer(),
+          // Status lives at the foot of the rail, next to the control that
+          // changes it. A pill at the top said "connected" and nothing else;
+          // this says through what, how fast, and offers the way out.
+          ListenableBuilder(
+            listenable: state,
+            builder: (context, _) => _RailStatus(state: state),
           ),
+          const SizedBox(height: Gap.md),
           Padding(
-            padding: const EdgeInsets.only(left: Gap.md),
+            padding: const EdgeInsets.only(left: Gap.xs),
             child: Text(
               'v$appVersion',
               style: monoStyle(color: palette.faint, size: 10),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The rail's connection card: stage, exit, live rates and a toggle.
+class _RailStatus extends StatelessWidget {
+  const _RailStatus({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final palette = context.palette;
+    final connected = state.isConnected;
+    final accent = connected ? palette.mint : palette.muted;
+    final traffic = state.traffic;
+    final exit = state.isAutoSelected
+        ? l10n.nodesAuto
+        : state.selectedNode?.name ?? l10n.homeNoNodeSelected;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(Gap.md, Gap.md, Gap.xs, Gap.md),
+      decoration: BoxDecoration(
+        color: connected
+            ? Color.alphaBlend(
+                palette.mint.withValues(alpha: .05), palette.surface)
+            : palette.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color:
+              connected ? palette.mint.withValues(alpha: .24) : palette.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: StatusPill(
+                  label:
+                      connected ? l10n.stageConnected : l10n.stageDisconnected,
+                  color: accent,
+                  compact: true,
+                  bare: true,
+                ),
+              ),
+              IconButton(
+                onPressed: state.nodes.isEmpty || state.isBusy
+                    ? null
+                    : state.toggleConnection,
+                tooltip: connected ? l10n.actionDisconnect : l10n.actionConnect,
+                visualDensity: VisualDensity.compact,
+                iconSize: 18,
+                color: connected ? palette.mint : palette.violetSoft,
+                icon: state.isBusy
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.power_settings_new_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Padding(
+            padding: const EdgeInsets.only(right: Gap.sm),
+            child: Text(
+              exit,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: Gap.sm),
+          Row(
+            children: [
+              Icon(Icons.arrow_downward_rounded,
+                  size: 12, color: connected ? palette.sky : palette.faint),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  connected ? formatRate(traffic.downlink) : '—',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: monoStyle(size: 11, color: palette.muted),
+                ),
+              ),
+              Icon(Icons.arrow_upward_rounded,
+                  size: 12, color: connected ? palette.mint : palette.faint),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  connected ? formatRate(traffic.uplink) : '—',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: monoStyle(size: 11, color: palette.muted),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -416,22 +498,31 @@ class _RailItem extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: Gap.md, vertical: 11),
             decoration: BoxDecoration(
-              color: active
-                  ? palette.violet.withValues(alpha: .16)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(AppRadius.sm),
+              gradient: active
+                  ? LinearGradient(
+                      colors: [
+                        palette.violet.withValues(alpha: .22),
+                        palette.violet.withValues(alpha: .06),
+                      ],
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: active
+                    ? palette.violet.withValues(alpha: .40)
+                    : Colors.transparent,
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: palette.violet.withValues(alpha: .20),
+                        blurRadius: 8,
+                      )
+                    ]
+                  : null,
             ),
             child: Row(
               children: [
-                Container(
-                  width: 2,
-                  height: 18,
-                  decoration: BoxDecoration(
-                    color: active ? palette.violetSoft : Colors.transparent,
-                    borderRadius: BorderRadius.circular(1),
-                  ),
-                ),
-                const SizedBox(width: 10),
                 Icon(
                   active ? tab.selectedIcon : tab.icon,
                   size: 19,

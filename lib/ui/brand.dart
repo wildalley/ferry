@@ -28,9 +28,9 @@ class BrandMark extends StatelessWidget {
 ///
 /// The artwork is not only a bitmap anymore. The image supplies the fine fibre
 /// detail, while [_SilkPainter] reshapes and highlights the main ribbons from
-/// the live throughput samples. A beat starts for each non-zero reading, so a
-/// flowing tunnel keeps the silk alive without a free-running ticker implying
-/// traffic when the tunnel is idle.
+/// the live throughput samples, download and upload separately. A beat starts
+/// for each non-zero reading, so a flowing tunnel keeps the silk alive without
+/// a free-running ticker implying traffic when the tunnel is idle.
 class SignalArtwork extends StatefulWidget {
   const SignalArtwork({
     super.key,
@@ -53,23 +53,29 @@ class SignalArtwork extends StatefulWidget {
 
 class _SignalArtworkState extends State<SignalArtwork>
     with SingleTickerProviderStateMixin {
+  /// One beat per traffic reading, the same contract as the console backdrop.
+  ///
+  /// Readings land about once a second, so a beat a little shorter than that
+  /// finishes and rests before the next one restarts it; the painter keeps
+  /// every motion a whole number of cycles per beat so the restart is seamless.
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2400),
+    duration: const Duration(milliseconds: 950),
   );
 
   static const _fullScale = 8 * 1024 * 1024;
 
-  static int _rate(SignalArtwork widget) =>
-      (widget.downlink.isEmpty ? 0 : widget.downlink.last) +
-      (widget.uplink.isEmpty ? 0 : widget.uplink.last);
-
-  double get _intensity {
-    final rate = _rate(widget);
+  /// The latest sample in one direction as a 0..1 level on a log scale, so a
+  /// chat poll and a download are both visible without one pegging the other.
+  static double _level(List<int> samples) {
+    final rate = samples.isEmpty ? 0 : samples.last;
     if (rate <= 0) return 0;
     final value = math.log(1 + rate) / math.log(1 + _fullScale);
     return value.clamp(0.0, 1.0);
   }
+
+  double get _down => _level(widget.downlink);
+  double get _up => _level(widget.uplink);
 
   @override
   void didChangeDependencies() {
@@ -83,15 +89,33 @@ class _SignalArtworkState extends State<SignalArtwork>
     _syncAnimation();
   }
 
+  /// The reading the last beat was started for.
+  ///
+  /// A beat belongs to a new sample, not to a rebuild. The dashboard also
+  /// rebuilds once a second for its uptime clock, and restarting on that would
+  /// turn one beat per reading into continuous motion with nothing behind it.
+  Object? _beatFor;
+
+  static Object _reading(SignalArtwork w) => (
+        w.downlink.length,
+        w.downlink.isEmpty ? 0 : w.downlink.last,
+        w.uplink.length,
+        w.uplink.isEmpty ? 0 : w.uplink.last,
+      );
+
   void _syncAnimation() {
     final canAnimate = widget.animate &&
-        _intensity > 0 &&
+        (_down > 0 || _up > 0) &&
         !MediaQuery.of(context).disableAnimations &&
         TickerMode.valuesOf(context).enabled;
     if (!canAnimate) {
       _controller.stop();
+      _beatFor = null;
       return;
     }
+    final reading = _reading(widget);
+    if (reading == _beatFor) return;
+    _beatFor = reading;
     if (!_controller.isAnimating) _controller.forward(from: 0);
   }
 
@@ -140,6 +164,9 @@ class _SignalArtworkState extends State<SignalArtwork>
         child: artwork,
       );
     }
+    // The bitmap no longer drifts. A moving image under moving lines doubled
+    // the motion on the card for no extra information, and it was the part
+    // that kept the whole hero repainting; the ribbons alone carry the traffic.
     return IgnorePointer(
       child: ExcludeSemantics(
         child: Opacity(
@@ -147,15 +174,14 @@ class _SignalArtworkState extends State<SignalArtwork>
           child: ClipRect(
             child: CustomPaint(
               foregroundPainter: _SilkPainter(
-                color: dark ? palette.violetSoft : palette.violet,
+                downColor: palette.sky,
+                upColor: palette.mint,
                 dark: dark,
                 phase: _controller,
-                intensity: _intensity,
+                down: _down,
+                up: _up,
               ),
-              child: _AnimatedSilkBase(
-                animation: _controller,
-                child: artwork,
-              ),
+              child: artwork,
             ),
           ),
         ),
@@ -164,56 +190,32 @@ class _SignalArtworkState extends State<SignalArtwork>
   }
 }
 
-/// Gives the bitmap a restrained whole-ribbon drift underneath the procedural
-/// lines. The scale keeps the image covered while it moves, so the animation
-/// never exposes a hard edge in the sidebar or clipped hero card.
-class _AnimatedSilkBase extends StatelessWidget {
-  const _AnimatedSilkBase({required this.animation, required this.child});
-
-  final Animation<double> animation;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      child: child,
-      builder: (context, child) {
-        final phase = animation.value * math.pi * 2;
-        return Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..translateByDouble(
-              math.sin(phase) * 5,
-              math.cos(phase * 1.13) * 3,
-              0,
-              1,
-            )
-            ..scaleByDouble(
-              1.025 + math.sin(phase * 1.7) * .004,
-              1.025 + math.sin(phase * 1.7) * .004,
-              1,
-              1,
-            ),
-          child: child,
-        );
-      },
-    );
-  }
-}
-
+/// The live ribbons over the artwork: two for download, two for upload.
+///
+/// Each pair answers to its own direction. A ribbon's sway, brightness and the
+/// speed of the light running along it all come from that direction's latest
+/// rate, so a download wakes the sky pair while the mint pair stays calm, and an
+/// upload does the reverse. Download light runs along the fold, upload light
+/// runs back against it. A direction carrying nothing draws as a faint still
+/// line: the link is there, nothing is moving on it.
 class _SilkPainter extends CustomPainter {
   _SilkPainter({
-    required this.color,
+    required this.downColor,
+    required this.upColor,
     required this.dark,
     required this.phase,
-    required this.intensity,
+    required this.down,
+    required this.up,
   }) : super(repaint: phase);
 
-  final Color color;
+  final Color downColor;
+  final Color upColor;
   final bool dark;
   final Animation<double> phase;
-  final double intensity;
+
+  /// 0..1 levels for each direction.
+  final double down;
+  final double up;
 
   static const _anchors = <Offset>[
     Offset(-.16, .80),
@@ -229,26 +231,27 @@ class _SilkPainter extends CustomPainter {
   static const _ribbons = <_RibbonSpec>[
     _RibbonSpec(offset: -.046, amplitude: .030, width: 2.0, seed: .4),
     _RibbonSpec(offset: -.014, amplitude: .044, width: 3.2, seed: 1.9),
-    _RibbonSpec(offset: .020, amplitude: .050, width: 1.5, seed: 3.4),
-    _RibbonSpec(offset: .053, amplitude: .032, width: 2.5, seed: 5.3),
+    _RibbonSpec(offset: .020, amplitude: .050, width: 3.0, seed: 3.4, up: true),
+    _RibbonSpec(offset: .053, amplitude: .032, width: 1.8, seed: 5.3, up: true),
   ];
 
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width < 80 || size.height < 80) return;
 
-    final radians = phase.value * math.pi * 2;
-    final activity = intensity <= 0 ? 0.0 : .22 + intensity * .78;
     for (final ribbon in _ribbons) {
-      final path = _pathFor(ribbon, size, radians, activity);
-      final glowAlpha = (dark ? .065 : .050) * activity;
+      final level = ribbon.up ? up : down;
+      final color = ribbon.up ? upColor : downColor;
+      // Some sway even at a trickle, so "moving" and "idle" read apart.
+      final activity = level <= 0 ? 0.0 : .25 + level * .75;
+      final path = _pathFor(ribbon, size, activity);
       canvas.drawPath(
         path,
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
           ..strokeWidth = ribbon.width * 4.5
-          ..color = color.withValues(alpha: glowAlpha)
+          ..color = color.withValues(alpha: (dark ? .07 : .05) * activity)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
       );
       canvas.drawPath(
@@ -256,32 +259,39 @@ class _SilkPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round
-          ..strokeWidth = ribbon.width * (1.1 + intensity * .55)
+          ..strokeWidth = ribbon.width * (1 + level * .6)
           ..color = color.withValues(
-            alpha: (dark ? .10 : .075) + activity * (dark ? .14 : .11),
+            alpha: (dark ? .09 : .07) + activity * (dark ? .18 : .12),
           ),
       );
-
-      if (intensity > 0 && ribbon.width >= 2.5) {
-        _drawTravelingHighlight(canvas, path, ribbon);
+      if (level > 0 && ribbon.width >= 2.5) {
+        _drawTravelingHighlight(canvas, path, ribbon, level);
       }
     }
   }
+
+  /// Whole laps per beat: faster traffic, faster light.
+  ///
+  /// A whole number so the beat's end and the next beat's start coincide;
+  /// a fractional lap would snap the highlight back each second.
+  static int _laps(double level) => 1 + (level * 3).round();
 
   void _drawTravelingHighlight(
     Canvas canvas,
     Path path,
     _RibbonSpec ribbon,
+    double level,
   ) {
     final metric = path.computeMetrics().firstOrNull;
     if (metric == null || metric.length <= 0) return;
 
-    // A short, feathered segment travels along the actual ribbon path. Split
-    // it into pieces so the tail fades smoothly and wrap-around never jumps
-    // from the end of a path back to its beginning.
-    final length = metric.length * (.12 + intensity * .08);
-    final center =
-        ((phase.value + ribbon.seed / (math.pi * 2)) % 1) * metric.length;
+    // A short feathered segment travels along the ribbon, split into pieces
+    // so its tail fades and wrap-around never jumps from end to start.
+    final travel =
+        (phase.value * _laps(level) + ribbon.seed / (math.pi * 2)) % 1;
+    final position = ribbon.up ? 1 - travel : travel;
+    final length = metric.length * (.10 + level * .10);
+    final center = position * metric.length;
     const pieces = 9;
     final pieceLength = length / pieces;
     for (var index = 0; index < pieces; index++) {
@@ -293,9 +303,9 @@ class _SilkPainter extends CustomPainter {
       final paint = Paint()
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
-        ..strokeWidth = .8 + intensity * .8
+        ..strokeWidth = .9 + level * .9
         ..color = Colors.white.withValues(
-          alpha: alpha * ((dark ? .16 : .11) + intensity * (dark ? .14 : .10)),
+          alpha: alpha * ((dark ? .18 : .12) + level * (dark ? .18 : .12)),
         );
       if (end <= metric.length) {
         canvas.drawPath(metric.extractPath(start, end), paint);
@@ -306,24 +316,17 @@ class _SilkPainter extends CustomPainter {
     }
   }
 
-  Path _pathFor(
-    _RibbonSpec ribbon,
-    Size size,
-    double radians,
-    double activity,
-  ) {
+  Path _pathFor(_RibbonSpec ribbon, Size size, double activity) {
+    // Whole turns per beat, for the same seam reason as [_laps]. Upload sways
+    // the other way round so the two pairs never move in lock step.
+    final radians = phase.value * math.pi * 2 * (ribbon.up ? -1 : 1);
     final points = <Offset>[];
-    for (var i = 0; i < _anchors.length; i++) {
-      final anchor = _anchors[i];
+    for (final anchor in _anchors) {
       final x = anchor.dx;
-      final wave = math.sin(
-            radians * .82 + x * 8.8 + ribbon.seed,
-          ) *
+      final wave = math.sin(radians + x * 8.8 + ribbon.seed) *
           ribbon.amplitude *
           activity;
-      final secondary = math.cos(
-            radians * .61 + x * 14.0 + ribbon.seed * 1.9,
-          ) *
+      final secondary = math.cos(radians * 2 + x * 14.0 + ribbon.seed * 1.9) *
           ribbon.amplitude *
           .38 *
           activity;
@@ -339,9 +342,11 @@ class _SilkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _SilkPainter oldDelegate) =>
-      oldDelegate.color != color ||
+      oldDelegate.downColor != downColor ||
+      oldDelegate.upColor != upColor ||
       oldDelegate.dark != dark ||
-      oldDelegate.intensity != intensity;
+      oldDelegate.down != down ||
+      oldDelegate.up != up;
 }
 
 class _RibbonSpec {
@@ -350,10 +355,14 @@ class _RibbonSpec {
     required this.amplitude,
     required this.width,
     required this.seed,
+    this.up = false,
   });
 
   final double offset;
   final double amplitude;
   final double width;
   final double seed;
+
+  /// Carries the upload rate rather than the download rate.
+  final bool up;
 }

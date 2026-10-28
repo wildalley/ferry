@@ -141,6 +141,96 @@ class ProxyState {
   static const disconnected = ProxyState();
 }
 
+/// Where the engine sent one connection.
+enum ConnectionRoute { proxy, direct, reject }
+
+/// One open connection as the Clash API lists it.
+///
+/// Only what the dashboard draws is kept. The API also carries source ports,
+/// DNS mode and the full rule payload; holding those for every connection every
+/// second would be memory spent on nothing shown.
+class ProxyConnection {
+  const ProxyConnection({
+    required this.id,
+    required this.host,
+    required this.network,
+    required this.route,
+    required this.outbound,
+    required this.rule,
+    this.process,
+    this.upload = 0,
+    this.download = 0,
+    this.start,
+  });
+
+  final String id;
+
+  /// Hostname when the engine sniffed or was given one, else `ip:port`.
+  final String host;
+
+  /// `tcp` or `udp`.
+  final String network;
+  final ConnectionRoute route;
+
+  /// The outbound the connection actually left through: a node's tag,
+  /// `direct`, or the reject action.
+  final String outbound;
+
+  /// The matching rule as the engine names it, `final` for the fallthrough.
+  final String rule;
+
+  /// Executable name of the local process, when the engine resolved it.
+  final String? process;
+  final int upload;
+  final int download;
+  final DateTime? start;
+
+  int get bytes => upload + download;
+
+  /// Parses one entry of `/connections`. Null when it is not shaped like one.
+  static ProxyConnection? fromClash(Object? raw) {
+    if (raw is! Map) return null;
+    final id = raw['id'];
+    if (id is! String || id.isEmpty) return null;
+    final meta = raw['metadata'] is Map ? raw['metadata'] as Map : const {};
+    String text(Object? v) => v is String ? v : '';
+
+    final host = text(meta['host']);
+    final ip = text(meta['destinationIP']);
+    final port = text(meta['destinationPort']);
+    final chains = raw['chains'] is List ? raw['chains'] as List : const [];
+    // Clash lists the chain innermost-first: the first entry is where the
+    // bytes physically left, which is the one worth showing.
+    final outbound = chains.isEmpty ? '' : chains.first.toString();
+    final rule = text(raw['rule']);
+
+    final ConnectionRoute route;
+    if (rule.contains('reject') || outbound == 'block') {
+      route = ConnectionRoute.reject;
+    } else if (outbound == 'direct') {
+      route = ConnectionRoute.direct;
+    } else {
+      route = ConnectionRoute.proxy;
+    }
+
+    final path = text(meta['processPath']);
+    return ProxyConnection(
+      id: id,
+      host: host.isNotEmpty
+          ? host
+          : (ip.isEmpty ? '?' : (port.isEmpty ? ip : '$ip:$port')),
+      network: text(meta['network']),
+      route: route,
+      outbound: outbound,
+      rule: rule,
+      process: path.isEmpty ? null : path.split('/').last.split('\\').last,
+      upload: _int(raw['upload']),
+      download: _int(raw['download']),
+      start: DateTime.tryParse(text(raw['start'])),
+    );
+  }
+}
+
 /// Traffic counters. Rates are per-second deltas reported by sing-box.
 class ProxyTraffic {
   const ProxyTraffic({
@@ -151,6 +241,7 @@ class ProxyTraffic {
     this.connectionsIn = 0,
     this.connectionsOut = 0,
     this.memory = 0,
+    this.connectionList = const [],
   });
 
   final int uplink;
@@ -160,6 +251,13 @@ class ProxyTraffic {
   final int connectionsIn;
   final int connectionsOut;
   final int memory;
+
+  /// The open connections themselves, where the runtime lists them.
+  ///
+  /// Filled on the desktop, where the Clash API reports each one. libbox only
+  /// gives counts, so Android leaves this empty and the dashboard hides the
+  /// list rather than showing an empty table that reads as "no traffic".
+  final List<ProxyConnection> connectionList;
 
   /// Open connections, as the one figure the UI shows.
   ///

@@ -517,6 +517,54 @@ abstract class L10n {
   /// **'Not tested yet'**
   String get homeUntestedNodes;
 
+  /// No description provided for @homeRouting.
+  ///
+  /// In en, this message translates to:
+  /// **'Routing'**
+  String get homeRouting;
+
+  /// No description provided for @homeActiveConnections.
+  ///
+  /// In en, this message translates to:
+  /// **'Active connections'**
+  String get homeActiveConnections;
+
+  /// No description provided for @homeColHost.
+  ///
+  /// In en, this message translates to:
+  /// **'Host'**
+  String get homeColHost;
+
+  /// No description provided for @homeColRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit'**
+  String get homeColRoute;
+
+  /// No description provided for @homeColTraffic.
+  ///
+  /// In en, this message translates to:
+  /// **'Traffic'**
+  String get homeColTraffic;
+
+  /// No description provided for @homeColRule.
+  ///
+  /// In en, this message translates to:
+  /// **'Rule'**
+  String get homeColRule;
+
+  /// No description provided for @homeNoConnections.
+  ///
+  /// In en, this message translates to:
+  /// **'No open connections'**
+  String get homeNoConnections;
+
+  /// Footer under the connection table when it is truncated.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} more not shown'**
+  String homeConnectionsMore(int count);
+
   /// No description provided for @nodesTitle.
   ///
   /// In en, this message translates to:

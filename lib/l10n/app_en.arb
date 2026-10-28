@@ -88,6 +88,22 @@
   "homeTrafficFlow": "Traffic flow",
   "homeLastMinute": "Last 60s",
   "homeUntestedNodes": "Not tested yet",
+  "homeRouting": "Routing",
+  "homeActiveConnections": "Active connections",
+  "homeColHost": "Host",
+  "homeColRoute": "Exit",
+  "homeColTraffic": "Traffic",
+  "homeColRule": "Rule",
+  "homeNoConnections": "No open connections",
+  "homeConnectionsMore": "{count} more not shown",
+  "@homeConnectionsMore": {
+    "description": "Footer under the connection table when it is truncated.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "nodesTitle": "Nodes",
   "nodesSearch": "Search nodes",
   "nodesFilterAll": "All",

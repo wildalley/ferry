@@ -36,14 +36,8 @@ class RulesPage extends StatelessWidget {
             children: [
               PanelTitle(title: l10n.rulesRoutingMode, icon: Icons.alt_route),
               const SizedBox(height: Gap.lg),
-              SegmentedChoice<RoutingMode>(
-                values: RoutingMode.values,
+              _RoutingModeSelector(
                 selected: settings.routingMode,
-                labelOf: (value) => switch (value) {
-                  RoutingMode.global => l10n.rulesModeGlobal,
-                  RoutingMode.rule => l10n.rulesModeRule,
-                  RoutingMode.direct => l10n.rulesModeDirect,
-                },
                 onChanged: (value) => state.applySettings(
                   settings.copyWith(routingMode: value),
                 ),
@@ -175,6 +169,144 @@ class RulesPage extends StatelessWidget {
 /// its own badge instead of being flattened into direct or proxy.
 enum _RuleAction { direct, proxy, block, dns }
 
+class _RoutingModeSelector extends StatelessWidget {
+  const _RoutingModeSelector({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final RoutingMode selected;
+  final ValueChanged<RoutingMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final palette = context.palette;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 480;
+        if (!wide) {
+          return SegmentedChoice<RoutingMode>(
+            values: RoutingMode.values,
+            selected: selected,
+            labelOf: (value) => switch (value) {
+              RoutingMode.global => l10n.rulesModeGlobal,
+              RoutingMode.rule => l10n.rulesModeRule,
+              RoutingMode.direct => l10n.rulesModeDirect,
+            },
+            onChanged: onChanged,
+          );
+        }
+
+        final modes = [
+          (
+            RoutingMode.rule,
+            l10n.rulesModeRule,
+            Icons.alt_route_rounded,
+            palette.violetSoft,
+          ),
+          (
+            RoutingMode.global,
+            l10n.rulesModeGlobal,
+            Icons.public_rounded,
+            palette.sky,
+          ),
+          (
+            RoutingMode.direct,
+            l10n.rulesModeDirect,
+            Icons.flash_on_rounded,
+            palette.mint,
+          ),
+        ];
+
+        return Row(
+          children: [
+            for (var i = 0; i < modes.length; i++) ...[
+              if (i > 0) const SizedBox(width: Gap.md),
+              Expanded(
+                child: _ModeCard(
+                  title: modes[i].$2,
+                  icon: modes[i].$3,
+                  accent: modes[i].$4,
+                  selected: selected == modes[i].$1,
+                  onTap: () => onChanged(modes[i].$1),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.title,
+    required this.icon,
+    required this.accent,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color accent;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: AnimatedContainer(
+          duration: Motion.fast,
+          curve: Motion.curve,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: selected
+                ? accent.withValues(alpha: .12)
+                : palette.surface2.withValues(alpha: .5),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(
+              color: selected ? accent.withValues(alpha: .55) : palette.border,
+              width: selected ? 1.5 : 1.0,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: accent.withValues(alpha: .20),
+                      blurRadius: 10,
+                    )
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: selected ? accent : palette.muted),
+              const SizedBox(width: Gap.xs),
+              Text(
+                title,
+                style: TextStyle(
+                  color: selected ? palette.text : palette.muted,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RuleRow extends StatelessWidget {
   const _RuleRow({
     required this.icon,
@@ -215,18 +347,23 @@ class _RuleRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: enabled
-                    ? palette.violet.withValues(alpha: .13)
-                    : palette.surface3,
+                    ? tintFill(badgeColor)
+                    : palette.surface2,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(
+                  color: enabled
+                      ? badgeColor.withValues(alpha: .28)
+                      : palette.border,
+                ),
               ),
               child: Icon(
                 icon,
                 size: 18,
-                color: enabled ? palette.violetSoft : palette.faint,
+                color: enabled ? badgeColor : palette.faint,
               ),
             ),
             const SizedBox(width: Gap.md),
@@ -279,15 +416,21 @@ class _ActionBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Gap.sm, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: tintFill(color),
         borderRadius: BorderRadius.circular(AppRadius.xs),
-        border: Border.all(color: color.withValues(alpha: .22)),
+        border: Border.all(color: color.withValues(alpha: .30)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: .10),
+            blurRadius: 4,
+          )
+        ],
       ),
       child: Text(
         label,
-        style: monoStyle(color: color, size: 10, weight: FontWeight.w600),
+        style: monoStyle(color: color, size: 10, weight: FontWeight.w700),
       ),
     );
   }
@@ -348,16 +491,20 @@ class _CustomRuleRow extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tintFill(broken ? palette.amber : accent),
                 borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(
+                  color:
+                      (broken ? palette.amber : accent).withValues(alpha: .28),
+                ),
               ),
               child: Icon(
                 broken ? Icons.warning_amber_rounded : _icon(rule.matcher),
-                size: 17,
+                size: 18,
                 color: broken ? palette.amber : accent,
               ),
             ),

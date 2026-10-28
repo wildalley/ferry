@@ -1,15 +1,17 @@
-/// Home dashboard: connection anchor, live traffic, and the active node.
+/// Home dashboard: status, routing split, totals, live traffic and the open
+/// connections.
 ///
-/// The layout forks at [_dashboardWidth]. Narrow screens keep the dial — one
-/// large tappable control is the right thing to hand a thumb. Wide screens get
-/// a dashboard instead, because the dial scaled up is just a big circle
-/// surrounded by empty space.
+/// One set of panels at every width, rearranged rather than redesigned: four
+/// tiles across and the status beside the routing panel on a desktop, stacked
+/// with two-by-two tiles on a phone.
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../data/config_builder.dart';
 import '../l10n/app_localizations.dart';
 import '../models/node.dart';
 import '../models/proxy_state.dart';
@@ -21,17 +23,15 @@ import 'notice_text.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-part 'home_active_node.dart';
-part 'home_connection.dart';
 part 'home_dashboard.dart';
-part 'home_traffic.dart';
+part 'home_readouts.dart';
 
-/// Above this the page switches from dial to dashboard. Set where four metric
-/// cards still have room for a mono value each without ellipsing.
-const _dashboardWidth = 900.0;
+/// Above this the status and routing panels sit side by side and the tiles go
+/// four across.
+const _wideWidth = 900.0;
 
-/// Where the traffic card and the node card stop stacking.
-const _twoColumnWidth = 640.0;
+/// Below this the page switches to the dedicated mobile layout.
+const _phoneWidth = 600.0;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.state, required this.onOpenNodes});
@@ -81,8 +81,6 @@ class _HomePageState extends State<HomePage> {
     final l10n = L10n.of(context);
     final palette = context.palette;
     final state = widget.state;
-    final traffic = state.traffic;
-    final connected = state.isConnected;
 
     return PageFrame(
       title: _greeting(l10n),
@@ -101,58 +99,18 @@ class _HomePageState extends State<HomePage> {
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > _dashboardWidth) {
-              // No session panel here: the metric row above already carries all
-              // three of its figures, and repeating them verbatim read as a
-              // rendering mistake rather than a summary.
-              return _Dashboard(
+            final width = constraints.maxWidth;
+            final isMobile = width < _phoneWidth;
+            if (isMobile) {
+              return _MobileHomeDashboard(
                 state: state,
                 onOpenNodes: widget.onOpenNodes,
-                downlink: state.downlinkHistory,
-                uplink: state.uplinkHistory,
-                connections: state.connectionHistory,
-                memory: state.memoryHistory,
               );
             }
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DialLayout(
-                  state: state,
-                  onOpenNodes: widget.onOpenNodes,
-                  downlink: state.downlinkHistory,
-                  uplink: state.uplinkHistory,
-                ),
-                const SizedBox(height: Gap.xxl),
-                SectionLabel(connected ? l10n.homeSession : l10n.homeTotals),
-                Panel(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _Stat.count(
-                          label: l10n.homeDownloaded,
-                          value: traffic.downlinkTotal,
-                          format: formatBytes,
-                        ),
-                      ),
-                      Expanded(
-                        child: _Stat.count(
-                          label: l10n.homeUploaded,
-                          value: traffic.uplinkTotal,
-                          format: formatBytes,
-                        ),
-                      ),
-                      Expanded(
-                        child: _Stat.count(
-                          label: l10n.homeConnections,
-                          value: traffic.connections,
-                          format: (value) => '$value',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            return _DesktopHomeDashboard(
+              state: state,
+              onOpenNodes: widget.onOpenNodes,
+              wide: width > _wideWidth,
             );
           },
         ),

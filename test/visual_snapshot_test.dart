@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show FontLoader;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:singbox_client/data/config_builder.dart';
 import 'package:singbox_client/data/storage.dart';
 import 'package:singbox_client/main.dart';
 import 'package:singbox_client/models/app_settings.dart';
@@ -88,6 +89,43 @@ const _cjkCandidates = <String>[
   '/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc',
   '/System/Library/Fonts/PingFang.ttc',
 ];
+
+/// A synthetic connection table: a few busy proxied hosts, some direct
+/// traffic and one rejected ad request. Placeholder domains throughout.
+List<ProxyConnection> _connections(ProxyNode exit) {
+  final tag = ConfigBuilder.outboundTag(exit);
+  ProxyConnection c(String id, String host, ConnectionRoute route, int bytes,
+          {String rule = 'final', String? process = 'firefox'}) =>
+      ProxyConnection(
+        id: id,
+        host: host,
+        network: 'tcp',
+        route: route,
+        outbound: switch (route) {
+          ConnectionRoute.proxy => tag,
+          ConnectionRoute.direct => 'direct',
+          ConnectionRoute.reject => '',
+        },
+        rule: rule,
+        process: process,
+        download: bytes * 9 ~/ 10,
+        upload: bytes ~/ 10,
+      );
+  return [
+    c('1', 'video.example.com', ConnectionRoute.proxy, 182000000),
+    c('2', 'api.example.org', ConnectionRoute.proxy, 4200000, process: 'code'),
+    c('3', 'cdn.example.net', ConnectionRoute.proxy, 2600000),
+    c('4', 'mirror.example.cn', ConnectionRoute.direct, 9800000,
+        rule: 'rule_set=[geosite-cn geoip-cn] => route(direct)',
+        process: 'pacman'),
+    c('5', 'chat.example.com', ConnectionRoute.proxy, 610000,
+        process: 'telegram-desktop'),
+    c('6', 'static.example.cn', ConnectionRoute.direct, 380000,
+        rule: 'rule_set=[geosite-cn geoip-cn] => route(direct)'),
+    c('7', 'ads.example.com', ConnectionRoute.reject, 0,
+        rule: 'rule_set=[geosite-ads] => reject'),
+  ];
+}
 
 List<ProxyNode> _nodes({String? subscriptionId = 'sub1'}) {
   ProxyNode n(
@@ -222,6 +260,7 @@ Future<({AppState state, FakeProxyController controller})> _harness({
         connectionsIn: 12,
         connectionsOut: 96,
         memory: 83886080,
+        connectionList: _connections(nodes.first),
       ));
     }
   }

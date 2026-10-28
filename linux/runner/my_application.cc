@@ -57,6 +57,12 @@ static void my_application_activate(GApplication* application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+  // Skia rather than Impeller. Impeller's GLES backend on Linux draws stroked
+  // paths (the latency ring, every sparkline and the flow chart) without
+  // multisampling, so their edges come out visibly stair-stepped; Skia
+  // anti-aliases them analytically. Revisit when Impeller's Linux surface
+  // gains MSAA.
+  fl_dart_project_set_enable_impeller(project, FALSE);
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;

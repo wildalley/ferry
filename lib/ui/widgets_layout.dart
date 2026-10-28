@@ -23,8 +23,8 @@ class Panel extends StatefulWidget {
   final Color? accent;
   final VoidCallback? onTap;
 
-  /// Adds an outer halo in [accent]. Only for the one panel on a screen that
-  /// carries live state — more than one and the glow stops meaning anything.
+  /// Strengthens the [accent] edge. Only for the one panel on a screen that
+  /// carries live state — more than one and it stops meaning anything.
   final bool glowing;
 
   /// Applies a tinted fill and a stronger edge to a selected, tappable item.
@@ -46,9 +46,11 @@ class _PanelState extends State<Panel> {
     final lit = widget.glowing && widget.accent != null;
     final elevated = interactive && (_hovered || _pressed);
 
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final baseSurface = palette.surface.withValues(alpha: dark ? .88 : .94);
     var fill = widget.selected
-        ? Color.alphaBlend(accent.withValues(alpha: .10), palette.surface)
-        : palette.surface;
+        ? Color.alphaBlend(accent.withValues(alpha: .10), baseSurface)
+        : baseSurface;
     if (elevated) {
       fill = Color.alphaBlend(
         accent.withValues(alpha: _pressed ? .095 : .045),
@@ -56,45 +58,36 @@ class _PanelState extends State<Panel> {
       );
     }
 
+    // [glowing] is an edge now rather than a halo: still the one panel that
+    // carries live state, said with a firmer border instead of light.
     final borderColor = widget.selected
         ? accent.withValues(alpha: .65)
         : elevated
             ? accent.withValues(alpha: .38)
-            : widget.accent?.withValues(alpha: lit ? .45 : .28) ??
+            : widget.accent?.withValues(alpha: lit ? .50 : .28) ??
                 palette.border;
+    final light = Theme.of(context).brightness == Brightness.light;
+    // Flat: one fill, one hairline. The diagonal wash and the halo made every
+    // card a light source, and on a dense dashboard that is a dozen of them
+    // competing; the data inside is what should carry the contrast.
     final decoration = BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          Color.lerp(fill, palette.surface2,
-              Theme.of(context).brightness == Brightness.dark ? .20 : .12)!,
-          fill,
-        ],
-      ),
-      borderRadius: BorderRadius.circular(AppRadius.lg),
+      color: fill,
+      borderRadius: BorderRadius.circular(AppRadius.md),
       border: Border.all(color: borderColor),
       boxShadow: [
-        if (lit)
-          ...glow(
-            widget.accent!,
-            intensity: glowIntensity(Theme.of(context).brightness) * .7,
-          ),
         if (elevated)
           BoxShadow(
             color: Colors.black.withValues(
-              alpha: Theme.of(context).brightness == Brightness.dark
-                  ? (_pressed ? .14 : .09)
-                  : (_pressed ? .07 : .035),
+              alpha: light ? (_pressed ? .06 : .03) : (_pressed ? .14 : .09),
             ),
-            blurRadius: _pressed ? 8 : 14,
-            offset: Offset(0, _pressed ? 2 : 5),
+            blurRadius: _pressed ? 6 : 10,
+            offset: Offset(0, _pressed ? 1 : 3),
           ),
-        if (!elevated && Theme.of(context).brightness == Brightness.light)
+        if (!elevated && light)
           BoxShadow(
-            color: palette.text.withValues(alpha: .025),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+            color: palette.text.withValues(alpha: .03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
       ],
     );
@@ -120,7 +113,7 @@ class _PanelState extends State<Panel> {
         mouseCursor: SystemMouseCursors.click,
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         child: AnimatedScale(
           scale: _pressed ? .992 : 1,
           duration: motionOf(context, Motion.fast),
@@ -135,6 +128,79 @@ class _PanelState extends State<Panel> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Splits [width] into columns by [flex], each landing on a whole device pixel.
+///
+/// [Expanded] divides space exactly, so four cards across 1032px come out at
+/// 247.5px each and every other card's 1px border straddles two device pixels:
+/// drawn at half strength across both, which reads as a soft, unfocused edge
+/// next to its sharp neighbour. Flooring each column and handing the leftover
+/// to the last keeps every edge on the pixel grid.
+List<double> pixelColumns(
+  double width,
+  List<int> flex, {
+  required double gap,
+  required double devicePixelRatio,
+}) {
+  final total = flex.fold(0, (sum, f) => sum + f);
+  final usable = width - gap * (flex.length - 1);
+  double snap(double v) =>
+      (v * devicePixelRatio).floorToDouble() / devicePixelRatio;
+  final widths = [for (final f in flex) snap(usable * f / total)];
+  widths[widths.length - 1] =
+      usable - widths.take(widths.length - 1).fold(0.0, (a, b) => a + b);
+  return widths;
+}
+
+/// A row of equal-height columns at whole-pixel widths — see [pixelColumns].
+///
+/// Measures from outside its [IntrinsicHeight] rather than inside: a
+/// [LayoutBuilder] cannot answer intrinsic-size queries, so it has to be the
+/// one asking.
+class PixelRow extends StatelessWidget {
+  const PixelRow({
+    super.key,
+    required this.children,
+    this.flex,
+    this.gap = Gap.lg,
+    this.stretch = true,
+  });
+
+  final List<Widget> children;
+
+  /// Relative widths; equal columns when null.
+  final List<int>? flex;
+  final double gap;
+
+  /// Match the tallest child's height, as `IntrinsicHeight` + stretch would.
+  final bool stretch;
+
+  @override
+  Widget build(BuildContext context) {
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final widths = pixelColumns(
+          constraints.maxWidth,
+          flex ?? List.filled(children.length, 1),
+          gap: gap,
+          devicePixelRatio: dpr,
+        );
+        final row = Row(
+          crossAxisAlignment:
+              stretch ? CrossAxisAlignment.stretch : CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) SizedBox(width: gap),
+              SizedBox(width: widths[i], child: children[i]),
+            ],
+          ],
+        );
+        return stretch ? IntrinsicHeight(child: row) : row;
+      },
     );
   }
 }
@@ -244,16 +310,23 @@ class PageFrame extends StatelessWidget {
   /// empty state) to full height looks like a bug, not a layout.
   final bool fill;
 
+  /// Wide enough for the dashboard's connection table to keep its columns on
+  /// a 1440px display, narrow enough that a line of text stays readable.
+  static const _maxWidth = 1240.0;
+
   @override
   Widget build(BuildContext context) {
-    const padding = EdgeInsets.fromLTRB(Gap.xl, 22, Gap.xl, 28);
+    const padding = EdgeInsets.fromLTRB(Gap.xl, 18, Gap.xl, 28);
     final wide = MediaQuery.sizeOf(context).width >= 1100;
 
+    // A toolbar-height header rather than a hero: on a dashboard the title
+    // only says where you are, and the 36px display line it used to be pushed
+    // the first row of figures below the fold on a 720px-tall window.
     final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Column(
@@ -261,13 +334,12 @@ class PageFrame extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontSize: wide ? 36 : 28,
-                          letterSpacing: wide ? -1.2 : -.84,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontSize: wide ? 24 : 22,
                         ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: Gap.xs),
+                    const SizedBox(height: 2),
                     Text(
                       subtitle!,
                       style: Theme.of(context).textTheme.bodySmall,
@@ -279,18 +351,9 @@ class PageFrame extends StatelessWidget {
             if (trailing != null) trailing!,
           ],
         ),
-        const SizedBox(height: 20),
-        Container(
-          height: 1,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [
-              context.palette.violet.withValues(alpha: .45),
-              context.palette.border,
-              context.palette.border.withValues(alpha: 0),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 22),
+        const SizedBox(height: Gap.lg),
+        Divider(color: context.palette.border),
+        const SizedBox(height: Gap.lg),
       ],
     );
 
@@ -335,11 +398,28 @@ class PageFrame extends StatelessWidget {
       );
     }
 
-    final centered = Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1080),
-        child: content,
-      ),
+    // Centred by a floored inset rather than [Center]: an odd leftover width
+    // puts Center's child on a half pixel, and every border and chart rule
+    // inside it then blurs across two device pixels.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final centered = LayoutBuilder(
+      builder: (context, constraints) {
+        final spare = constraints.maxWidth - _maxWidth;
+        final inset =
+            spare <= 0 ? 0.0 : (spare / 2 * dpr).floorToDouble() / dpr;
+        // Anchored top-left so a centring parent (the tab switcher's Stack)
+        // cannot centre this again and undo the floor above.
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Padding(
+            padding: EdgeInsets.only(left: inset),
+            child: SizedBox(
+              width: spare <= 0 ? constraints.maxWidth : _maxWidth,
+              child: content,
+            ),
+          ),
+        );
+      },
     );
 
     // A RefreshIndicator needs a scrollable of its own to drive it, and in the
@@ -368,26 +448,35 @@ class StatusPill extends StatelessWidget {
     required this.label,
     required this.color,
     this.compact = false,
+    this.bare = false,
   });
 
   final String label;
   final Color color;
   final bool compact;
 
+  /// Dot and label only, for a pill that already sits inside a tinted card;
+  /// a second box inside the first reads as nesting rather than status.
+  final bool bare;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: Motion.fast,
       curve: Motion.curve,
-      padding: EdgeInsets.symmetric(
-        horizontal: compact ? Gap.sm : 10,
-        vertical: compact ? 5 : 8,
-      ),
-      decoration: BoxDecoration(
-        color: tintFill(color),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: color.withValues(alpha: .22)),
-      ),
+      padding: bare
+          ? EdgeInsets.zero
+          : EdgeInsets.symmetric(
+              horizontal: compact ? Gap.sm : 10,
+              vertical: compact ? 5 : 8,
+            ),
+      decoration: bare
+          ? const BoxDecoration()
+          : BoxDecoration(
+              color: tintFill(color),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: color.withValues(alpha: .22)),
+            ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -587,11 +676,23 @@ class SettingRow extends StatelessWidget {
             (value != null && onChanged != null
                 ? () => onChanged!(!value!)
                 : null),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: Icon(icon, color: palette.violetSoft, size: 19),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
+        leading: Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: palette.violet.withValues(alpha: .10),
+            borderRadius: BorderRadius.circular(AppRadius.xs),
+            border: Border.all(
+              color: palette.violet.withValues(alpha: .22),
+            ),
+          ),
+          child: Icon(icon, color: palette.violetSoft, size: 17),
+        ),
         title: Text(
           title,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         subtitle: subtitle == null
             ? null
@@ -614,18 +715,26 @@ class SettingGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionLabel(title),
         Panel(
-          padding: const EdgeInsets.symmetric(vertical: Gap.xs),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(
             children: [
               for (var i = 0; i < rows.length; i++) ...[
                 rows[i],
                 if (i < rows.length - 1)
-                  const Divider(indent: 52, endIndent: Gap.lg),
+                  Divider(
+                    indent: 60,
+                    endIndent: Gap.md,
+                    height: 1,
+                    color: palette.border.withValues(alpha: dark ? .5 : .8),
+                  ),
               ],
             ],
           ),

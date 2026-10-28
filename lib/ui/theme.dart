@@ -276,28 +276,10 @@ class Motion {
 Duration motionOf(BuildContext context, Duration duration) =>
     MediaQuery.of(context).disableAnimations ? Duration.zero : duration;
 
-/// Outer glow for emphasised elements: the connection dial, an active node, a
-/// focused panel edge.
+/// Glow strength for [brightness], for the few status dots that still glow.
 ///
-/// Two layers rather than one blur — a tight bright core plus a wide faint
-/// halo. A single shadow big enough to read as a glow goes muddy instead.
-///
-/// [intensity] scales both alphas. Light theme wants roughly `0.35`: at full
-/// strength a coloured glow on white reads as a smudge, not a light source.
-List<BoxShadow> glow(Color c, {double intensity = 1}) => [
-      BoxShadow(
-        color: c.withValues(alpha: .28 * intensity),
-        blurRadius: 24,
-        spreadRadius: -4,
-      ),
-      BoxShadow(
-        color: c.withValues(alpha: .12 * intensity),
-        blurRadius: 48,
-        spreadRadius: 2,
-      ),
-    ];
-
-/// Glow strength for [brightness] — see [glow].
+/// Light theme wants roughly `0.35`: at full strength a coloured glow on white
+/// reads as a smudge, not a light source.
 double glowIntensity(Brightness brightness) =>
     brightness == Brightness.dark ? 1 : 0.35;
 

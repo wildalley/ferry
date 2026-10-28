@@ -226,6 +226,32 @@ class L10nEn extends L10n {
   String get homeUntestedNodes => 'Not tested yet';
 
   @override
+  String get homeRouting => 'Routing';
+
+  @override
+  String get homeActiveConnections => 'Active connections';
+
+  @override
+  String get homeColHost => 'Host';
+
+  @override
+  String get homeColRoute => 'Exit';
+
+  @override
+  String get homeColTraffic => 'Traffic';
+
+  @override
+  String get homeColRule => 'Rule';
+
+  @override
+  String get homeNoConnections => 'No open connections';
+
+  @override
+  String homeConnectionsMore(int count) {
+    return '$count more not shown';
+  }
+
+  @override
   String get nodesTitle => 'Nodes';
 
   @override

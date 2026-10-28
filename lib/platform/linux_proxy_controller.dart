@@ -318,13 +318,16 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
       timeout: const Duration(seconds: 6),
     );
     if (batched != null) {
-      // Absent means "did not answer" — the engine omits those. The previous
-      // reading is kept rather than overwritten with a zero, so one failed sweep
-      // does not blank a column of latencies.
+      // Only this sweep's answers. Absent means "did not answer" — the engine
+      // omits those — and it has to stay absent: the member's own history still
+      // holds its last good delay, and merging that in under the fresh results
+      // reported a node that just failed as if it had answered at its old speed.
+      // AppState marks whatever never reports as unreachable, which is what a
+      // failed test is. Windows has always emitted only the fresh map.
       emitGroup(ProxyGroup(
         tag: group.tag,
         selected: group.selected,
-        delays: {...group.delays, ...batched},
+        delays: batched,
       ));
       return;
     }
@@ -334,7 +337,10 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
     // the batched test failed outright. Slower, but it also streams its results,
     // so the UI fills in progressively.
     final members = group.delays.keys.toList();
-    final results = <String, int>{...group.delays};
+    // Starts empty for the same reason as above: seeded from history, the first
+    // emit carried every member's old delay, and AppState took each of those as
+    // that member's result before its own test had run.
+    final results = <String, int>{};
     const concurrency = 5;
     var index = 0;
 
