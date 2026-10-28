@@ -332,15 +332,45 @@ class DesktopShell with TrayListener, WindowListener {
   /// second process.
   void activate() => _showWindow();
 
-  @override
-  void onWindowMinimize() => state.setWindowVisible(false);
+  // The window can be shown and hidden by more than the tray: the taskbar, a
+  // minimize button, a compositor shortcut, a second launch. The tray's
+  // show/hide item used to follow only its own clicks, so after any of those it
+  // offered the wrong verb. Each of these now records what the window actually
+  // did and repaints the menu.
 
   @override
-  void onWindowRestore() => state.setWindowVisible(!_hidden);
+  void onWindowMinimize() => _markHidden();
 
   @override
-  void onWindowFocus() {
-    if (!_hidden) state.setWindowVisible(true);
+  void onWindowRestore() => _markVisible();
+
+  @override
+  void onWindowFocus() => _markVisible();
+
+  /// GTK reports `show` and `hide` for the toplevel; Windows only the
+  /// minimize/restore/focus above, which cover its taskbar.
+  @override
+  void onWindowEvent(String eventName) {
+    switch (eventName) {
+      case 'show':
+        _markVisible();
+      case 'hide':
+        _markHidden();
+    }
+  }
+
+  void _markVisible() {
+    if (_quitting) return;
+    _hidden = false;
+    state.setWindowVisible(true);
+    _tryPaint();
+  }
+
+  void _markHidden() {
+    if (_quitting) return;
+    _hidden = true;
+    state.setWindowVisible(false);
+    _tryPaint();
   }
 
   /// Shows and focuses the window, leaving [_hidden] truthful either way.
@@ -351,6 +381,9 @@ class DesktopShell with TrayListener, WindowListener {
   /// window were already up.
   Future<void> _showWindow() async {
     try {
+      // A minimized window is "hidden" to the tray too, and show() alone does
+      // not bring it back from the taskbar.
+      if (await windowManager.isMinimized()) await windowManager.restore();
       await windowManager.show();
       await windowManager.focus();
       _hidden = false;
