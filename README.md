@@ -1,9 +1,11 @@
-# SingBox Client
+# 渡 Ferry
 
-A Flutter sing-box client for **Android**, **Linux**, and **Windows**. The
-interface follows the **Synapse V4** reference: obsidian panels, violet signal
-artwork, and a silver-ribbon S icon, with dark/light themes and English/Chinese
-localization. See the [visual refresh notes](docs/design/refresh-2026-09.md).
+English | [简体中文](README.zh-CN.md)
+
+A Flutter sing-box client for **Android**, **Linux**, and **Windows**, formerly
+**SingBox Client**. One violet brand colour over a faint grid, a paper-plane
+mark, light and dark themes, and English/Chinese localization. See the
+[design notes](docs/design/README.md) and the [changelog](CHANGELOG.md).
 
 All three platforms run the proxy, by different means. Android embeds the
 engine: a Kotlin `VpnService` drives sing-box through a self-built
@@ -96,24 +98,34 @@ measured latency and favourites.
 
 **Interface**
 
-- Home, Nodes, Rules, Logs, Settings; bottom navigation on mobile, a rail on
+- Home, Nodes, Rules, Logs, Settings; a compact bottom bar on phones, a rail on
   desktop-sized windows
+- The dashboard's hero holds everything the tunnel needs, each fact once: the
+  stage, the exit, a **tide gauge** whose water level is the live rate on a log
+  scale, both rates, the exit IP, and a **paper-plane switch** that slides from
+  "Connect" to "Disconnect"
 - Dark and light themes, following the system setting or pinned manually
 - English and Chinese, following the system locale or pinned manually
 - Latency measured through the tunnel when it is up — the engine URL-tests each
   proxy — and by bounded TCP handshakes for TCP nodes when it is not; UDP/QUIC
   nodes are measured after the tunnel starts so they are not falsely marked
   unreachable
-- Nodes grouped by source, foldable, searchable, and sortable by latency
+- Nodes grouped by source, foldable, searchable, and sortable by latency; each
+  shows its region's flag (the region code on Windows, whose emoji font has no
+  flags)
 - Per-node chain proxy selection: route one node through another, with multi-hop
   chains and loop protection
-- Dashboard and desktop-rail signal artwork responds to live throughput with a
-  restrained silk drift and feathered highlight; idle and reduced-motion states
-  remain still
+- Motion follows the traffic: the tide gauge rolls one beat per reading and
+  holds still when nothing moves or when reduced motion is on
 - Exit-IP readout, fetched through the tunnel, which is the one check that says
   whether traffic is really leaving by the node rather than the user's own line
 - Subscriptions refresh themselves on connect when they have gone stale
 - Generated-config inspector for diagnostics
+- **Optional update check**: once a day, silently, the app asks GitHub for the
+  latest release; a newer one shows a dismissible card on the dashboard and in
+  Settings → About. It never downloads or installs anything, and the sing-box
+  core is never updated on its own — it ships inside each release, matched to
+  the config that release renders
 
 **Routing rules**
 
@@ -128,6 +140,13 @@ measured latency and favourites.
   before they reach the engine — a mistyped port is reported in the UI instead of
   becoming a tunnel that will not start
 - Editing one reloads a running tunnel, so a rule applies immediately
+- **Policy groups**: named exits, each with its own node (or Auto), such as
+  "AI" through a US node and "Streaming" through Hong Kong while everything else
+  keeps the main node. A rule can send to a group instead of proxy/direct/block.
+  Each group switches live, without touching the main node or dropping
+  connections. Deleting a group moves its rules to the main exit, and a group
+  whose node disappeared falls back to Auto, so a stale reference can never stop
+  the engine from starting
 
 ## Requirements
 
@@ -196,21 +215,28 @@ scripts/package.sh deb apk    # or a named subset
 
 | Artifact | Needs |
 | --- | --- |
-| `singbox-client_<version>-<build>_amd64.deb` | nothing past the Linux toolchain above — `dpkg-deb` when present, otherwise `ar` + `tar` |
-| `singbox-client-<version>-<build>-x86_64.pkg.tar.zst` | `makepkg` and `fakeroot`, so an Arch host |
-| `singbox-client-<version>-<build>-arm64.apk` | a JDK, an Android SDK, and `android/app/libs/libbox.aar` |
-| `singbox-client-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the pinned sing-box archive |
+| `ferry_<version>-<build>_amd64.deb` | nothing past the Linux toolchain above — `dpkg-deb` when present, otherwise `ar` + `tar` |
+| `ferry-<version>-<build>-x86_64.pkg.tar.zst` | `makepkg` and `fakeroot`, so an Arch host |
+| `ferry-<version>-<build>-arm64.apk` | a JDK, an Android SDK, and `android/app/libs/libbox.aar` |
+| `ferry-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the pinned sing-box archive |
 
 Whatever is missing a tool is skipped with the reason printed; the rest still
-build. Icons are rasterized from `docs/design/icon/ic_launcher.svg` with
-`rsvg-convert`, falling back to the xxxhdpi launcher PNG.
+build. Every icon — launcher, tray, Windows, and the Linux hicolor sizes in
+`docs/design/icon/linux/` — is rendered from the same code the app draws its
+mark with:
+
+```bash
+RENDER_ICONS=1 flutter test test/render_icons_test.dart
+```
 
 Both Linux packages install the same layout: the bundle under
-`/usr/lib/singbox-client/`, reached through a `/usr/bin/singbox-client` symlink,
+`/usr/lib/ferry/`, reached through a `/usr/bin/ferry` symlink,
 plus a desktop entry and hicolor icons. Neither needs root to build — the deb
 falls back to `ar`+`tar`, and `makepkg` refuses to run as root anyway. Both
 declare the appindicator runtime libraries as hard dependencies, because the
-binary links them and will not load without them.
+binary links them and will not load without them. Both also declare that they
+replace the old `singbox-client` package, so an upgrade swaps it out rather than
+installing the two side by side.
 
 ## Continuous integration
 
@@ -250,10 +276,11 @@ flutter analyze
 flutter test
 ```
 
-574 tests pass and 19 are skipped: share-link parsing — including the uTLS
+610 tests pass and 19 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
-placement, import format detection, the Clash API client both desktop runtimes
+placement, policy-group rendering and live switching, the update check, the
+desktop data migration from SingBox Client, import format detection, the Clash API client both desktop runtimes
 drive, the polkit capability grant, the Linux system-proxy backend against fakes,
 the shutdown path, the single-instance socket, tray menu construction, background
 animation suspension and bounded log-follow callbacks, UI interaction against a
@@ -285,6 +312,23 @@ report of roughly 1.2 GiB client memory after prolonged tray use. The package wa
 installed and its loaded application library verified after restart; long-run
 memory stability is still unverified. See the
 [memory investigation and verification notes](docs/memory-investigation-2026-10.md).
+
+## Upgrading from SingBox Client
+
+The app was renamed in 0.3.0. Its identifiers changed with it: the Dart package
+and binaries are `ferry`, the Linux package is `ferry` (installed under
+`/usr/lib/ferry`), and the application ID is `com.wildalley.ferry`.
+
+- **Linux and Windows** keep your data. On first launch the new version copies
+  preferences (subscriptions, nodes, settings, rules), rule-sets and the engine
+  cache from the old locations — `~/.local/share/com.wildalley.singbox_client/`
+  and `~/.local/share/singbox-client/` on Linux, `%APPDATA%\com.wildalley\SingBox Client`
+  and `%LOCALAPPDATA%\SingBox Client` on Windows. The old copies are left in place.
+  Quit the old version before starting the new one: their single-instance locks
+  live in different places.
+- **Android** is a new app to the system, because its application ID changed:
+  the old install cannot be upgraded or read. Install 0.3.0, import your
+  subscription again, then uninstall the old SingBox Client.
 
 ## Localization
 
@@ -387,6 +431,10 @@ the same `ProxyController` interface.
   off yet. The refresh button beside it also works while disconnected, where the
   request goes direct and reports your own address — that only happens when you
   press it, never on its own.
+- Android cannot carry data across the 0.3.0 rename; see "Upgrading from
+  SingBox Client".
+- Han characters in titles use the system's CJK serif on Linux; on Android
+  Flutter does not reach it, and they render in the sans face.
 - Custom rules cover one matcher and one destination each. Anything needing two
   conditions at once is a config file, which this app renders but does not accept
   hand edits to.
@@ -418,5 +466,5 @@ compatible. Two consequences worth knowing before publishing a binary:
 The Linux packages contain no sing-box code: the runtime there executes a
 `sing-box` the user installed separately, so nothing of it is copied or linked
 in. They share this repository, so they carry the same license anyway. The deb
-declares it in `usr/share/doc/singbox-client/copyright`, the Arch package in
-`usr/share/licenses/singbox-client/LICENSE`.
+declares it in `usr/share/doc/ferry/copyright`, the Arch package in
+`usr/share/licenses/ferry/LICENSE`.
