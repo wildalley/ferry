@@ -56,6 +56,8 @@ Future<void> main(List<String> args) async {
     ruleSetDir: ruleSetDir,
   );
   runApp(SingBoxApp(state: state));
+  // Silent and at most daily; it only ever offers, never installs.
+  unawaited(state.checkForUpdate());
   // After runApp so the icon does not delay the first frame. Unawaited for the
   // same reason: a panel that is slow to accept an indicator must not hold up
   // the window.

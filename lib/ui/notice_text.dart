@@ -33,6 +33,10 @@ String noticeText(L10n l10n, AppNotice notice) {
     NoticeKind.ruleSetsUpdated => l10n.noticeRuleSetsUpdated,
     NoticeKind.ruleSetsUpdateFailed => l10n.noticeRuleSetsUpdateFailed,
     NoticeKind.ruleSetsUnavailable => l10n.noticeRuleSetsUnavailable,
+    NoticeKind.updateAvailable =>
+      l10n.noticeUpdateAvailable(notice.detail ?? ''),
+    NoticeKind.upToDate => l10n.noticeUpToDate,
+    NoticeKind.updateCheckFailed => l10n.noticeUpdateCheckFailed,
     NoticeKind.engineMissing => l10n.noticeEngineMissing,
     NoticeKind.engineTooOld => l10n.noticeEngineTooOld(detail),
     // Two different fixes behind one condition. Where the runtime named a
@@ -110,4 +114,5 @@ String ruleTargetText(L10n l10n, RuleTarget target) => switch (target) {
       RuleTarget.proxy => l10n.rulesTargetProxy,
       RuleTarget.direct => l10n.rulesTargetDirect,
       RuleTarget.block => l10n.rulesTargetBlock,
+      RuleTarget.group => l10n.rulesTargetGroup,
     };

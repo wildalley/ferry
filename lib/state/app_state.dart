@@ -18,15 +18,18 @@ import '../data/port_allocator.dart';
 import '../data/rule_set_updater.dart';
 import '../data/rule_sets.dart';
 import '../data/storage.dart';
+import '../data/update_checker.dart';
 import '../models/app_settings.dart';
 import '../models/custom_rule.dart';
 import '../models/log_buffer.dart';
 import '../models/node.dart';
 import '../models/node_sort.dart';
+import '../models/policy_group.dart';
 import '../models/proxy_state.dart';
 import '../models/subscription.dart';
 import '../platform/config_facts.dart';
 import '../platform/proxy_controller.dart';
+import '../version.dart';
 
 part 'app_state_notice.dart';
 part 'app_state_connection.dart';
@@ -35,6 +38,7 @@ part 'app_state_latency.dart';
 part 'app_state_config.dart';
 part 'app_state_rules.dart';
 part 'app_state_runtime.dart';
+part 'app_state_update.dart';
 
 class AppState extends ChangeNotifier {
   AppState({
@@ -44,6 +48,7 @@ class AppState extends ChangeNotifier {
     LatencyTester? latencyTester,
     RuleSetUpdater? ruleSetUpdater,
     IpLookup? ipLookup,
+    UpdateChecker? updateChecker,
     PortAllocator? portAllocator,
     String? ruleSetDir,
     Duration? urlTestTimeout,
@@ -54,6 +59,7 @@ class AppState extends ChangeNotifier {
         _ipLookup = ipLookup ?? IpLookup(),
         _latencyTester = latencyTester ?? const LatencyTester(),
         _ruleSetUpdater = ruleSetUpdater ?? RuleSetUpdater(),
+        _updateChecker = updateChecker ?? UpdateChecker(),
         _portAllocator = portAllocator ?? freeLoopbackPorts,
         _ruleSetDir = ruleSetDir {
     // Keep aliases and repeated subscription rows in the UI. The config
@@ -66,6 +72,8 @@ class AppState extends ChangeNotifier {
     _collapsedSources = {..._storage.readCollapsedSources()};
     _nodeSort = _storage.readNodeSort();
     _customRules = _storage.readCustomRules();
+    _policyGroups = _storage.readPolicyGroups();
+    _dismissedUpdate = _storage.readDismissedUpdate();
     _proxyState = _controller.currentState;
 
     // Read synchronously so the very first `_buildConfig()` already carries it;
@@ -239,6 +247,11 @@ class AppState extends ChangeNotifier {
   /// [_syncLiveOutbounds] can tell the two apart.
   Set<String>? _liveOutboundTags;
 
+  /// The policy-group selector tags in the config the engine is running, for
+  /// the same reason as [_liveOutboundTags]: a group made after the engine
+  /// started is not in it, and switching its node needs a reload, not a select.
+  Set<String>? _liveGroupTags;
+
   /// Invalidates a pending connect/reload as soon as the newer runtime intent is
   /// issued, rather than waiting for the older controller call to return.
   var _runtimeOperationId = 0;
@@ -262,6 +275,18 @@ class AppState extends ChangeNotifier {
 
   /// The user's own routing rules, in match order.
   late List<CustomRule> _customRules;
+
+  /// The user's policy groups, in the order they were made.
+  late List<PolicyGroup> _policyGroups;
+
+  final UpdateChecker _updateChecker;
+
+  /// A newer release than the running app, once a check has found one.
+  AppRelease? _availableUpdate;
+  var _checkingUpdate = false;
+
+  /// The tag of the release whose prompt the user closed.
+  String? _dismissedUpdate;
 
   /// What the rule-sets on disk are, or null on a platform that has none.
   RuleSetInstall? _ruleSetInstall;
@@ -329,6 +354,26 @@ class AppState extends ChangeNotifier {
 
   /// The user's own rules, in the order they are matched.
   List<CustomRule> get customRules => List.unmodifiable(_customRules);
+
+  /// A newer release than this build, or null when none is known.
+  AppRelease? get availableUpdate => _availableUpdate;
+  bool get isCheckingUpdate => _checkingUpdate;
+
+  /// Whether the dashboard should offer the update: one is known and the user
+  /// has not closed the prompt for that release.
+  bool get showUpdatePrompt =>
+      _availableUpdate != null && _availableUpdate!.tag != _dismissedUpdate;
+
+  /// Named exits that rules can send traffic to, each with its own node.
+  List<PolicyGroup> get policyGroups => List.unmodifiable(_policyGroups);
+
+  /// The group with [id], or null when it has been deleted.
+  PolicyGroup? policyGroup(String? id) {
+    for (final group in _policyGroups) {
+      if (group.id == id) return group;
+    }
+    return null;
+  }
 
   String? get selectedNodeId => _selectedNodeId;
 
@@ -411,6 +456,23 @@ class AppState extends ChangeNotifier {
   Future<void> moveCustomRule(int from, int to) =>
       _moveCustomRuleIntent(from, to);
   CustomRule newCustomRule() => _newCustomRule();
+  Future<PolicyGroup?> addPolicyGroup(String name) =>
+      _addPolicyGroupIntent(name);
+  Future<void> renamePolicyGroup(String id, String name) =>
+      _renamePolicyGroupIntent(id, name);
+  Future<void> removePolicyGroup(String id) => _removePolicyGroupIntent(id);
+
+  /// Points a group at [nodeId], or at the engine's own pick when null.
+  Future<void> selectGroupNode(String groupId, String? nodeId) =>
+      _selectGroupNodeIntent(groupId, nodeId);
+
+  /// Looks for a newer release. Automatic checks run at most once a day and
+  /// stay silent; a [manual] one always runs and reports its outcome.
+  Future<void> checkForUpdate({bool manual = false}) =>
+      _checkForUpdate(manual: manual);
+
+  /// Stops offering [availableUpdate] on the dashboard. Settings still shows it.
+  Future<void> dismissUpdate() => _dismissUpdate();
   Future<void> updateRuleSets({bool silent = false}) =>
       _updateRuleSetsIntent(silent: silent);
   Future<void> refreshExitAddress() => _refreshExitAddress();
@@ -462,6 +524,7 @@ class AppState extends ChangeNotifier {
     _importer.dispose();
     _ipLookup.dispose();
     _ruleSetUpdater.dispose();
+    _updateChecker.dispose();
     _didDispose = true;
     super.dispose();
   }

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_settings.dart';
 import '../models/custom_rule.dart';
 import '../models/node.dart';
+import '../models/policy_group.dart';
 import '../models/node_sort.dart';
 import '../models/subscription.dart';
 
@@ -27,6 +28,9 @@ class Storage {
   static const _kClashSecret = 'clash_secret.v1';
   static const _kNodeSort = 'node_sort.v1';
   static const _kCustomRules = 'custom_rules.v1';
+  static const _kPolicyGroups = 'policy_groups.v1';
+  static const _kUpdateCheckedAt = 'update_checked_at.v1';
+  static const _kUpdateDismissed = 'update_dismissed.v1';
 
   static Future<Storage> open() async =>
       Storage(await SharedPreferences.getInstance());
@@ -76,6 +80,28 @@ class Storage {
   Future<void> writeCustomRules(List<CustomRule> rules) => _prefs.setString(
         _kCustomRules,
         jsonEncode(rules.map((rule) => rule.toJson()).toList()),
+      );
+
+  /// The user's policy groups, in the order they were made.
+  List<PolicyGroup> readPolicyGroups() {
+    final raw = _prefs.getString(_kPolicyGroups);
+    if (raw == null || raw.isEmpty) return const [];
+    try {
+      final list = jsonDecode(raw) as List;
+      return list
+          .map((item) => PolicyGroup.fromJson(Map<String, dynamic>.from(item)))
+          // No id means no stable outbound tag; such a record cannot be
+          // rendered or edited.
+          .where((group) => group.id.isNotEmpty)
+          .toList();
+    } on Object {
+      return const [];
+    }
+  }
+
+  Future<void> writePolicyGroups(List<PolicyGroup> groups) => _prefs.setString(
+        _kPolicyGroups,
+        jsonEncode(groups.map((group) => group.toJson()).toList()),
       );
 
   List<Subscription> readSubscriptions() {
@@ -137,6 +163,21 @@ class Storage {
   /// Kept here rather than in [AppSettings] because it changes nothing about the
   /// tunnel: settings go through `applySettings`, which reloads a running
   /// config, and reordering a list is no reason to drop connections.
+  /// When the app last asked for a newer release, or null if it never has.
+  DateTime? readUpdateCheckedAt() {
+    final ms = _prefs.getInt(_kUpdateCheckedAt);
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  Future<void> writeUpdateCheckedAt(DateTime at) =>
+      _prefs.setInt(_kUpdateCheckedAt, at.millisecondsSinceEpoch);
+
+  /// The release tag whose prompt the user closed; it is not shown again.
+  String? readDismissedUpdate() => _prefs.getString(_kUpdateDismissed);
+
+  Future<void> writeDismissedUpdate(String tag) =>
+      _prefs.setString(_kUpdateDismissed, tag);
+
   NodeSort readNodeSort() => NodeSort.fromKey(_prefs.getString(_kNodeSort));
 
   Future<void> writeNodeSort(NodeSort sort) =>

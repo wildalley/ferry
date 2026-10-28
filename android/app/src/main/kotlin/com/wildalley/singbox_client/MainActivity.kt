@@ -187,6 +187,26 @@ class MainActivity : FlutterActivity() {
             // QUERY_ALL_PACKAGES permission.
             "installedApps" -> result.success(installedApps())
 
+            // Opens a web page in the user's browser: the release page an
+            // update notice points at. https only — this is not a general
+            // intent launcher for whatever string arrives.
+            "openUrl" -> {
+                val url = call.argument<String>("url")
+                if (url == null || !url.startsWith("https://")) {
+                    result.error("bad_args", "an https url is required", null)
+                    return
+                }
+                try {
+                    startActivity(
+                        Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                    result.success(true)
+                } catch (error: Throwable) {
+                    result.success(false)
+                }
+            }
+
             "version" -> result.success(
                 runCatching { io.nekohasekai.libbox.Libbox.version() }
                     .getOrDefault("unknown")

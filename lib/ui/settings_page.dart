@@ -17,6 +17,7 @@ import 'import_sheet.dart';
 import 'json_highlight.dart';
 import 'notice_text.dart';
 import 'theme.dart';
+import 'update_prompt.dart';
 import 'widgets.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -235,6 +236,33 @@ class SettingsPage extends StatelessWidget {
               icon: Icons.info_outline,
               title: l10n.settingsAppVersion,
               subtitle: appVersion,
+            ),
+            // A found release opens its page; otherwise the row checks now.
+            // Either way nothing installs itself.
+            SettingRow(
+              icon: Icons.system_update_alt_rounded,
+              title: l10n.settingsCheckUpdate,
+              subtitle: switch (state.availableUpdate) {
+                final release? => l10n.settingsUpdateNew(release.tag),
+                null => l10n.settingsUpdateCurrent(appVersion),
+              },
+              onTap: state.isCheckingUpdate
+                  ? null
+                  : switch (state.availableUpdate) {
+                      final release? => () =>
+                          openReleasePage(context, release.url),
+                      null => () => state.checkForUpdate(manual: true),
+                    },
+              trailing: state.isCheckingUpdate
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : state.availableUpdate != null
+                      ? Icon(Icons.open_in_new_rounded,
+                          size: 18, color: context.palette.violetSoft)
+                      : null,
             ),
             SettingRow(
               icon: Icons.inventory_2_outlined,
@@ -804,7 +832,6 @@ class _ThemeMenu extends StatelessWidget {
     final palette = context.palette;
     return PopupMenuButton<AppThemeMode>(
       initialValue: state.settings.themeMode,
-      color: palette.surface2,
       icon: Icon(Icons.expand_more, size: 20, color: palette.muted),
       onSelected: (value) =>
           state.applySettings(state.settings.copyWith(themeMode: value)),
@@ -834,7 +861,6 @@ class _LanguageMenu extends StatelessWidget {
     final palette = context.palette;
     return PopupMenuButton<AppLanguage>(
       initialValue: state.settings.language,
-      color: palette.surface2,
       icon: Icon(Icons.expand_more, size: 20, color: palette.muted),
       onSelected: (value) =>
           state.applySettings(state.settings.copyWith(language: value)),
@@ -875,7 +901,6 @@ class _ModeMenu extends StatelessWidget {
     final palette = context.palette;
     return PopupMenuButton<ProxyMode>(
       initialValue: state.settings.proxyMode,
-      color: palette.surface2,
       icon: Icon(Icons.expand_more, size: 20, color: palette.muted),
       onSelected: (value) =>
           state.applySettings(state.settings.copyWith(proxyMode: value)),
@@ -897,7 +922,6 @@ class _StackMenu extends StatelessWidget {
     final palette = context.palette;
     return PopupMenuButton<TunStack>(
       initialValue: state.settings.tunStack,
-      color: palette.surface2,
       icon: Icon(Icons.expand_more, size: 20, color: palette.muted),
       onSelected: (value) =>
           state.applySettings(state.settings.copyWith(tunStack: value)),
@@ -919,7 +943,6 @@ class _LogLevelMenu extends StatelessWidget {
     final palette = context.palette;
     return PopupMenuButton<LogLevel>(
       initialValue: state.settings.logLevel,
-      color: palette.surface2,
       icon: Icon(Icons.expand_more, size: 20, color: palette.muted),
       onSelected: (value) =>
           state.applySettings(state.settings.copyWith(logLevel: value)),

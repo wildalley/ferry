@@ -52,6 +52,12 @@ enum NoticeKind {
   /// The host's proxy settings could not be taken over.
   systemProxyUnavailable,
 
+  /// A manual update check found a newer release; [AppNotice.detail] is its
+  /// tag.
+  updateAvailable,
+  upToDate,
+  updateCheckFailed,
+
   /// Text that is already final: an engine error or a redacted exception.
   /// Not translatable, so it is passed through as-is.
   passthrough,
