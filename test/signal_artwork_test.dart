@@ -4,8 +4,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/ui/brand.dart';
-import 'package:singbox_client/ui/theme.dart';
+import 'package:ferry/ui/brand.dart';
+import 'package:ferry/ui/theme.dart';
 
 Widget _alone({
   List<int> downlink = const [],

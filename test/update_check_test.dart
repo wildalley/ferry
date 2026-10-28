@@ -11,10 +11,10 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/data/update_checker.dart';
-import 'package:singbox_client/state/app_state.dart';
-import 'package:singbox_client/version.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/data/update_checker.dart';
+import 'package:ferry/state/app_state.dart';
+import 'package:ferry/version.dart';
 
 import 'widget_test.dart' show FakeProxyController, fakePortAllocator;
 

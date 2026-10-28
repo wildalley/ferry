@@ -11,7 +11,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/platform/linux_system_proxy.dart';
+import 'package:ferry/platform/linux_system_proxy.dart';
 
 /// Records what was run, and answers however the test needs it to.
 class _Runner {

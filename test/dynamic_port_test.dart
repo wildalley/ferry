@@ -19,13 +19,13 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/port_allocator.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/platform/config_facts.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/port_allocator.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/platform/config_facts.dart';
+import 'package:ferry/state/app_state.dart';
 
 import 'widget_test.dart' show FakeProxyController, fakePortAllocator, node;
 

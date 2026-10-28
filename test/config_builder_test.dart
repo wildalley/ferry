@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/node.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/node.dart';
 
 ProxyNode _node({
   String id = 'n1',

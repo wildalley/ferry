@@ -10,10 +10,10 @@ import 'dart:typed_data' show ByteData, Uint8List;
 
 import 'package:flutter/services.dart' show AssetBundle, CachingAssetBundle;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/rule_sets.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/platform/app_paths.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/rule_sets.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/platform/app_paths.dart';
 
 /// Serves the repository as the asset bundle. Asset keys are repo-relative
 /// paths, which is exactly the mapping pubspec's `assets:` entry creates, so
@@ -220,7 +220,7 @@ void main() {
       // side leaves prepare() returning null, which silently falls back to
       // downloading the rule-sets at start — the failure this replaces.
       final kotlin = File('android/app/src/main/kotlin/com/wildalley/'
-              'singbox_client/MainActivity.kt')
+              'ferry/MainActivity.kt')
           .readAsStringSync();
       expect(kotlin, contains('"$appControlChannel"'),
           reason: 'the host listens on a different channel name');

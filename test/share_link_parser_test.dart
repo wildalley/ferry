@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/share_link_parser.dart';
-import 'package:singbox_client/models/node.dart';
+import 'package:ferry/data/share_link_parser.dart';
+import 'package:ferry/models/node.dart';
 
 void main() {
   group('vmess', () {

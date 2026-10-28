@@ -9,9 +9,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_test/flutter_test.dart' as ft;
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/log_buffer.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/log_buffer.dart';
 
 import 'widget_test.dart' show buildState, node;
 

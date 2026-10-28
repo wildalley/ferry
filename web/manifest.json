@@ -1,6 +1,6 @@
 {
-    "name": "singbox_client",
-    "short_name": "singbox_client",
+    "name": "Ferry",
+    "short_name": "Ferry",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

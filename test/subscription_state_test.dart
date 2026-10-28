@@ -8,12 +8,12 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/importer.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/models/subscription.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/importer.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/models/subscription.dart';
+import 'package:ferry/state/app_state.dart';
 
 import 'widget_test.dart' show FakeProxyController, node;
 

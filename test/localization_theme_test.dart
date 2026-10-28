@@ -7,14 +7,14 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/l10n/app_localizations.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/state/app_state.dart';
-import 'package:singbox_client/ui/theme.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/l10n/app_localizations.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/state/app_state.dart';
+import 'package:ferry/ui/theme.dart';
 
 import 'widget_test.dart' show FakeProxyController, fakePortAllocator, node;
 

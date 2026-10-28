@@ -8,8 +8,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/ui/json_highlight.dart';
-import 'package:singbox_client/ui/theme.dart';
+import 'package:ferry/ui/json_highlight.dart';
+import 'package:ferry/ui/theme.dart';
 
 void main() {
   const palette = AppPalette.dark;

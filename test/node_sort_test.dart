@@ -9,12 +9,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/node_sort.dart';
-import 'package:singbox_client/models/subscription.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/node_sort.dart';
+import 'package:ferry/models/subscription.dart';
+import 'package:ferry/state/app_state.dart';
 
 import 'widget_test.dart' show FakeProxyController, buildState, node;
 

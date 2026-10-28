@@ -15,13 +15,13 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/platform/desktop_shell.dart';
-import 'package:singbox_client/platform/linux_proxy_controller.dart';
-import 'package:singbox_client/platform/linux_system_proxy.dart';
-import 'package:singbox_client/platform/single_instance.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/platform/desktop_shell.dart';
+import 'package:ferry/platform/linux_proxy_controller.dart';
+import 'package:ferry/platform/linux_system_proxy.dart';
+import 'package:ferry/platform/single_instance.dart';
+import 'package:ferry/state/app_state.dart';
 
 import 'widget_test.dart' show FakeProxyController;
 

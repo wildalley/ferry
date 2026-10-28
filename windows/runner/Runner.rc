@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.wildalley" "\0"
-            VALUE "FileDescription", "SingBox Client" "\0"
+            VALUE "FileDescription", "Ferry" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "singbox_client" "\0"
+            VALUE "InternalName", "ferry" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.wildalley. All rights reserved." "\0"
-            VALUE "OriginalFilename", "singbox_client.exe" "\0"
-            VALUE "ProductName", "SingBox Client" "\0"
+            VALUE "OriginalFilename", "ferry.exe" "\0"
+            VALUE "ProductName", "Ferry" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

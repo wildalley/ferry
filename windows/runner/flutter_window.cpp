@@ -45,7 +45,7 @@ std::string LocalAppDataPath() {
   length = GetEnvironmentVariableW(L"LOCALAPPDATA", buffer.data(), length);
   if (length == 0) return {};
   std::wstring path(buffer.data(), length);
-  path += L"\\SingBox Client";
+  path += L"\\Ferry";
   return WideToUtf8(path);
 }
 

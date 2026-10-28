@@ -25,14 +25,14 @@ const dataDirMethod = 'dataDir';
 
 /// Directory name under the desktop data root. Not the package name — this one
 /// is user-visible in `~/.local/share`.
-const desktopDataDirName = 'singbox-client';
+const desktopDataDirName = 'ferry';
 
 const _channel = MethodChannel(appControlChannel);
 
 /// The app's private data directory, or null when there is nowhere to put one.
 ///
 /// Android returns `filesDir`, and the Windows runner answers with
-/// `%LOCALAPPDATA%\SingBox Client`, so the process controller and the rule-set
+/// `%LOCALAPPDATA%\Ferry`, so the process controller and the rule-set
 /// unpacker share one stable location. On Linux the channel throws — there is
 /// no host handler — and the path is computed and created here. Everything that
 /// lands in it is private: the rendered config carries node credentials and the
@@ -81,7 +81,7 @@ Future<String?> _desktopDataDirectory(Map<String, String> env) async {
 String? _dataDirPath(Map<String, String> env) {
   if (Platform.isWindows) {
     final base = env['LOCALAPPDATA'] ?? env['APPDATA'] ?? env['USERPROFILE'];
-    return base == null || base.isEmpty ? null : '$base\\SingBox Client';
+    return base == null || base.isEmpty ? null : '$base\\Ferry';
   }
   final root = _dataRoot(env);
   return root == null ? null : '$root/$desktopDataDirName';

@@ -10,7 +10,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
+import 'package:ferry/data/config_builder.dart';
 
 import 'widget_test.dart' show FakeLatencyTester, buildState, node;
 

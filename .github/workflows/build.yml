@@ -150,7 +150,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: singbox-client-deb-apk-${{ github.sha }}
+          name: ferry-deb-apk-${{ github.sha }}
           path: dist/*
           if-no-files-found: error
 
@@ -206,11 +206,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive `
             -Path "build/windows/x64/runner/Release/*" `
-            -DestinationPath "dist/singbox-client-windows-x64-${{ github.sha }}.zip"
+            -DestinationPath "dist/ferry-windows-x64-${{ github.sha }}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: singbox-client-windows-${{ github.sha }}
+          name: ferry-windows-${{ github.sha }}
           path: dist/*.zip
           if-no-files-found: error
 
@@ -276,7 +276,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: singbox-client-arch-${{ github.sha }}
+          name: ferry-arch-${{ github.sha }}
           path: dist/*
           if-no-files-found: error
 
@@ -292,7 +292,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: singbox-client-*-${{ github.sha }}
+          pattern: ferry-*-${{ github.sha }}
           merge-multiple: true
           path: dist
 

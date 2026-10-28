@@ -9,9 +9,9 @@ library;
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/custom_rule.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/custom_rule.dart';
 
 import 'widget_test.dart' show node;
 

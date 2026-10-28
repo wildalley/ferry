@@ -12,9 +12,9 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/l10n/app_localizations.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/platform/desktop_shell.dart';
+import 'package:ferry/l10n/app_localizations.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/platform/desktop_shell.dart';
 
 /// A status with every field defaulted, so a test can vary just one.
 ProxyStatusForTray status({

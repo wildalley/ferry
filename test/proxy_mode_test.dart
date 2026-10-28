@@ -7,7 +7,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/app_settings.dart';
+import 'package:ferry/models/app_settings.dart';
 
 void main() {
   test('the default is system proxy', () {

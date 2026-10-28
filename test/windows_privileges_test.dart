@@ -2,9 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/platform/app_paths.dart';
-import 'package:singbox_client/platform/windows_privileges.dart';
-import 'package:singbox_client/platform/windows_proxy_controller.dart';
+import 'package:ferry/platform/app_paths.dart';
+import 'package:ferry/platform/windows_privileges.dart';
+import 'package:ferry/platform/windows_proxy_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

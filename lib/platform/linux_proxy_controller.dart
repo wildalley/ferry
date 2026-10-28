@@ -656,7 +656,7 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
   /// Where the `sing-box` binary is, or null.
   ///
   /// In order: an explicit override or `SINGBOX_BINARY`, a copy installed
-  /// beside the app under `/usr/lib/singbox-client`, then `PATH`. The middle
+  /// beside the app under `/usr/lib/ferry`, then `PATH`. The middle
   /// one is a hook for a future package that ships its own engine; nothing
   /// installs there today.
   static Future<String?> resolveBinary({String? override}) async {
@@ -664,7 +664,7 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
     if (explicit != null && explicit.isNotEmpty) {
       return File(explicit).existsSync() ? explicit : null;
     }
-    const bundled = '/usr/lib/singbox-client/sing-box';
+    const bundled = '/usr/lib/ferry/sing-box';
     if (File(bundled).existsSync()) return bundled;
     for (final dir in (Platform.environment['PATH'] ?? '').split(':')) {
       if (dir.isEmpty) continue;

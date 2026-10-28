@@ -10,10 +10,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/local_proxy.dart';
-import 'package:singbox_client/data/rule_set_updater.dart';
-import 'package:singbox_client/data/rule_sets.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/local_proxy.dart';
+import 'package:ferry/data/rule_set_updater.dart';
+import 'package:ferry/data/rule_sets.dart';
 
 /// A body that passes the magic and length checks, distinct per [tag].
 Uint8List _compiled(String tag) => Uint8List.fromList([

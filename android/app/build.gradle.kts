@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.wildalley.singbox_client"
+    namespace = "com.wildalley.ferry"
     compileSdk = flutter.compileSdkVersion
 
     compileOptions {
@@ -14,7 +14,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.wildalley.singbox_client"
+        applicationId = "com.wildalley.ferry"
         // libbox needs API 24+ for the VpnService/file APIs it relies on.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
@@ -37,6 +37,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Installs beside a release build instead of over it: a release
+            // signed elsewhere cannot be updated by this machine's debug key,
+            // and replacing it would mean uninstalling — and losing its data.
+            applicationIdSuffix = ".debug"
+        }
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.

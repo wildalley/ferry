@@ -9,9 +9,9 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/proxy_state.dart';
+import 'package:ferry/models/proxy_state.dart';
 // NoticeKind and AppNotice are parts of this library, not imports of their own.
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/state/app_state.dart';
 
 void main() {
   test('every problem survives the trip through a message', () {

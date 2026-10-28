@@ -17,7 +17,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-import 'package:singbox_client/platform/clash_api.dart';
+import 'package:ferry/platform/clash_api.dart';
 
 /// One request the server saw.
 class _Seen {

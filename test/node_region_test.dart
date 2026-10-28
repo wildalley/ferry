@@ -8,7 +8,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/node.dart';
+import 'package:ferry/models/node.dart';
 
 void main() {
   String? codeOf(String name) => ProxyNode(

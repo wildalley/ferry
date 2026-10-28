@@ -16,7 +16,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/ui/brand.dart';
+import 'package:ferry/ui/brand.dart';
 
 final _run = Platform.environment['RENDER_ICONS'] == '1';
 

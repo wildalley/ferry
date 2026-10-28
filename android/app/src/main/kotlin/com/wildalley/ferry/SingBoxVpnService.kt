@@ -1,4 +1,4 @@
-package com.wildalley.singbox_client
+package com.wildalley.ferry
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -450,7 +450,7 @@ class SingBoxVpnService : VpnService() {
     }
 
     companion object {
-        const val ACTION_STOP = "com.wildalley.singbox_client.STOP"
+        const val ACTION_STOP = "com.wildalley.ferry.STOP"
         const val EXTRA_CONFIG = "config"
 
         private const val TAG = "SingBoxVpn"

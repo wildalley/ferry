@@ -6,15 +6,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/latency_tester.dart';
-import 'package:singbox_client/data/port_allocator.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/platform/proxy_controller.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/latency_tester.dart';
+import 'package:ferry/data/port_allocator.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/platform/proxy_controller.dart';
+import 'package:ferry/state/app_state.dart';
 
 /// Records calls and lets tests push state, the way the service would.
 class FakeProxyController implements ProxyController {

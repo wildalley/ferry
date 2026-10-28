@@ -9,13 +9,13 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/custom_rule.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/policy_group.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/custom_rule.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/policy_group.dart';
+import 'package:ferry/state/app_state.dart';
 
 import 'widget_test.dart' show FakeProxyController, fakePortAllocator, node;
 

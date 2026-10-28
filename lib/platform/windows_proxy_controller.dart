@@ -783,7 +783,7 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
   Future<Directory> _runtimeDirectory() async {
     final base = await appDataDirectory();
     final path = base ??
-        '${Directory.current.path}${Platform.pathSeparator}.singbox-client';
+        '${Directory.current.path}${Platform.pathSeparator}.ferry';
     final directory = Directory('$path${Platform.pathSeparator}runtime');
     await directory.create(recursive: true);
     return directory;

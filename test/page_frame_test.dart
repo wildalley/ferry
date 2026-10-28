@@ -12,8 +12,8 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/ui/theme.dart';
-import 'package:singbox_client/ui/widgets.dart';
+import 'package:ferry/ui/theme.dart';
+import 'package:ferry/ui/widgets.dart';
 
 Widget host(Widget child) => MaterialApp(
       theme: buildAppTheme(Brightness.dark),

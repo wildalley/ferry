@@ -11,8 +11,8 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/port_allocator.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/port_allocator.dart';
 
 /// Binds [port] on loopback, or skips the test when the machine running the
 /// suite already has it taken — which is the very situation under test, and not

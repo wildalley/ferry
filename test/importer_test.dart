@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/data/config_builder.dart';
-import 'package:singbox_client/data/importer.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/subscription.dart';
+import 'package:ferry/data/config_builder.dart';
+import 'package:ferry/data/importer.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/subscription.dart';
 
 void main() {
   late Importer importer;

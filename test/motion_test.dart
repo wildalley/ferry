@@ -10,11 +10,11 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/node_sort.dart';
-import 'package:singbox_client/models/proxy_state.dart' show formatBytes;
-import 'package:singbox_client/ui/theme.dart';
-import 'package:singbox_client/ui/widgets.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/node_sort.dart';
+import 'package:ferry/models/proxy_state.dart' show formatBytes;
+import 'package:ferry/ui/theme.dart';
+import 'package:ferry/ui/widgets.dart';
 
 import 'widget_test.dart' show buildState, node;
 

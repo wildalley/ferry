@@ -9,7 +9,7 @@ import 'dart:typed_data' show ByteData;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/ui/theme.dart';
+import 'package:ferry/ui/theme.dart';
 
 const _res = 'android/app/src/main/res';
 

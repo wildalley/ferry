@@ -5,8 +5,8 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/platform/clash_api.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/platform/clash_api.dart';
 
 Map<String, Object?> _conn({
   String id = 'c1',

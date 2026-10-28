@@ -1,4 +1,4 @@
-/// SingBox Client entry point.
+/// 渡 Ferry entry point.
 library;
 
 import 'dart:async';
@@ -10,6 +10,7 @@ import 'app.dart';
 import 'data/rule_sets.dart';
 import 'data/storage.dart';
 import 'platform/desktop_shell.dart';
+import 'platform/legacy_migration.dart';
 import 'platform/single_instance.dart';
 import 'platform/proxy_controller.dart';
 import 'state/app_state.dart';
@@ -41,6 +42,12 @@ Future<void> main(List<String> args) async {
     // Nothing has been initialised yet, so there is nothing to unwind.
     exit(0);
   }
+
+  // Before storage opens: the rename moved where preferences and rule-sets
+  // live, and this copies an existing install's across so the first launch
+  // after it is not an empty app. After the instance claim, so only one
+  // process ever does it.
+  await migrateLegacyDesktopData();
 
   // Before runApp, and before the user can reach the close button: the window
   // has to be told not to quit on its own first. No-op off the desktop.

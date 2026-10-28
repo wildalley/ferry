@@ -6,7 +6,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/log_buffer.dart';
+import 'package:ferry/models/log_buffer.dart';
 
 void main() {
   test('reads back in insertion order below capacity', () {

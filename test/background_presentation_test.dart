@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/platform/desktop_shell.dart';
-import 'package:singbox_client/ui/home_page.dart';
-import 'package:singbox_client/ui/logs_page.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/platform/desktop_shell.dart';
+import 'package:ferry/ui/home_page.dart';
+import 'package:ferry/ui/logs_page.dart';
 
 import 'widget_test.dart' show buildState, node;
 

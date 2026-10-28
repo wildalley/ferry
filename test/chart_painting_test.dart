@@ -11,7 +11,7 @@ library;
 import 'dart:ui';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/ui/chart_painting.dart';
+import 'package:ferry/ui/chart_painting.dart';
 
 /// Samples the path's vertical extent by walking its metrics.
 ({double minY, double maxY}) extent(Path path) {

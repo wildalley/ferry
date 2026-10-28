@@ -13,12 +13,12 @@ import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/rendering.dart' show RenderObject, RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:singbox_client/data/latency_tester.dart';
-import 'package:singbox_client/data/storage.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/node.dart';
-import 'package:singbox_client/models/subscription.dart';
-import 'package:singbox_client/state/app_state.dart';
+import 'package:ferry/data/latency_tester.dart';
+import 'package:ferry/data/storage.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/node.dart';
+import 'package:ferry/models/subscription.dart';
+import 'package:ferry/state/app_state.dart';
 
 import 'widget_test.dart' show FakeProxyController, node;
 

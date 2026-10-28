@@ -7,7 +7,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/custom_rule.dart';
+import 'package:ferry/models/custom_rule.dart';
 
 /// A rule with the fields a test is not varying already filled in.
 CustomRule rule({

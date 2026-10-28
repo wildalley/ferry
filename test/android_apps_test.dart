@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/platform/android_apps.dart';
+import 'package:ferry/platform/android_apps.dart';
 
 void main() {
   test('normalizes, deduplicates, and sorts host app records', () {

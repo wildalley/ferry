@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/platform/config_facts.dart';
+import 'package:ferry/platform/config_facts.dart';
 
 void main() {
   Map<String, dynamic> config({

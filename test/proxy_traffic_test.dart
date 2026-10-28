@@ -8,7 +8,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/proxy_state.dart';
+import 'package:ferry/models/proxy_state.dart';
 
 void main() {
   group('connections', () {

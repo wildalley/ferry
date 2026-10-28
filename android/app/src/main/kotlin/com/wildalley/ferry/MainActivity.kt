@@ -1,4 +1,4 @@
-package com.wildalley.singbox_client
+package com.wildalley.ferry
 
 import android.app.Activity
 import android.content.Intent

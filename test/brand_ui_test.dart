@@ -1,10 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/main.dart';
-import 'package:singbox_client/models/app_settings.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/ui/widgets.dart';
+import 'package:ferry/main.dart';
+import 'package:ferry/models/app_settings.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/ui/widgets.dart';
 
 import 'widget_test.dart' show buildState, node;
 

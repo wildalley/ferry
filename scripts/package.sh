@@ -28,10 +28,10 @@ for t in $targets; do
 done
 wants() { case " $targets " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
-APP_NAME="Kinetix"
-BINARY=singbox_client
-APP_ID=com.wildalley.singbox_client
-PKG=singbox-client
+APP_NAME="渡"
+BINARY=ferry
+APP_ID=com.wildalley.ferry
+PKG=ferry
 URL=https://github.com/wildalley/singbox-client
 
 # pubspec carries "0.1.0+1": the left half is the release, the right the build.
@@ -71,10 +71,15 @@ if wants deb || wants arch; then
     exit 1
   }
 
-  # The launcher SVG wraps the full-resolution master; Android's legacy PNGs
-  # stop at 192px. Both use the same artwork.
+  # The 渡 mark at each hicolor size, rendered from code by
+  # test/render_icons_test.dart. The old SVG path stays as a fallback for a
+  # checkout that predates those files.
   mkdir -p "$icons"
-  if command -v rsvg-convert >/dev/null; then
+  if [ -f docs/design/icon/linux/512.png ]; then
+    for size in 64 128 256 512; do
+      cp "docs/design/icon/linux/$size.png" "$icons/$size.png"
+    done
+  elif command -v rsvg-convert >/dev/null; then
     for size in 64 128 256 512; do
       rsvg-convert -w $size -h $size \
         -o "$icons/$size.png" docs/design/icon/ic_launcher.svg
@@ -102,6 +107,8 @@ stage_tree() {
 [Desktop Entry]
 Type=Application
 Name=$APP_NAME
+Name[zh_CN]=$APP_NAME
+GenericName=Ferry
 Comment=sing-box client
 Exec=$PKG
 Icon=$APP_ID
@@ -171,6 +178,9 @@ Priority: optional
 Architecture: amd64
 Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libayatana-appindicator3-1, libdbusmenu-glib4
 Recommends: sing-box (>= 1.12)
+Replaces: singbox-client
+Conflicts: singbox-client
+Provides: singbox-client
 Installed-Size: $installed_size
 Maintainer: WildAlley <noreply@wildalley.invalid>
 Description: sing-box client
@@ -266,6 +276,11 @@ url='$URL'
 license=('GPL-3.0-or-later')
 depends=('gtk3' 'gcc-libs' 'glibc' 'zlib' 'libayatana-appindicator'
          'libdbusmenu-glib' 'sing-box>=1.12')
+# The package was called singbox-client before the rename; pacman swaps it
+# out on upgrade instead of installing the two side by side.
+replaces=('singbox-client')
+conflicts=('singbox-client')
+provides=('singbox-client')
 # !strip: the Flutter engine and libapp.so ship as they were built.
 options=('!strip' '!debug')
 

@@ -8,7 +8,7 @@
 /// window.
 ///
 /// Every test here points the guard at its own temp directory. The default is the
-/// real `~/.local/share/singbox-client`, which holds the rendered config and its
+/// real `~/.local/share/ferry`, which holds the rendered config and its
 /// node credentials — a test suite has no business binding, planting or deleting
 /// files in there, and two test files doing it at once is also how they end up
 /// failing only when run together.
@@ -17,7 +17,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/platform/single_instance.dart';
+import 'package:ferry/platform/single_instance.dart';
 
 void main() {
   late Directory dir;

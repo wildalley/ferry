@@ -15,8 +15,8 @@ library;
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/models/proxy_state.dart';
-import 'package:singbox_client/platform/desktop_runtime.dart';
+import 'package:ferry/models/proxy_state.dart';
+import 'package:ferry/platform/desktop_runtime.dart';
 
 /// The base class with nothing added: what a subclass inherits, alone.
 class _Runtime extends DesktopRuntime {}

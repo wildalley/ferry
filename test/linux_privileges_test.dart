@@ -10,7 +10,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:singbox_client/platform/linux_privileges.dart';
+import 'package:ferry/platform/linux_privileges.dart';
 
 /// Records what was run, and answers however the test needs it to.
 class _Runner {
@@ -133,7 +133,7 @@ void main() {
       for (final path in [
         '/usr/bin/sing-box',
         '/usr/local/bin/sing-box',
-        '/usr/lib/singbox-client/sing-box',
+        '/usr/lib/ferry/sing-box',
         '/opt/sing-box/sing-box',
       ]) {
         expect(subject.mayElevate(path), isTrue, reason: path);
