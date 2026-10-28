@@ -13,13 +13,13 @@ import 'package:flutter/material.dart';
 
 import '../data/config_builder.dart';
 import '../l10n/app_localizations.dart';
-import '../models/node.dart';
 import '../models/proxy_state.dart';
 import '../state/app_state.dart';
 import 'clock.dart';
-import 'brand.dart';
 import 'components.dart';
 import 'notice_text.dart';
+import 'tide_gauge.dart';
+import 'update_prompt.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -97,6 +97,7 @@ class _HomePageState extends State<HomePage> {
             : Icon(Icons.speed_outlined, color: palette.muted),
       ),
       children: [
+        UpdateBanner(state: state),
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
@@ -129,18 +130,16 @@ class _HomePageState extends State<HomePage> {
 
 // --------------------------------------------------------------- shared bits
 
-/// Accent for the current stage: mint healthy, danger failed, violetSoft
-/// otherwise.
+/// Accent for the current stage: mint healthy, danger failed, muted otherwise.
 ///
-/// Every caller draws this as a foreground or a decoration — the dial's icon and
-/// label, the hero icon, the [StatusPill] dot and text — so the idle stage takes
-/// `violetSoft`, not `violet`. `violet` is a fill: it sits at ~2.4:1 on surface,
-/// which left "Disconnected" reading as violet on violet. The one real violet
-/// fill, the connect button, sets its own colour and does not come through here.
+/// Every caller draws this as a foreground — the [StatusPill] dot and text, the
+/// hero's edge — so it has to be a text colour. Idle is muted rather than the
+/// brand colour: the river's colour means "up", and a disconnected tunnel
+/// printed in it read as connected at a glance.
 Color _stageAccent(AppPalette palette, ProxyStage stage) => switch (stage) {
       ProxyStage.connected => palette.mint,
       ProxyStage.error => palette.danger,
-      _ => palette.violetSoft,
+      _ => palette.muted,
     };
 
 String _stageLabel(L10n l10n, ProxyStage stage) => switch (stage) {
@@ -205,11 +204,6 @@ String _exitName(L10n l10n, AppState state) => state.isAutoSelected
     ? l10n.nodesAuto
     : state.selectedNode?.name ?? l10n.homeNoNodeSelected;
 
-/// Nodes that answered a probe. A negative latency is a recorded failure, so it
-/// counts as tested but not as available.
-int _availableNodes(List<ProxyNode> nodes) =>
-    nodes.where((node) => (node.latencyMs ?? -1) >= 0).length;
-
 /// The primary action, shared by both layouts so the label and disabled rules
 /// can only be defined once.
 class _ConnectButton extends StatelessWidget {
@@ -224,44 +218,135 @@ class _ConnectButton extends StatelessWidget {
     final palette = context.palette;
     final connected = state.isConnected;
     final empty = state.nodes.isEmpty;
+    final busy = state.isBusy;
 
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: state.isBusy
-            ? null
-            : (empty ? onOpenNodes : state.toggleConnection),
-        icon: Icon(
-          switch (true) {
-            _ when empty => Icons.add_rounded,
-            _ when connected => Icons.stop_rounded,
-            _ => Icons.power_settings_new_rounded,
-          },
-          size: 18,
-        ),
-        label: Text(
-          switch (true) {
-            _ when empty => l10n.homeAddNodes,
-            _ when connected => l10n.actionDisconnect,
-            _ => l10n.actionConnect,
-          },
-        ),
-        style: FilledButton.styleFrom(
-          // Disconnect is the quieter action, so it drops the brand fill — but
-          // it keeps a tinted face and a matching border. A bare surface3 bar
-          // read as a disabled control rather than the way out of the tunnel.
-          backgroundColor:
-              connected ? tintFill(palette.danger) : palette.violet,
-          // A raised shadow shows through this translucent face on Linux,
-          // turning the light-theme hover state grey. Keep it flat; the ink
-          // overlay and border still provide hover/focus feedback.
-          elevation: connected ? 0 : null,
-          shadowColor: connected ? Colors.transparent : null,
-          foregroundColor: connected ? palette.danger : Colors.white,
-          side: connected
-              ? BorderSide(color: palette.danger.withValues(alpha: .38))
-              : null,
-          padding: const EdgeInsets.symmetric(vertical: 15),
+    // A switch, not a button: the paper plane sits on the left, on a violet
+    // knob, while the tunnel is down, and rides to the right once it is up —
+    // where the whole track turns violet and the knob goes white.
+    final trackOn = palette.violet;
+    const onText = Colors.white;
+
+    final knob = Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: connected ? onText : palette.violet,
+        boxShadow: [
+          BoxShadow(
+            color: (connected ? Colors.black : palette.violet)
+                .withValues(alpha: connected ? .12 : .28),
+            blurRadius: connected ? 6 : 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: busy
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: connected ? trackOn : Colors.white,
+              ),
+            )
+          : empty
+              ? const Icon(Icons.add_rounded, size: 22, color: Colors.white)
+              : Transform.rotate(
+                  angle: -math.pi / 7,
+                  child: Icon(
+                    Icons.send_rounded,
+                    size: 20,
+                    color: connected ? trackOn : Colors.white,
+                  ),
+                ),
+    );
+
+    final label = Text(
+      switch (true) {
+        _ when empty => l10n.homeAddNodes,
+        _ when connected => l10n.actionDisconnect,
+        _ => l10n.actionConnect,
+      },
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+    );
+    // Nothing under the label when there is nothing to connect to: the hero
+    // above already says the list is empty.
+    final hint = empty
+        ? null
+        : Text(
+            connected
+                ? l10n.homeSwitchOnHint
+                : l10n.homeSwitchOffHint(_exitName(l10n, state)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w400,
+              color: connected ? onText.withValues(alpha: .86) : palette.muted,
+            ),
+          );
+    final texts = Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          label,
+          if (hint != null) ...[const SizedBox(height: 1), hint],
+        ],
+      ),
+    );
+
+    return Semantics(
+      toggled: connected,
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed:
+              busy ? null : (empty ? onOpenNodes : state.toggleConnection),
+          style: FilledButton.styleFrom(
+            backgroundColor: connected ? trackOn : palette.surface3,
+            disabledBackgroundColor: connected ? trackOn : palette.surface3,
+            foregroundColor: connected ? onText : palette.text,
+            disabledForegroundColor: connected ? onText : palette.text,
+            // Flat in both states. A raised shadow shows through a tinted face
+            // on Linux and turns the light-theme hover grey; the ink overlay
+            // still gives hover and focus feedback.
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            side: connected ? null : BorderSide(color: palette.border),
+            minimumSize: const Size(0, 60),
+            // Desktop's adaptive density is compact, which takes 8px off the
+            // height but not the sides — the knob then sat 2px from the top
+            // and 6px from the left, reading as off-centre. Standard density
+            // keeps the 6px ring even on every platform.
+            visualDensity: VisualDensity.standard,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: connected
+                ? const EdgeInsets.fromLTRB(22, 6, 6, 6)
+                : const EdgeInsets.fromLTRB(6, 6, 18, 6),
+            shape: const StadiumBorder(),
+            textStyle: const TextStyle(
+              fontFamily: AppFonts.body,
+              fontFamilyFallback: AppFonts.cjkFallback,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: Row(
+            children: connected
+                ? [texts, const SizedBox(width: Gap.md), knob]
+                : [
+                    knob,
+                    const SizedBox(width: Gap.md),
+                    texts,
+                    Icon(Icons.arrow_forward_rounded,
+                        size: 18, color: palette.faint),
+                  ],
+          ),
         ),
       ),
     );

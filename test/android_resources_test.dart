@@ -31,16 +31,17 @@ double _ratio(Color fg, Color bg) {
 
 void main() {
   group('launcher icon', () {
-    test('uses the shared ribbon artwork on the app background', () {
+    test('puts the paper plane on a brand-violet plate', () {
       final palette = AppPalette.dark;
       final background = _colors(_xml('drawable/ic_launcher_background.xml'));
       final foreground = _xml('drawable/ic_launcher_foreground.xml');
 
-      expect(background.first.toARGB32(), palette.bg.toARGB32(),
-          reason: 'the plate is the app background');
-      // The glow's two stops are the same violet at 22% and 0%.
+      expect(background.first.toARGB32(), palette.violet.toARGB32(),
+          reason: 'the plate is the brand fill the in-app mark uses');
+      // The highlight's two stops are the same violetSoft at two alphas.
       for (final stop in background.skip(1)) {
-        expect(stop.withValues(alpha: 1).toARGB32(), palette.violet.toARGB32());
+        expect(stop.withValues(alpha: 1).toARGB32(),
+            palette.violetSoft.toARGB32());
       }
       expect(foreground, contains('@drawable/ic_launcher_art'));
       expect(foreground, contains('android:inset="12dp"'));

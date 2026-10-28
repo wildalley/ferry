@@ -9,13 +9,13 @@ class L10nZh extends L10n {
   L10nZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => 'Kinetix 客户端';
+  String get appTitle => '渡';
 
   @override
-  String get appShortName => 'Kinetix';
+  String get appShortName => '渡';
 
   @override
-  String get appTagline => '动能星轨 · 穿透边界';
+  String get appTagline => '一苇以渡 · 往来无阻';
 
   @override
   String get actionCancel => '取消';
@@ -907,4 +907,116 @@ class L10nZh extends L10n {
 
   @override
   String get logsNewestLast => '最新在下';
+
+  @override
+  String homeTideLevel(String rate) {
+    return '潮位 $rate';
+  }
+
+  @override
+  String get homeSwitchOnHint => '已连接 · 轻触断开';
+
+  @override
+  String homeSwitchOffHint(String name) {
+    return '经 $name 出发';
+  }
+
+  @override
+  String get rulesTargetGroup => '策略组';
+
+  @override
+  String get rulesGroups => '策略组';
+
+  @override
+  String get rulesGroupsAdd => '新建策略组';
+
+  @override
+  String get rulesGroupsEmpty => '还没有策略组';
+
+  @override
+  String get rulesGroupsEmptyBody =>
+      '建一个策略组并给它选节点，再让规则指向它：这些网站走这个节点，其余流量照旧走主节点。';
+
+  @override
+  String get rulesGroupName => '策略组名称';
+
+  @override
+  String get rulesGroupNameHint => '例如 AI、流媒体';
+
+  @override
+  String get rulesGroupRename => '重命名';
+
+  @override
+  String get rulesGroupDelete => '删除策略组';
+
+  @override
+  String rulesGroupDeleteBody(String name) {
+    return '使用“$name”的规则将改走主节点。';
+  }
+
+  @override
+  String rulesGroupRuleCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 条规则',
+      zero: '暂无规则',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String rulesGroupSendVia(String name) {
+    return '“$name”走';
+  }
+
+  @override
+  String get rulesGroupNodeGone => '节点已移除 · 改用自动';
+
+  @override
+  String get rulesSendToGroup => '或交给策略组';
+
+  @override
+  String get rulesGroupsNote => '每个策略组独立切换，即时生效，不影响主节点。';
+
+  @override
+  String noticeUpdateAvailable(String version) {
+    return '发现新版本 $version';
+  }
+
+  @override
+  String get noticeUpToDate => '已是最新版本';
+
+  @override
+  String get noticeUpdateCheckFailed => '检查更新失败，请稍后再试';
+
+  @override
+  String get noticeLinkCopied => '链接已复制';
+
+  @override
+  String get settingsCheckUpdate => '检查更新';
+
+  @override
+  String settingsUpdateCurrent(String version) {
+    return '当前版本 $version';
+  }
+
+  @override
+  String settingsUpdateNew(String version) {
+    return '新版本 $version 可用 · 点击打开发布页';
+  }
+
+  @override
+  String updateBannerTitle(String version) {
+    return '发现新版本 $version';
+  }
+
+  @override
+  String get updateBannerBody => '可选更新，随时到发布页下载即可。';
+
+  @override
+  String get actionView => '查看';
+
+  @override
+  String get actionLater => '稍后';
 }

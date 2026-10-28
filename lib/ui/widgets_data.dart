@@ -391,3 +391,59 @@ class PageBody extends StatelessWidget {
         builder: (context, _) => builder(context),
       );
 }
+
+/// A region's flag, from its two-letter code.
+///
+/// Drawn as the emoji the code spells in regional indicators, which every
+/// platform this app ships on renders as a flag — except Windows, whose emoji
+/// font has no flags and would print two boxed letters. There, and for anything
+/// that is not two ASCII letters, the code itself is shown in [fallbackStyle].
+class RegionFlag extends StatelessWidget {
+  const RegionFlag({
+    super.key,
+    required this.code,
+    required this.fallbackStyle,
+    this.size = 20,
+  });
+
+  final String code;
+  final TextStyle fallbackStyle;
+  final double size;
+
+  static final _letters = RegExp(r'^[A-Za-z]{2}$');
+
+  /// The flag emoji for [code], or null when it cannot spell one.
+  static String? emojiFor(String code) {
+    if (!_letters.hasMatch(code)) return null;
+    // The UK's ISO code is GB; names say UK.
+    final iso = code.toUpperCase() == 'UK' ? 'GB' : code.toUpperCase();
+    return String.fromCharCodes(
+      iso.codeUnits.map((unit) => 0x1F1E6 + unit - 0x41),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final emoji = Theme.of(context).platform == TargetPlatform.windows
+        ? null
+        : emojiFor(code);
+    if (emoji == null) return Text(code, style: fallbackStyle);
+    return Semantics(
+      label: code,
+      child: ExcludeSemantics(
+        child: Text(
+          emoji,
+          style: TextStyle(
+            fontSize: size,
+            height: 1,
+            fontFamilyFallback: const [
+              'Noto Color Emoji',
+              'Apple Color Emoji',
+              'Segoe UI Emoji',
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

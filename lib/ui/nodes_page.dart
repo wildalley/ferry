@@ -351,15 +351,15 @@ class _ChoiceChipCell extends StatelessWidget {
         selected: selected,
         onSelected: (_) => onSelected(),
         backgroundColor: palette.surface,
-        selectedColor: palette.violet.withValues(alpha: .22),
+        selectedColor: palette.text,
         side: BorderSide(
-          color:
-              selected ? palette.violet.withValues(alpha: .55) : palette.border,
+          color: selected ? palette.text : palette.border,
         ),
+        shape: const StadiumBorder(),
         labelStyle: TextStyle(
-          color: selected ? palette.violetSoft : palette.muted,
+          color: selected ? palette.bg : palette.muted,
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
         ),
         showCheckmark: false,
       ),
@@ -400,11 +400,9 @@ class _SubscriptionSection extends StatelessWidget {
             height: 32,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: palette.violetSoft.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(AppRadius.xs),
-              border: Border.all(
-                color: palette.violetSoft.withValues(alpha: .24),
-              ),
+              color: palette.surface2,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: palette.border),
             ),
             child: Icon(
               switch (subscription.kind) {
@@ -413,7 +411,7 @@ class _SubscriptionSection extends StatelessWidget {
                 SubscriptionKind.manual => Icons.link,
               },
               size: 16,
-              color: palette.violetSoft,
+              color: palette.muted,
             ),
           ),
           const SizedBox(width: Gap.md),
@@ -588,28 +586,13 @@ class _AutoRow extends StatelessWidget {
               height: 42,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    palette.violetSoft.withValues(alpha: .25),
-                    palette.violet.withValues(alpha: .12),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: selected ? palette.surface3 : palette.surface2,
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(
                   color: selected
-                      ? palette.violetSoft.withValues(alpha: .6)
-                      : palette.violetSoft.withValues(alpha: .2),
+                      ? palette.violetSoft.withValues(alpha: .5)
+                      : palette.border,
                 ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: palette.violet.withValues(alpha: .35),
-                          blurRadius: 10,
-                        )
-                      ]
-                    : null,
               ),
               child: Icon(
                 Icons.bolt_rounded,
@@ -735,7 +718,7 @@ class _NodeRow extends StatelessWidget {
         selected: selected,
         child: Row(
           children: [
-            // The region code replaces the generic server icon when the name
+            // The region's flag replaces the generic server icon when the name
             // gives one away; nodes whose region we cannot read keep the icon
             // rather than showing a guess.
             AnimatedContainer(
@@ -744,19 +727,22 @@ class _NodeRow extends StatelessWidget {
               width: 38,
               height: 38,
               alignment: Alignment.center,
+              // Neutral: latency already has a colour on the right of the row,
+              // and a tile tinted the same way said it twice, louder.
               decoration: BoxDecoration(
-                color: tintFill(color),
+                color: selected ? palette.surface3 : palette.surface2,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(color: color.withValues(alpha: .28)),
+                border: Border.all(color: palette.border),
               ),
               child: region == null
-                  ? Icon(Icons.dns_outlined, color: color, size: 18)
-                  : Text(
-                      region,
-                      style: monoStyle(
-                        size: 13,
-                        color: color,
-                        weight: FontWeight.w700,
+                  ? Icon(Icons.dns_outlined, color: palette.muted, size: 18)
+                  : RegionFlag(
+                      code: region,
+                      size: 20,
+                      fallbackStyle: monoStyle(
+                        size: 12,
+                        color: selected ? palette.text : palette.muted,
+                        weight: FontWeight.w500,
                       ),
                     ),
             ),
@@ -797,18 +783,7 @@ class _NodeRow extends StatelessWidget {
               width: 6,
               height: 6,
               margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: node.latencyMs != null && node.latencyMs! >= 0
-                    ? [
-                        BoxShadow(
-                          color: color.withValues(alpha: .6),
-                          blurRadius: 4,
-                        )
-                      ]
-                    : null,
-              ),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
             // A sweep turns every reading at once. Fading the colour instead of
             // cutting it keeps a screen of rows from flickering as a block.
@@ -905,21 +880,13 @@ class _NodeGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final dark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: palette.surface.withValues(alpha: dark ? .88 : .95),
+        color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(
           color: accent?.withValues(alpha: .40) ?? palette.border,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: palette.border.withValues(alpha: dark ? .04 : .08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       // Clipped so a selected row's fill and edge bar stop at the corners.
       clipBehavior: Clip.antiAlias,
@@ -959,36 +926,30 @@ class _RowSurface extends StatelessWidget {
     return Material(
       color: selected
           ? Color.alphaBlend(
-              palette.violet.withValues(alpha: .12),
+              palette.violet.withValues(alpha: .08),
               palette.surface,
             )
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        hoverColor: palette.violet.withValues(alpha: .045),
-        highlightColor: palette.violet.withValues(alpha: .08),
+        hoverColor: palette.text.withValues(alpha: .03),
+        highlightColor: palette.violet.withValues(alpha: .06),
         child: Stack(
           children: [
-            Padding(padding: const EdgeInsets.all(14), child: child),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+              child: child,
+            ),
+            // The chosen node's edge, in the river's colour.
             Positioned(
               left: 0,
               top: 0,
               bottom: 0,
-              child: AnimatedContainer(
+              child: AnimatedOpacity(
+                opacity: selected ? 1 : 0,
                 duration: motionOf(context, Motion.fast),
                 curve: Motion.curve,
-                width: 3.5,
-                decoration: BoxDecoration(
-                  color: selected ? palette.violetSoft : Colors.transparent,
-                  boxShadow: selected
-                      ? [
-                          BoxShadow(
-                            color: palette.violetSoft.withValues(alpha: .8),
-                            blurRadius: 6,
-                          )
-                        ]
-                      : null,
-                ),
+                child: const AccentBar(width: 3),
               ),
             ),
           ],
@@ -1232,28 +1193,18 @@ class _ProtocolTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    final accent = switch (label.toUpperCase()) {
-      'VMESS' => palette.sky,
-      'VLESS' => palette.violetSoft,
-      'SS' || 'SHADOWSOCKS' || 'SHADOWTLS' => palette.mint,
-      'TROJAN' => palette.amber,
-      'HYSTERIA2' || 'HY2' || 'TUIC' => palette.danger,
-      _ => palette.muted,
-    };
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: .12),
         borderRadius: BorderRadius.circular(AppRadius.xs),
-        border: Border.all(color: accent.withValues(alpha: .30)),
+        border: Border.all(color: palette.borderStrong),
       ),
       child: Text(
         label.toUpperCase(),
         style: monoStyle(
           size: 9,
-          color: accent,
-          weight: FontWeight.w700,
+          color: palette.muted,
+          weight: FontWeight.w500,
         ),
       ),
     );

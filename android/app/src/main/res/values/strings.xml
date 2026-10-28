@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SingBox Client</string>
+    <string name="app_name">渡</string>
     <string name="notification_channel_name">Tunnel status</string>
     <string name="notification_channel_description">Shows whether the proxy tunnel is running.</string>
     <string name="notification_connecting">Connecting…</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Reuse the generated ribbon artwork. Inset the plate so the central mark
-     clears the 66dp safe circle of the 108dp adaptive canvas. -->
+<!-- The 渡 seal over two waves, rendered by test/render_icons_test.dart.
+     Inset so the mark clears the 66dp safe circle of the 108dp canvas. -->
 <inset xmlns:android="http://schemas.android.com/apk/res/android"
     android:inset="12dp">
     <bitmap android:src="@drawable/ic_launcher_art"

@@ -1,9 +1,9 @@
 part of 'home_page.dart';
 
-// ============================================================================
-// Desktop View: High-productivity Command Center
-// ============================================================================
+// ------------------------------------------------------------------ layouts
 
+/// Tablet and desktop: the hero across the top, totals in a row, then traffic
+/// beside the routing split.
 class _DesktopHomeDashboard extends StatelessWidget {
   const _DesktopHomeDashboard({
     required this.state,
@@ -25,14 +25,23 @@ class _DesktopHomeDashboard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _DesktopCommandHorizon(
-          state: state,
-          onOpenNodes: onOpenNodes,
-        ),
+        _HeroPanel(state: state, onOpenNodes: onOpenNodes, wide: true),
         const SizedBox(height: Gap.lg),
         _StatTiles(state: state, columns: wide ? 4 : 2),
         const SizedBox(height: Gap.lg),
-        _TrafficPanel(state: state, height: wide ? 168 : 120),
+        if (wide)
+          PixelRow(
+            flex: const [5, 3],
+            children: [
+              _TrafficPanel(state: state, height: 168),
+              _RoutingPanel(state: state, stretch: true),
+            ],
+          )
+        else ...[
+          _TrafficPanel(state: state, height: 120),
+          const SizedBox(height: Gap.lg),
+          _RoutingPanel(state: state, stretch: false),
+        ],
         if (showConnections) ...[
           const SizedBox(height: Gap.lg),
           _ConnectionsPanel(state: state, compact: !wide),
@@ -42,308 +51,12 @@ class _DesktopHomeDashboard extends StatelessWidget {
   }
 }
 
-/// Unified, futuristic widescreen Command Horizon for desktop screens.
-class _DesktopCommandHorizon extends StatelessWidget {
-  const _DesktopCommandHorizon({
-    required this.state,
-    required this.onOpenNodes,
-  });
-
-  final AppState state;
-  final VoidCallback onOpenNodes;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    final palette = context.palette;
-    final proxy = state.proxyState;
-    final connected = proxy.isConnected;
-    final failed = proxy.stage == ProxyStage.error;
-    final accent = _stageAccent(palette, proxy.stage);
-    final node = state.selectedNode;
-    final list = state.traffic.connectionList;
-    final listed = list.isNotEmpty || state.traffic.connections == 0;
-
-    (int, int) tally(ConnectionRoute route) {
-      var count = 0, bytes = 0;
-      for (final c in list) {
-        if (c.route != route) continue;
-        count++;
-        bytes += c.bytes;
-      }
-      return (count, bytes);
-    }
-
-    final nodeFacts = node == null || state.isAutoSelected
-        ? null
-        : Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: palette.surface3,
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
-                  border: Border.all(color: palette.border),
-                ),
-                child: Text(
-                  node.protocol.label,
-                  style: monoStyle(size: 11, color: palette.faint),
-                ),
-              ),
-              const SizedBox(width: Gap.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: latencyColor(palette, node.latencyMs)
-                      .withValues(alpha: .14),
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
-                  border: Border.all(
-                    color: latencyColor(palette, node.latencyMs)
-                        .withValues(alpha: .35),
-                  ),
-                ),
-                child: Text(
-                  _latencyText(l10n, node.latencyMs),
-                  style: monoStyle(
-                    size: 11,
-                    weight: FontWeight.w600,
-                    color: latencyColor(palette, node.latencyMs),
-                  ),
-                ),
-              ),
-            ],
-          );
-
-    return Panel(
-      padding: EdgeInsets.zero,
-      accent: connected || failed ? accent : null,
-      glowing: connected || failed,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Stack(
-          children: [
-            // Background flowing artwork
-            Positioned.fill(
-              child: SignalArtwork(
-                opacity: .85,
-                animate: connected,
-                downlink: state.downlinkHistory,
-                uplink: state.uplinkHistory,
-              ),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      palette.surface.withValues(alpha: .85),
-                      palette.surface.withValues(alpha: .60),
-                      palette.surface.withValues(alpha: .15),
-                    ],
-                    stops: const [0, .5, 1],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Bar: Stage Pill, Title, Node badges, Uptime capsule
-                  Row(
-                    children: [
-                      StatusPill(
-                        label: _stageLabel(l10n, proxy.stage),
-                        color: accent,
-                        compact: true,
-                      ),
-                      const SizedBox(width: Gap.md),
-                      Expanded(
-                        child: Text(
-                          _exitName(l10n, state),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.titleLarge?.copyWith(
-                                    letterSpacing: -0.2,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ),
-                      if (nodeFacts != null) ...[
-                        nodeFacts,
-                        const SizedBox(width: Gap.md),
-                      ],
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: palette.surface2,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: palette.border),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.timer_outlined,
-                                size: 13, color: palette.faint),
-                            const SizedBox(width: Gap.xs),
-                            Text(
-                              connected && proxy.since != null
-                                  ? formatUptime(
-                                      clockNow().difference(proxy.since!))
-                                  : '—',
-                              style: monoStyle(
-                                size: 11,
-                                weight: FontWeight.w600,
-                                color: palette.muted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (state.nodes.isNotEmpty) ...[
-                        const SizedBox(width: Gap.xs),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: palette.surface2,
-                            borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(color: palette.border),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.dns_rounded,
-                                  size: 13, color: palette.faint),
-                              const SizedBox(width: Gap.xs),
-                              Text(
-                                l10n.homeAvailableOf(
-                                  _availableNodes(state.nodes),
-                                  state.nodes.length,
-                                ),
-                                style: monoStyle(
-                                  size: 11,
-                                  weight: FontWeight.w600,
-                                  color: palette.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _stageDetail(l10n, state),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: Gap.xl),
-
-                  // Middle Horizon: Twin Speed Cockpits + Split Allocation + Primary Action
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // Download Speed Pod
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                            minWidth: 100, maxWidth: 155),
-                        child: _RateReadout(
-                          key: const Key('home-download-rate'),
-                          label: l10n.homeDownload,
-                          icon: Icons.arrow_downward_rounded,
-                          color: palette.sky,
-                          rate: state.traffic.downlink,
-                          connected: connected,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(width: Gap.md),
-                      // Upload Speed Pod
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(
-                            minWidth: 100, maxWidth: 155),
-                        child: _RateReadout(
-                          label: l10n.homeUpload,
-                          icon: Icons.arrow_upward_rounded,
-                          color: palette.mint,
-                          rate: state.traffic.uplink,
-                          connected: connected,
-                          size: 32,
-                        ),
-                      ),
-                      const Spacer(),
-                      // Exit IP & Route Split Bar
-                      SizedBox(
-                        width: 200,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _ExitAddressRow(state: state),
-                            const SizedBox(height: Gap.sm),
-                            _TrafficSplitBar(
-                              proxy:
-                                  listed ? tally(ConnectionRoute.proxy).$1 : 0,
-                              direct:
-                                  listed ? tally(ConnectionRoute.direct).$1 : 0,
-                              reject:
-                                  listed ? tally(ConnectionRoute.reject).$1 : 0,
-                              total: list.length,
-                              proxyColor: palette.violetSoft,
-                              directColor: palette.mint,
-                              rejectColor: palette.danger,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: Gap.md),
-                      // Action triggers
-                      SizedBox(
-                        width: 130,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _ConnectButton(
-                                state: state, onOpenNodes: onOpenNodes),
-                            const SizedBox(height: Gap.xs),
-                            OutlinedButton(
-                              onPressed: onOpenNodes,
-                              style: OutlinedButton.styleFrom(
-                                minimumSize: const Size(double.infinity, 36),
-                                padding: EdgeInsets.zero,
-                              ),
-                              child: Text(
-                                state.nodes.isEmpty
-                                    ? l10n.homeAddNodes
-                                    : l10n.homeChangeNode,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// Mobile View: Dedicated Thumb-Friendly Ergonomic Experience
-// ============================================================================
-
+/// Phone: everything the tunnel needs in the hero, within a thumb's reach of
+/// the connect button, and the readings below it in one compact grid.
+///
+/// Each fact appears once. The old phone page named the exit twice and printed
+/// both rates twice — in a dial, a pair of readouts and again in the tiles —
+/// which pushed the totals and the chart below the fold for no new information.
 class _MobileHomeDashboard extends StatelessWidget {
   const _MobileHomeDashboard({
     required this.state,
@@ -355,71 +68,23 @@ class _MobileHomeDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    final palette = context.palette;
     final connected = state.isConnected;
     final list = state.traffic.connectionList;
-    final showConnections = connected &&
-        (list.isNotEmpty || state.traffic.connections == 0);
+    final showConnections =
+        connected && (list.isNotEmpty || state.traffic.connections == 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Central Holographic Connection Dial
-        _MobileConnectionDial(state: state, onOpenNodes: onOpenNodes),
-        const SizedBox(height: Gap.lg),
-
-        // 2. Twin Speed Readouts (Download & Upload with bandwidth meters)
-        Row(
-          children: [
-            Expanded(
-              child: _RateReadout(
-                key: const Key('home-download-rate'),
-                label: l10n.homeDownload,
-                icon: Icons.arrow_downward_rounded,
-                color: palette.sky,
-                rate: state.traffic.downlink,
-                connected: connected,
-                size: 26,
-              ),
-            ),
-            const SizedBox(width: Gap.md),
-            Expanded(
-              child: _RateReadout(
-                label: l10n.homeUpload,
-                icon: Icons.arrow_upward_rounded,
-                color: palette.mint,
-                rate: state.traffic.uplink,
-                connected: connected,
-                size: 26,
-              ),
-            ),
-          ],
-        ),
+        _HeroPanel(state: state, onOpenNodes: onOpenNodes, wide: false),
         const SizedBox(height: Gap.md),
-
-        // 3. Quick Node & Exit IP Card
-        _MobileExitCard(state: state, onOpenNodes: onOpenNodes),
+        _StatGrid(state: state),
         const SizedBox(height: Gap.md),
-
-        // 4. Primary Connection Action Button
-        _ConnectButton(state: state, onOpenNodes: onOpenNodes),
-        const SizedBox(height: Gap.xl),
-
-        // 5. System Health & Performance (2x2 Grid)
-        _StatTiles(state: state, columns: 2),
-        const SizedBox(height: Gap.lg),
-
-        // 6. Live Traffic Flow Horizon
-        _TrafficPanel(state: state, height: 110),
-        const SizedBox(height: Gap.lg),
-
-        // 7. Routing Split & Rules Matrix
-        _RoutingPanel(state: state, onOpenNodes: onOpenNodes, stretch: false),
-
-        // 8. Active Connections (when connected)
+        _TrafficPanel(state: state, height: 104),
+        const SizedBox(height: Gap.md),
+        _RoutingPanel(state: state, stretch: false),
         if (showConnections) ...[
-          const SizedBox(height: Gap.lg),
+          const SizedBox(height: Gap.md),
           _ConnectionsPanel(state: state, compact: true),
         ],
       ],
@@ -427,332 +92,293 @@ class _MobileHomeDashboard extends StatelessWidget {
   }
 }
 
-/// Dedicated Mobile Connection Dial: Cyber ring that accelerates with throughput.
-class _MobileConnectionDial extends StatefulWidget {
-  const _MobileConnectionDial({
+// --------------------------------------------------------------------- hero
+
+/// The tunnel: its stage, the exit it goes through, the prism beam, both live
+/// rates, the address the world sees, and the way to turn it on or off.
+class _HeroPanel extends StatelessWidget {
+  const _HeroPanel({
     required this.state,
     required this.onOpenNodes,
+    required this.wide,
   });
 
   final AppState state;
   final VoidCallback onOpenNodes;
 
-  @override
-  State<_MobileConnectionDial> createState() => _MobileConnectionDialState();
-}
-
-class _MobileConnectionDialState extends State<_MobileConnectionDial>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _dialController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 950),
-  );
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _syncAnimation();
-  }
-
-  @override
-  void didUpdateWidget(covariant _MobileConnectionDial oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _syncAnimation();
-  }
-
-  void _syncAnimation() {
-    final canAnimate = widget.state.isConnected &&
-        (widget.state.traffic.downlink > 0 || widget.state.traffic.uplink > 0) &&
-        !MediaQuery.of(context).disableAnimations &&
-        TickerMode.valuesOf(context).enabled;
-    if (!canAnimate) {
-      _dialController.stop();
-      return;
-    }
-    if (!_dialController.isAnimating) _dialController.forward(from: 0);
-  }
-
-  @override
-  void dispose() {
-    _dialController.dispose();
-    super.dispose();
-  }
+  /// Beam beside the text instead of under it.
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final palette = context.palette;
-    final proxy = widget.state.proxyState;
+    final proxy = state.proxyState;
     final connected = proxy.isConnected;
+    final failed = proxy.stage == ProxyStage.error;
     final accent = _stageAccent(palette, proxy.stage);
-    final empty = widget.state.nodes.isEmpty;
-    final rate = widget.state.traffic.downlink + widget.state.traffic.uplink;
-    final speedFactor = (rate <= 0
-            ? 0.0
-            : math.log(1 + rate) / math.log(1 + 32 * 1024 * 1024))
-        .clamp(0.0, 1.0);
 
-    return Center(
-      child: GestureDetector(
-        onTap: widget.state.isBusy
-            ? null
-            : (empty ? widget.onOpenNodes : widget.state.toggleConnection),
-        child: SizedBox(
-          width: 210,
-          height: 210,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Outer dynamic rotating aura ring
-              AnimatedBuilder(
-                animation: _dialController,
-                builder: (context, _) => CustomPaint(
-                  size: const Size(210, 210),
-                  painter: _DialRingPainter(
-                    accent: accent,
-                    connected: connected,
-                    speedFactor: speedFactor,
-                    progress: _dialController.value,
-                    dark: Theme.of(context).brightness == Brightness.dark,
-                  ),
-                ),
-              ),
-              // Inner frosted dial container
-              Container(
-                width: 168,
-                height: 168,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.surface,
-                  border: Border.all(
-                    color: connected
-                        ? accent.withValues(alpha: .38)
-                        : palette.border,
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: connected
-                          ? accent.withValues(alpha: .20)
-                          : Colors.black.withValues(alpha: .06),
-                      blurRadius: 20,
-                      spreadRadius: connected ? 2 : 0,
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      if (widget.state.isBusy)
-                        SizedBox(
-                          width: 30,
-                          height: 30,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: accent,
-                          ),
-                        )
-                      else
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: accent.withValues(alpha: .12),
-                          ),
-                          child: Icon(
-                            switch (true) {
-                              _ when empty => Icons.add_rounded,
-                              _ when connected =>
-                                Icons.power_settings_new_rounded,
-                              _ => Icons.power_settings_new_rounded,
-                            },
-                            size: 26,
-                            color: accent,
-                          ),
-                        ),
-                      const SizedBox(height: Gap.xs),
-                      StatusPill(
-                        label: _stageLabel(l10n, proxy.stage),
-                        color: accent,
-                        compact: true,
-                        bare: true,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _exitName(l10n, widget.state),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+    final status = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        StatusPill(
+          label: _stageLabel(l10n, proxy.stage),
+          color: accent,
+          compact: true,
+          bare: true,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _stageDetail(l10n, state),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+
+    final exit = _ExitName(state: state, onTap: onOpenNodes, large: wide);
+
+    final down = state.downlinkHistory;
+    final up = state.uplinkHistory;
+    final beam = TideGauge(
+      live: connected,
+      reading: state.traffic,
+      downlink: down,
+      uplink: up,
+      height: wide ? 170 : 124,
+      label: l10n.homeTideLevel(
+        connected
+            ? formatRate(
+                (down.isEmpty ? 0 : down.last) + (up.isEmpty ? 0 : up.last))
+            : '—',
+      ),
+    );
+
+    final rates = Row(
+      children: [
+        Expanded(
+          child: _RateReadout(
+            key: const Key('home-download-rate'),
+            label: l10n.homeDownload,
+            icon: Icons.south_rounded,
+            color: palette.sky,
+            rate: state.traffic.downlink,
+            connected: connected,
+            size: wide ? 34 : 26,
           ),
+        ),
+        const SizedBox(width: Gap.lg),
+        Expanded(
+          child: _RateReadout(
+            label: l10n.homeUpload,
+            icon: Icons.north_rounded,
+            color: palette.mint,
+            rate: state.traffic.uplink,
+            connected: connected,
+            size: wide ? 34 : 26,
+          ),
+        ),
+      ],
+    );
+
+    final actions = Row(
+      children: [
+        Expanded(
+          child: _ConnectButton(state: state, onOpenNodes: onOpenNodes),
+        ),
+        if (state.nodes.isNotEmpty) ...[
+          const SizedBox(width: Gap.sm + 2),
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: Tooltip(
+              message: l10n.homeChangeNode,
+              child: FilledButton(
+                onPressed: onOpenNodes,
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: const CircleBorder(),
+                  backgroundColor: palette.surface3,
+                  foregroundColor: palette.text,
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
+                ),
+                child: const Icon(Icons.swap_horiz_rounded, size: 20),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    final Widget body;
+    if (wide) {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(26, 24, 26, 24),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  status,
+                  const SizedBox(height: Gap.lg),
+                  exit,
+                  const SizedBox(height: Gap.xl),
+                  rates,
+                  const SizedBox(height: Gap.xl),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    child: actions,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: Gap.xl),
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  const SizedBox(height: Gap.xl),
+                  beam,
+                  const SizedBox(height: Gap.lg),
+                  _ExitAddressRow(state: state),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      body = Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            status,
+            const SizedBox(height: Gap.md),
+            exit,
+            const SizedBox(height: Gap.sm),
+            beam,
+            const SizedBox(height: Gap.sm),
+            rates,
+            const SizedBox(height: Gap.md),
+            _ExitAddressRow(state: state),
+            const SizedBox(height: Gap.md),
+            actions,
+          ],
+        ),
+      );
+    }
+
+    return Panel(
+      padding: EdgeInsets.zero,
+      accent: connected || failed ? accent : null,
+      glowing: connected || failed,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Stack(
+          children: [
+            body,
+          ],
         ),
       ),
     );
   }
 }
 
-class _DialRingPainter extends CustomPainter {
-  _DialRingPainter({
-    required this.accent,
-    required this.connected,
-    required this.speedFactor,
-    required this.progress,
-    required this.dark,
-  });
-
-  final Color accent;
-  final bool connected;
-  final double speedFactor;
-  final double progress;
-  final bool dark;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
-
-    // Track
-    final trackPaint = Paint()
-      ..color = connected
-          ? accent.withValues(alpha: dark ? .18 : .12)
-          : (dark ? Colors.white10 : Colors.black12)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    canvas.drawCircle(center, radius, trackPaint);
-
-    if (!connected) return;
-
-    // Energy arcs rotating with progress and speed
-    final turns = 1 + (speedFactor * 3).round();
-    final angle = (progress * turns) * math.pi * 2;
-    final arcPaint = Paint()
-      ..color = accent
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 3.5;
-
-    // Main rotating arc
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      angle,
-      math.pi * (0.35 + speedFactor * 0.45),
-      false,
-      arcPaint,
-    );
-    // Counter-arc
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      angle + math.pi,
-      math.pi * 0.25,
-      false,
-      Paint()
-        ..color = accent.withValues(alpha: .45)
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = 2.0,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _DialRingPainter oldDelegate) =>
-      oldDelegate.accent != accent ||
-      oldDelegate.connected != connected ||
-      oldDelegate.speedFactor != speedFactor ||
-      oldDelegate.progress != progress ||
-      oldDelegate.dark != dark;
-}
-
-/// Compact mobile card showing node details and exit country.
-class _MobileExitCard extends StatelessWidget {
-  const _MobileExitCard({
+/// The exit's name set large, with its protocol and latency under it. The
+/// whole block opens the node list.
+class _ExitName extends StatelessWidget {
+  const _ExitName({
     required this.state,
-    required this.onOpenNodes,
+    required this.onTap,
+    required this.large,
   });
 
   final AppState state;
-  final VoidCallback onOpenNodes;
+  final VoidCallback onTap;
+  final bool large;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final palette = context.palette;
     final node = state.selectedNode;
-    final address = state.exitAddress;
+    final auto = state.isAutoSelected;
 
-    return Panel(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      onTap: onOpenNodes,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: palette.violet.withValues(alpha: .12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.hub_rounded, size: 16, color: palette.violetSoft),
-          ),
-          const SizedBox(width: Gap.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final facts = <Widget>[
+      if (auto)
+        _Fact(text: 'URL-TEST', color: palette.violetSoft)
+      else if (node != null) ...[
+        _Fact(text: node.protocol.label, color: palette.muted),
+        _Fact(
+          text: _latencyText(l10n, node.latencyMs),
+          color: latencyColor(palette, node.latencyMs),
+        ),
+      ],
+    ];
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _exitName(l10n, state),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    _exitName(l10n, state),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontSize: large ? 30 : 23,
+                          height: 1.12,
                         ),
-                      ),
-                    ),
-                    if (address?.countryCode case final code?) ...[
-                      const SizedBox(width: Gap.xs),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: tintFill(palette.mint),
-                          borderRadius: BorderRadius.circular(AppRadius.xs),
-                        ),
-                        child: Text(
-                          code,
-                          style: monoStyle(
-                            size: 9,
-                            color: palette.mint,
-                            weight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  node == null || state.isAutoSelected
-                      ? l10n.homeChangeNode
-                      : '${node.protocol.label} · ${_latencyText(l10n, node.latencyMs)}',
-                  style: monoStyle(size: 11, color: palette.faint),
-                ),
+                const SizedBox(width: Gap.xs),
+                Icon(Icons.chevron_right_rounded,
+                    size: large ? 26 : 22, color: palette.faint),
               ],
             ),
-          ),
-          Icon(Icons.chevron_right_rounded, size: 18, color: palette.faint),
-        ],
+            if (facts.isNotEmpty) ...[
+              const SizedBox(height: Gap.sm),
+              Wrap(spacing: Gap.sm, runSpacing: Gap.xs, children: facts),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A small mono fact beside the exit name: protocol, latency.
+class _Fact extends StatelessWidget {
+  const _Fact({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: tintFill(color),
+        borderRadius: BorderRadius.circular(AppRadius.xs),
+        border: Border.all(color: color.withValues(alpha: .22)),
+      ),
+      child: Text(
+        text,
+        style: monoStyle(size: 11, weight: FontWeight.w500, color: color),
       ),
     );
   }
@@ -760,8 +386,8 @@ class _MobileExitCard extends StatelessWidget {
 
 // ------------------------------------------------------------------ status
 
-/// One direction's live rate: a keyed label over a large mono figure, with
-/// the unit trailing on the baseline and a dynamic bandwidth activity bar.
+/// One direction's live rate: a small keyed label over a large display-face
+/// figure, the unit trailing on the baseline.
 class _RateReadout extends StatelessWidget {
   const _RateReadout({
     super.key,
@@ -788,141 +414,80 @@ class _RateReadout extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     final unit = connected ? formatRate(rate).split(' ').last : '';
-    final progress = !connected || rate <= 0
-        ? 0.0
-        : (math.log(1 + rate) / math.log(1 + 32 * 1024 * 1024)).clamp(0.04, 1.0);
 
-    return Container(
-      constraints: BoxConstraints(minWidth: size > 30 ? 105 : 0),
-      padding: EdgeInsets.symmetric(
-        horizontal: size > 30 ? 12 : 10,
-        vertical: 8,
-      ),
-      decoration: BoxDecoration(
-        color: palette.surface2.withValues(alpha: .50),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(
-          color: connected
-              ? color.withValues(alpha: .22)
-              : palette.border.withValues(alpha: .6),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: (connected ? color : palette.faint).withValues(alpha: .14),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 12, color: connected ? color : palette.faint),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 13, color: connected ? color : palette.faint),
+            const SizedBox(width: Gap.xs),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(width: Gap.xs),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              AnimatedCount(
+                // A unit change starts a fresh count. Tweening a KB value
+                // beside the new MB label would overstate the rate during the
+                // transition.
+                key: ValueKey(connected ? unit : 'unavailable'),
+                value: rate,
+                format: (value) =>
+                    connected ? formatRate(value).split(' ').first : '—',
+                style: TextStyle(
+                  fontFamily: AppFonts.display,
+                  fontFamilyFallback: AppFonts.cjkFallback,
+                  fontSize: size,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -size * .03,
+                  height: 1.1,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: connected ? palette.text : palette.faint,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                unit,
+                style: monoStyle(
+                  size: math.max(11, size * .36),
+                  color: palette.muted,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: Gap.xs),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                AnimatedCount(
-                  // A unit change starts a fresh count. Tweening a KB value
-                  // beside the new MB label would overstate the rate during the
-                  // transition.
-                  key: ValueKey(connected ? unit : 'unavailable'),
-                  value: rate,
-                  format: (value) =>
-                      connected ? formatRate(value).split(' ').first : '—',
-                  style: monoStyle(
-                    size: size,
-                    weight: FontWeight.w600,
-                    color: palette.text,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  unit,
-                  style: monoStyle(
-                    size: math.max(11, size * .32),
-                    color: palette.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          // Speed activity indicator bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: Container(
-              height: 3,
-              color: palette.border.withValues(alpha: .4),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final barWidth = constraints.hasBoundedWidth
-                      ? constraints.maxWidth
-                      : (size > 30 ? 130.0 : 90.0);
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: (barWidth * progress).clamp(0.0, barWidth),
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: connected ? color : Colors.transparent,
-                        boxShadow: connected && progress > 0.05
-                            ? [
-                                BoxShadow(
-                                  color: color.withValues(alpha: .6),
-                                  blurRadius: 4,
-                                )
-                              ]
-                            : null,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 // ----------------------------------------------------------------- routing
 
-/// How the open connections split across proxy, direct and block, plus the
-/// exit address and the way into the node list.
+/// How the open connections split across proxy, direct and block.
 class _RoutingPanel extends StatelessWidget {
-  const _RoutingPanel({
-    required this.state,
-    required this.onOpenNodes,
-    required this.stretch,
-  });
+  const _RoutingPanel({required this.state, required this.stretch});
 
   final AppState state;
-  final VoidCallback onOpenNodes;
 
-  /// Sitting in an equal-height row, so the footer can be pushed to the
-  /// bottom. A Spacer in an unbounded column would throw.
+  /// Sitting in an equal-height row, so the rows can be pushed to the top
+  /// and the bar to the foot. A Spacer in an unbounded column would throw.
   final bool stretch;
 
   @override
@@ -959,7 +524,7 @@ class _RoutingPanel extends StatelessWidget {
     ];
 
     return Panel(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -976,22 +541,7 @@ class _RoutingPanel extends StatelessWidget {
           ),
           const SizedBox(height: Gap.sm),
           ...rows,
-          if (stretch) const Spacer() else const SizedBox(height: Gap.md),
-          const SizedBox(height: Gap.sm),
-          _ExitAddressRow(state: state),
-          const SizedBox(height: Gap.sm),
-          OutlinedButton(
-            onPressed: onOpenNodes,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 40),
-            ),
-            // On the node list rather than on the selection: under Auto there
-            // is no node to name, and offering to add one would be wrong with
-            // a subscription already imported.
-            child: Text(
-              state.nodes.isEmpty ? l10n.homeAddNodes : l10n.homeChangeNode,
-            ),
-          ),
+          if (stretch) const Spacer(),
         ],
       ),
     );
@@ -1029,29 +579,31 @@ class _TrafficSplitBar extends StatelessWidget {
         ),
       );
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(2),
-      child: SizedBox(
-        height: 5,
-        child: Row(
-          children: [
-            if (proxy > 0)
-              Expanded(
-                flex: proxy,
-                child: Container(color: proxyColor),
+    // Segments with a hairline of air between them, so a thin share still
+    // reads as its own part rather than as the edge of its neighbour.
+    final segments = [
+      if (proxy > 0) (proxy, proxyColor),
+      if (direct > 0) (direct, directColor),
+      if (reject > 0) (reject, rejectColor),
+    ];
+    return SizedBox(
+      height: 6,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < segments.length; i++) ...[
+            if (i > 0) const SizedBox(width: 2),
+            Expanded(
+              flex: segments[i].$1,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: segments[i].$2,
+                  borderRadius: BorderRadius.circular(1.5),
+                ),
               ),
-            if (direct > 0)
-              Expanded(
-                flex: direct,
-                child: Container(color: directColor),
-              ),
-            if (reject > 0)
-              Expanded(
-                flex: reject,
-                child: Container(color: rejectColor),
-              ),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1207,6 +759,142 @@ class _StatTiles extends StatelessWidget {
         const SizedBox(height: Gap.lg),
         PixelRow(children: tiles.sublist(2)),
       ],
+    );
+  }
+}
+
+/// The phone's totals: the same four readings as [_StatTiles], in one panel
+/// split by hairlines rather than four cards with a sparkline each — the live
+/// chart sits right below, so the sparklines only repeated it at a size too
+/// small to read.
+class _StatGrid extends StatelessWidget {
+  const _StatGrid({required this.state});
+
+  final AppState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final palette = context.palette;
+    final traffic = state.traffic;
+    final connected = state.isConnected;
+
+    final cells = [
+      _StatCell(
+        label: l10n.homeDownload,
+        color: palette.sky,
+        value: traffic.downlinkTotal,
+        format: formatBytes,
+        caption: connected ? formatRate(traffic.downlink) : '—',
+      ),
+      _StatCell(
+        label: l10n.homeUpload,
+        color: palette.mint,
+        value: traffic.uplinkTotal,
+        format: formatBytes,
+        caption: connected ? formatRate(traffic.uplink) : '—',
+      ),
+      _StatCell(
+        label: l10n.homeConnections,
+        color: palette.violetSoft,
+        value: traffic.connections,
+        format: (value) => '$value',
+      ),
+      _StatCell(
+        label: l10n.homeMemory,
+        color: palette.amber,
+        // Only reported while running; zero would read as a measurement.
+        value: traffic.memory,
+        format: (value) => connected ? formatBytes(value) : '—',
+      ),
+    ];
+
+    Widget pair(Widget a, Widget b) => IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: a),
+              VerticalDivider(width: 1, color: palette.border),
+              Expanded(child: b),
+            ],
+          ),
+        );
+
+    return Panel(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          pair(cells[0], cells[1]),
+          Divider(height: 1, color: palette.border),
+          pair(cells[2], cells[3]),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCell extends StatelessWidget {
+  const _StatCell({
+    required this.label,
+    required this.color,
+    required this.value,
+    required this.format,
+    this.caption,
+  });
+
+  final String label;
+  final Color color;
+  final int value;
+  final String Function(int value) format;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          AnimatedCount(
+            value: value,
+            format: format,
+            style: monoStyle(
+              size: 18,
+              weight: FontWeight.w500,
+              color: palette.text,
+            ),
+          ),
+          if (caption != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              caption!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: monoStyle(size: 11, color: palette.faint),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

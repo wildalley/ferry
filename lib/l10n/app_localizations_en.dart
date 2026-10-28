@@ -9,13 +9,13 @@ class L10nEn extends L10n {
   L10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Kinetix Client';
+  String get appTitle => 'Ferry';
 
   @override
-  String get appShortName => 'Kinetix';
+  String get appShortName => 'Ferry';
 
   @override
-  String get appTagline => 'ORBITAL VELOCITY TUNNEL';
+  String get appTagline => 'CROSS THE WATER';
 
   @override
   String get actionCancel => 'Cancel';
@@ -980,4 +980,120 @@ class L10nEn extends L10n {
 
   @override
   String get logsNewestLast => 'newest last';
+
+  @override
+  String homeTideLevel(String rate) {
+    return 'Tide $rate';
+  }
+
+  @override
+  String get homeSwitchOnHint => 'Connected · tap to stop';
+
+  @override
+  String homeSwitchOffHint(String name) {
+    return 'Leave via $name';
+  }
+
+  @override
+  String get rulesTargetGroup => 'Group';
+
+  @override
+  String get rulesGroups => 'Policy groups';
+
+  @override
+  String get rulesGroupsAdd => 'New group';
+
+  @override
+  String get rulesGroupsEmpty => 'No policy groups yet';
+
+  @override
+  String get rulesGroupsEmptyBody =>
+      'Make a group, pick a node for it, then point rules at it — those sites will leave through that node while everything else keeps the main one.';
+
+  @override
+  String get rulesGroupName => 'Group name';
+
+  @override
+  String get rulesGroupNameHint => 'e.g. AI, Streaming';
+
+  @override
+  String get rulesGroupRename => 'Rename';
+
+  @override
+  String get rulesGroupDelete => 'Delete group';
+
+  @override
+  String rulesGroupDeleteBody(String name) {
+    return 'Rules that use “$name” will go through the main node instead.';
+  }
+
+  @override
+  String rulesGroupRuleCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count rules',
+      one: '1 rule',
+      zero: 'No rules yet',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String rulesGroupSendVia(String name) {
+    return 'Send “$name” through';
+  }
+
+  @override
+  String get rulesGroupNodeGone => 'Node removed · using Auto';
+
+  @override
+  String get rulesSendToGroup => 'Or a policy group';
+
+  @override
+  String get rulesGroupsNote =>
+      'Each group switches on its own, live, without touching the main node.';
+
+  @override
+  String noticeUpdateAvailable(String version) {
+    return 'Version $version is available';
+  }
+
+  @override
+  String get noticeUpToDate => 'You\'re on the latest version';
+
+  @override
+  String get noticeUpdateCheckFailed =>
+      'Couldn\'t check for updates. Try again later.';
+
+  @override
+  String get noticeLinkCopied => 'Link copied';
+
+  @override
+  String get settingsCheckUpdate => 'Check for updates';
+
+  @override
+  String settingsUpdateCurrent(String version) {
+    return 'Version $version · up to date as far as we know';
+  }
+
+  @override
+  String settingsUpdateNew(String version) {
+    return '$version available — tap to open the release page';
+  }
+
+  @override
+  String updateBannerTitle(String version) {
+    return 'New version $version';
+  }
+
+  @override
+  String get updateBannerBody =>
+      'Optional. Download it from the release page whenever you like.';
+
+  @override
+  String get actionView => 'View';
+
+  @override
+  String get actionLater => 'Later';
 }

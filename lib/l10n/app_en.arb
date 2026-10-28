@@ -1,8 +1,8 @@
 {
   "@@locale": "en",
-  "appTitle": "Kinetix Client",
-  "appShortName": "Kinetix",
-  "appTagline": "ORBITAL VELOCITY TUNNEL",
+  "appTitle": "Ferry",
+  "appShortName": "Ferry",
+  "appTagline": "CROSS THE WATER",
   "actionCancel": "Cancel",
   "actionSave": "Save",
   "actionCopy": "Copy",
@@ -556,5 +556,97 @@
   },
   "latencyFail": "fail",
   "latencyUnknown": "—",
-  "logsNewestLast": "newest last"
+  "logsNewestLast": "newest last",
+  "homeTideLevel": "Tide {rate}",
+  "@homeTideLevel": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "homeSwitchOnHint": "Connected · tap to stop",
+  "homeSwitchOffHint": "Leave via {name}",
+  "@homeSwitchOffHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rulesTargetGroup": "Group",
+  "rulesGroups": "Policy groups",
+  "rulesGroupsAdd": "New group",
+  "rulesGroupsEmpty": "No policy groups yet",
+  "rulesGroupsEmptyBody": "Make a group, pick a node for it, then point rules at it — those sites will leave through that node while everything else keeps the main one.",
+  "rulesGroupName": "Group name",
+  "rulesGroupNameHint": "e.g. AI, Streaming",
+  "rulesGroupRename": "Rename",
+  "rulesGroupDelete": "Delete group",
+  "rulesGroupDeleteBody": "Rules that use “{name}” will go through the main node instead.",
+  "@rulesGroupDeleteBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rulesGroupRuleCount": "{count, plural, =0{No rules yet} =1{1 rule} other{{count} rules}}",
+  "@rulesGroupRuleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rulesGroupSendVia": "Send “{name}” through",
+  "@rulesGroupSendVia": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rulesGroupNodeGone": "Node removed · using Auto",
+  "rulesSendToGroup": "Or a policy group",
+  "rulesGroupsNote": "Each group switches on its own, live, without touching the main node.",
+  "noticeUpdateAvailable": "Version {version} is available",
+  "@noticeUpdateAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "noticeUpToDate": "You're on the latest version",
+  "noticeUpdateCheckFailed": "Couldn't check for updates. Try again later.",
+  "noticeLinkCopied": "Link copied",
+  "settingsCheckUpdate": "Check for updates",
+  "settingsUpdateCurrent": "Version {version} · up to date as far as we know",
+  "@settingsUpdateCurrent": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsUpdateNew": "{version} available — tap to open the release page",
+  "@settingsUpdateNew": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateBannerTitle": "New version {version}",
+  "@updateBannerTitle": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateBannerBody": "Optional. Download it from the release page whenever you like.",
+  "actionView": "View",
+  "actionLater": "Later"
 }

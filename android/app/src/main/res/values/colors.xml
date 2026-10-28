@@ -8,5 +8,5 @@
      Not the Material palette's white/black — AppPalette's bg, so the handoff to
      the first frame is invisible rather than merely dark. -->
 <resources>
-    <color name="splash_background">#FFF4F6F8</color>
+    <color name="splash_background">#FFF4F3F9</color>
 </resources>

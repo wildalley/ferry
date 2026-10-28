@@ -52,49 +52,40 @@ class MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.palette;
     return Container(
-      padding: const EdgeInsets.fromLTRB(Gap.lg, Gap.lg, Gap.lg, Gap.md),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(
-          color: Color.alphaBlend(accent.withValues(alpha: .15), palette.border),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: accent.withValues(alpha: .025),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label first, glyph trailing: the label is what a reader scans the
-          // row for, and a tinted tile in front of it competed with the value.
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: palette.muted,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+          // A dot in the series colour, not a tinted icon tile: the colour is
+          // what ties the card to its line on the chart below, and the tile
+          // was a second, louder way of saying the label.
+          Semantics(
+            label: label,
+            child: Row(
+              children: [
+                ExcludeSemantics(
+                  child: Icon(icon, size: 13, color: accent),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
-                ),
-                child: Icon(icon, size: 14, color: accent),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: Gap.sm),
           AnimatedCount(
@@ -314,7 +305,7 @@ class _ConsoleBackgroundState extends State<ConsoleBackground>
     return RepaintBoundary(
       child: CustomPaint(
         painter: _ConsolePainter(
-          line: palette.text.withValues(alpha: dark ? .014 : .018),
+          line: palette.text.withValues(alpha: dark ? .035 : .05),
           glowColour: accent.withValues(alpha: dark ? .045 : .025),
           signalColour: accent,
           dark: dark,
@@ -324,8 +315,8 @@ class _ConsoleBackgroundState extends State<ConsoleBackground>
           levels: _levels,
           downIntensity: _downIntensity,
           upIntensity: _upIntensity,
-          downColor: palette.sky,
-          upColor: palette.mint,
+          downColor: palette.violet,
+          upColor: palette.sky,
         ),
         child: widget.child,
       ),
@@ -368,379 +359,65 @@ class _ConsolePainter extends CustomPainter {
   final Color downColor;
   final Color upColor;
 
-  static const _cell = 48.0;
+  static const _cell = 40.0;
 
   @override
   void paint(Canvas canvas, Size size) {
+    // A faint grid, then light: a wash from the top, and on a live dashboard a
+    // soft bloom that brightens with the tunnel's throughput and drifts while
+    // bytes are moving. The grid is drawn at the floor of what renders — it
+    // is texture behind the panels, and the panels are solid, so it only ever
+    // shows in the gutters between them.
+    final bounds = Rect.fromLTWH(0, 0, size.width, size.height);
     final pen = Paint()
       ..color = line
       ..strokeWidth = 1;
-
     for (var x = 0.0; x <= size.width; x += _cell) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), pen);
     }
     for (var y = 0.0; y <= size.height; y += _cell) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), pen);
     }
-
-    // Grid intersection highlights when traffic is moving
-    if (showSignals && intensity > 0 && size.width > 200) {
-      final crossPaint = Paint()
-        ..color = signalColour.withValues(
-          alpha: (dark ? 0.08 : 0.04) * intensity,
-        )
-        ..strokeWidth = 1;
-      const step = _cell * 2;
-      for (var x = _cell; x < size.width; x += step) {
-        for (var y = _cell; y < size.height; y += step) {
-          canvas.drawLine(Offset(x - 2, y), Offset(x + 2, y), crossPaint);
-          canvas.drawLine(Offset(x, y - 2), Offset(x, y + 2), crossPaint);
-        }
-      }
-    }
-
-    // Vignette from the top: pulls attention to the header and fades the grid
-    // out before it reaches the content below.
-    final centre = Offset(size.width / 2, 0);
-    final radius = size.height * 0.95;
+    final top = Offset(size.width * .35, 0);
     canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
+      bounds,
       Paint()
         ..shader = RadialGradient(
           colors: [glowColour, glowColour.withValues(alpha: 0)],
-        ).createShader(Rect.fromCircle(center: centre, radius: radius)),
+        ).createShader(
+          Rect.fromCircle(center: top, radius: size.height * .9),
+        ),
     );
 
-    // Speed-driven auroral glows (Download cyan, Upload mint)
-    if (showSignals && (downIntensity > 0 || upIntensity > 0)) {
-      if (downIntensity > 0) {
-        final downCenter = Offset(size.width * 0.78, size.height * 0.26);
-        final downRadius = size.height * (0.35 + downIntensity * 0.45);
-        final downAlpha =
-            (dark ? 0.22 : 0.14) + downIntensity * (dark ? 0.40 : 0.24);
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-          Paint()
-            ..shader = RadialGradient(
-              colors: [
-                downColor.withValues(alpha: downAlpha),
-                downColor.withValues(alpha: downAlpha * 0.4),
-                downColor.withValues(alpha: 0),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ).createShader(
-                Rect.fromCircle(center: downCenter, radius: downRadius)),
-        );
-      }
-      if (upIntensity > 0) {
-        final upCenter = Offset(size.width * 0.65, size.height * 0.74);
-        final upRadius = size.height * (0.30 + upIntensity * 0.40);
-        final upAlpha =
-            (dark ? 0.18 : 0.12) + upIntensity * (dark ? 0.35 : 0.20);
-        canvas.drawRect(
-          Rect.fromLTWH(0, 0, size.width, size.height),
-          Paint()
-            ..shader = RadialGradient(
-              colors: [
-                upColor.withValues(alpha: upAlpha),
-                upColor.withValues(alpha: upAlpha * 0.4),
-                upColor.withValues(alpha: 0),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ).createShader(Rect.fromCircle(center: upCenter, radius: upRadius)),
-        );
-      }
-    }
-
-    if (showSignals && size.width >= 180 && size.height >= 120) {
-      final progress = phase?.value ?? 0;
-      _drawSpeedWaves(canvas, size, progress);
-      _drawSignalField(canvas, size, progress);
-    }
-  }
-
-  /// Dynamic fluid speed waves across the background that undulate in real time
-  /// according to download and upload speeds.
-  void _drawSpeedWaves(Canvas canvas, Size size, double progress) {
-    // Download wave (cascades across upper-mid canvas)
-    if (downIntensity > 0) {
-      final laps = 1 + (downIntensity * 3).round();
-      final phaseVal = (progress * laps) * math.pi * 2;
-      final waveAmp = 10.0 + downIntensity * 28.0;
-      final baseY = size.height * 0.34;
-      final points = <Offset>[];
-      const count = 7;
-      final startX = size.width * 0.30;
-      final spanX = size.width * 0.74;
-      for (var i = 0; i <= count; i++) {
-        final t = i / count;
-        final x = startX + t * spanX;
-        final sinVal = math.sin(phaseVal + t * math.pi * 2.8);
-        final cosVal = math.cos(phaseVal * 1.4 + t * math.pi * 1.6) * 0.35;
-        final y = baseY + (sinVal + cosVal) * waveAmp;
-        points.add(Offset(x, y));
-      }
-      final wavePath = smoothThrough(points, minY: 0, maxY: size.height);
-      final alpha =
-          (dark ? 0.18 : 0.12) + downIntensity * (dark ? 0.38 : 0.22);
-
-      canvas.drawPath(
-        wavePath,
+    if (!showSignals) return;
+    final drift = math.sin((phase?.value ?? 0) * math.pi) * .02;
+    final lift = (dark ? .05 : .035) + intensity * (dark ? .07 : .04);
+    void bloom(Offset centre, double radius, Color colour, double alpha) {
+      canvas.drawRect(
+        bounds,
         Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = 6.0 + downIntensity * 8.0
-          ..color = downColor.withValues(alpha: alpha * 0.6)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
-      );
-      canvas.drawPath(
-        wavePath,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = 2.0 + downIntensity * 1.5
-          ..color = downColor.withValues(alpha: alpha),
+          ..shader = RadialGradient(
+            colors: [
+              colour.withValues(alpha: alpha),
+              colour.withValues(alpha: 0),
+            ],
+          ).createShader(Rect.fromCircle(center: centre, radius: radius)),
       );
     }
 
-    // Upload wave (ripples across lower-mid canvas)
-    if (upIntensity > 0) {
-      final laps = 1 + (upIntensity * 3).round();
-      final phaseVal = -(progress * laps) * math.pi * 2;
-      final waveAmp = 8.0 + upIntensity * 24.0;
-      final baseY = size.height * 0.68;
-      final points = <Offset>[];
-      const count = 7;
-      final startX = size.width * 0.36;
-      final spanX = size.width * 0.68;
-      for (var i = 0; i <= count; i++) {
-        final t = i / count;
-        final x = startX + t * spanX;
-        final sinVal = math.sin(phaseVal + t * math.pi * 2.5);
-        final cosVal = math.cos(phaseVal * 1.3 + t * math.pi * 1.7) * 0.3;
-        final y = baseY + (sinVal + cosVal) * waveAmp;
-        points.add(Offset(x, y));
-      }
-      final wavePath = smoothThrough(points, minY: 0, maxY: size.height);
-      final alpha =
-          (dark ? 0.16 : 0.10) + upIntensity * (dark ? 0.32 : 0.18);
-
-      canvas.drawPath(
-        wavePath,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = 5.0 + upIntensity * 7.0
-          ..color = upColor.withValues(alpha: alpha * 0.6)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
-      );
-      canvas.drawPath(
-        wavePath,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeWidth = 1.8 + upIntensity * 1.2
-          ..color = upColor.withValues(alpha: alpha),
-      );
-    }
-  }
-
-  /// A small network diagram, biased to the right side of the card so headings
-  /// and controls retain a quiet reading surface.
-  ///
-  /// The layout is fixed — it stands for the tunnel, which does not change shape
-  /// while it is up — but everything drawn over it comes from [levels] and
-  /// [intensity]. Each node carries one recent throughput sample: a busy moment
-  /// is a bright wide node, a quiet one nearly disappears, and the row of them
-  /// left to right is the same history the traffic chart plots. The packets move
-  /// at a rate the tunnel is actually sustaining, and an idle tunnel holds
-  /// perfectly still.
-  void _drawSignalField(Canvas canvas, Size size, double progress) {
-    const points = <Offset>[
-      Offset(.52, .16),
-      Offset(.70, .10),
-      Offset(.87, .18),
-      Offset(.62, .32),
-      Offset(.80, .36),
-      Offset(.95, .43),
-      Offset(.49, .52),
-      Offset(.69, .57),
-      Offset(.88, .64),
-      Offset(.61, .75),
-      Offset(.79, .82),
-      Offset(.97, .78),
-    ];
-    const links = <(int, int)>[
-      (0, 1),
-      (0, 3),
-      (1, 2),
-      (1, 4),
-      (2, 4),
-      (2, 5),
-      (3, 4),
-      (3, 6),
-      (4, 5),
-      (4, 7),
-      (5, 8),
-      (6, 7),
-      (6, 9),
-      (7, 8),
-      (7, 9),
-      (7, 10),
-      (8, 10),
-      (8, 11),
-      (9, 10),
-      (10, 11),
-    ];
-
-    /// The sample at [index], or 0 where there is no history for it yet.
-    double level(int index) {
-      if (index < 0 || index >= levels.length) return 0;
-      final value = levels[index];
-      return value < 0 ? 0 : (value > 1 ? 1 : value);
-    }
-
-    Offset pointAt(int index) {
-      final source = points[index];
-      final angle = progress * math.pi * 2 + index * 1.73;
-      // Sub-pixel drift is enough to keep the field alive. Larger motion makes
-      // a dense dashboard feel unstable, especially beside changing figures.
-      // Busy nodes drift furthest, so the eye finds the active part of the
-      // history without the whole field becoming restless.
-      final reach = 1.1 + level(index) * 2.2;
-      return Offset(
-        source.dx * size.width + math.sin(angle) * reach,
-        source.dy * size.height + math.cos(angle * 1.17) * reach * .88,
-      );
-    }
-
-    final resolved = <Offset>[
-      for (var i = 0; i < points.length; i++) pointAt(i)
-    ];
-
-    // The graph is always drawn: it stands for the tunnel, which is up whether
-    // or not bytes are moving right now. Its links only brighten with the two
-    // samples they join, so an idle tunnel is a faint outline rather than a
-    // missing one.
-    final baseLink = dark ? .055 : .032;
-    final litLink = dark ? .105 : .065;
-    for (final (from, to) in links) {
-      final share = (level(from) + level(to)) / 2;
-      canvas.drawLine(
-        resolved[from],
-        resolved[to],
-        Paint()
-          ..color = signalColour.withValues(
-            alpha: baseLink + (litLink - baseLink) * share,
-          )
-          ..strokeWidth = 1,
-      );
-    }
-
-    for (var i = 0; i < resolved.length; i++) {
-      final share = level(i);
-      final haloAlpha = (dark ? .07 : .04) + (dark ? .16 : .09) * share;
-      final nodeAlpha = (dark ? .26 : .18) + (dark ? .40 : .28) * share;
-      canvas.drawCircle(
-        resolved[i],
-        2.6 + share * 2.4,
-        Paint()
-          ..color = signalColour.withValues(alpha: haloAlpha)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
-      );
-      canvas.drawCircle(
-        resolved[i],
-        1.1 + share * .9,
-        Paint()..color = signalColour.withValues(alpha: nodeAlpha),
-      );
-    }
-
-    // Active hub sonar radar pulse during traffic bursts
-    if (intensity > 0.05 && resolved.length > 4) {
-      final center = resolved[4]; // Central junction node
-      final pulseRadius = 5.0 + progress * (24.0 + intensity * 32.0);
-      final pulseAlpha = (1.0 - progress) * (dark ? 0.32 : 0.18) * intensity;
-      canvas.drawCircle(
-        center,
-        pulseRadius,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.2
-          ..color = (downIntensity >= upIntensity ? downColor : upColor)
-              .withValues(alpha: pulseAlpha),
-      );
-    }
-
-    // Packets are the part that has to be honest: a moving dot reads as traffic,
-    // so their number and speed come from the throughput rather than from a
-    // fixed loop. Nothing moving means none drawn — the caller has stopped the
-    // ticker by then, so this is what an idle tunnel actually looks like.
-    if (intensity <= 0) return;
-
-    const packetLinks = <(int, int)>[
-      (0, 4),
-      (3, 7),
-      (6, 10),
-      (4, 8),
-      (1, 4),
-      (4, 5),
-      (7, 9),
-      (8, 11),
-    ];
-    final count = 1 + (intensity * (packetLinks.length - 1)).round();
-    // Traversals per beat, so throughput sets the speed: a busy tunnel sends a
-    // packet along its link six times where an idle-but-open one sends it once.
-    final turns = 1 + (intensity * 5).round();
-
-    for (var i = 0; i < count; i++) {
-      final (from, to) = packetLinks[i];
-      final isUp = i.isOdd;
-      final pktColor = isUp ? upColor : downColor;
-      final travel = (progress * turns + i * .27) % 1;
-      final eased = Curves.easeInOut.transform(travel);
-      final head = Offset.lerp(resolved[from], resolved[to], eased)!;
-
-      // Laser streak speed tail
-      final tailTravel = (travel - (0.04 + intensity * 0.12)).clamp(0.0, 1.0);
-      final tailEased = Curves.easeInOut.transform(tailTravel);
-      final tail = Offset.lerp(resolved[from], resolved[to], tailEased)!;
-
-      if ((head - tail).distance > 1.2) {
-        canvas.drawLine(
-          tail,
-          head,
-          Paint()
-            ..color = pktColor.withValues(
-              alpha: (dark ? 0.40 : 0.24) * intensity,
-            )
-            ..strokeWidth = 2.4 + intensity * 1.6
-            ..strokeCap = StrokeCap.round
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-        );
-        canvas.drawLine(
-          tail,
-          head,
-          Paint()
-            ..color = pktColor.withValues(alpha: dark ? 0.85 : 0.65)
-            ..strokeWidth = 1.2
-            ..strokeCap = StrokeCap.round,
-        );
-      }
-
-      // Packet head
-      canvas.drawCircle(
-        head,
-        4.6 + intensity * 2.0,
-        Paint()
-          ..color = pktColor.withValues(alpha: dark ? .42 : .24)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
-      );
-      canvas.drawCircle(
-        head,
-        1.8 + intensity * 0.8,
-        Paint()..color = Colors.white.withValues(alpha: dark ? .95 : .85),
-      );
-    }
+    final extent = math.max(size.width, size.height);
+    bloom(
+      Offset(size.width * (.86 + drift), size.height * .08),
+      extent * (.38 + .1 * downIntensity),
+      downColor,
+      lift,
+    );
+    bloom(
+      Offset(size.width * (.62 - drift), size.height * .02),
+      extent * (.30 + .1 * upIntensity),
+      upColor,
+      lift * .9,
+    );
   }
 
   @override

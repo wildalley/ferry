@@ -46,8 +46,7 @@ class _PanelState extends State<Panel> {
     final lit = widget.glowing && widget.accent != null;
     final elevated = interactive && (_hovered || _pressed);
 
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final baseSurface = palette.surface.withValues(alpha: dark ? .88 : .94);
+    final baseSurface = palette.surface;
     var fill = widget.selected
         ? Color.alphaBlend(accent.withValues(alpha: .10), baseSurface)
         : baseSurface;
@@ -72,7 +71,7 @@ class _PanelState extends State<Panel> {
     // competing; the data inside is what should carry the contrast.
     final decoration = BoxDecoration(
       color: fill,
-      borderRadius: BorderRadius.circular(AppRadius.md),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
       border: Border.all(color: borderColor),
       boxShadow: [
         if (elevated)
@@ -97,6 +96,10 @@ class _PanelState extends State<Panel> {
         width: double.infinity,
         padding: widget.padding,
         decoration: decoration,
+        // Clipped to the rounded edge: rows inside (settings, a source's
+        // nodes) paint rectangular press ripples, which otherwise poke out
+        // past the corners on the first and last row.
+        clipBehavior: Clip.antiAlias,
         child: widget.child,
       );
     }
@@ -113,7 +116,7 @@ class _PanelState extends State<Panel> {
         mouseCursor: SystemMouseCursors.click,
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         child: AnimatedScale(
           scale: _pressed ? .992 : 1,
           duration: motionOf(context, Motion.fast),
@@ -219,29 +222,17 @@ class SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: Gap.md),
       child: Row(
         children: [
-          // The reference sheet marks every section with a code-comment sigil
-          // (`// DASHBOARD`). It stays a separate text node rather than being
-          // folded into [text] so the label still reads as its own string to
-          // screen readers and to the widget tests that find it by name.
-          ExcludeSemantics(
-            child: Padding(
-              padding: const EdgeInsets.only(right: Gap.xs),
-              child: Text(
-                '//',
-                style: monoStyle(
-                  size: labelStyle?.fontSize ?? 10,
-                  weight: FontWeight.w700,
-                  color: context.palette.faint,
-                ),
-              ),
-            ),
+          // A short tick in the river's colour instead of the old `//` sigil.
+          const Padding(
+            padding: EdgeInsets.only(right: Gap.sm),
+            child: AccentBar(width: 10, height: 2),
           ),
           Expanded(
             child: Text(
               text.toUpperCase(),
               // Wide tracking is what makes an all-caps label read as a label
               // rather than as shouting; uppercase alone looks cramped.
-              style: labelStyle?.copyWith(letterSpacing: 1.4),
+              style: labelStyle?.copyWith(letterSpacing: 1.2),
             ),
           ),
           if (trailing != null) trailing!,
@@ -268,12 +259,16 @@ class PanelTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 17, color: context.palette.violetSoft),
+        Icon(icon, size: 16, color: context.palette.faint),
         const SizedBox(width: Gap.sm),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: .1,
+            ),
           ),
         ),
         if (trailing != null) trailing!,
@@ -316,8 +311,14 @@ class PageFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const padding = EdgeInsets.fromLTRB(Gap.xl, 18, Gap.xl, 28);
-    final wide = MediaQuery.sizeOf(context).width >= 1100;
+    final screen = MediaQuery.sizeOf(context).width;
+    final wide = screen >= 1100;
+    // A phone gets 16px gutters: 24 on each side of a 360px screen spends an
+    // eighth of the width on margin and clips every row's name before it has to.
+    final phone = screen < 600;
+    final padding = phone
+        ? const EdgeInsets.fromLTRB(16, 10, 16, 24)
+        : const EdgeInsets.fromLTRB(Gap.xl, 22, Gap.xl, 28);
 
     // A toolbar-height header rather than a hero: on a dashboard the title
     // only says where you are, and the 36px display line it used to be pushed
@@ -334,14 +335,18 @@ class PageFrame extends StatelessWidget {
                 children: [
                   Text(
                     title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontSize: wide ? 24 : 22,
+                          fontSize: wide ? 26 : (phone ? 21 : 23),
                         ),
                   ),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -351,9 +356,9 @@ class PageFrame extends StatelessWidget {
             if (trailing != null) trailing!,
           ],
         ),
-        const SizedBox(height: Gap.lg),
-        Divider(color: context.palette.border),
-        const SizedBox(height: Gap.lg),
+        // Air instead of a rule: the panels below carry their own edges, and
+        // a full-width line over them read as a second header bar.
+        SizedBox(height: phone ? Gap.lg : Gap.xl),
       ],
     );
 
@@ -559,19 +564,25 @@ class SegmentedChoice<T> extends StatelessWidget {
           // Positioned, so it does not size the stack — the row below does, and
           // painting first puts the indicator behind the labels.
           Positioned.fill(
-            child: AnimatedAlign(
-              alignment: _indicatorAlignment,
-              duration: motionOf(context, Motion.normal),
-              curve: Motion.curve,
-              child: FractionallySizedBox(
-                widthFactor: 1 / values.length,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: palette.violet.withValues(alpha: .22),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(
-                      color: palette.violet.withValues(alpha: .55),
-                      width: _edge,
+            child: AnimatedOpacity(
+              // A selection that is none of these values — a rule sent to a
+              // policy group, say — shows no segment as chosen.
+              opacity: values.contains(selected) ? 1 : 0,
+              duration: motionOf(context, Motion.fast),
+              child: AnimatedAlign(
+                alignment: _indicatorAlignment,
+                duration: motionOf(context, Motion.normal),
+                curve: Motion.curve,
+                child: FractionallySizedBox(
+                  widthFactor: 1 / values.length,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: palette.surface3,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: Border.all(
+                        color: palette.borderStrong,
+                        width: _edge,
+                      ),
                     ),
                   ),
                 ),
@@ -598,7 +609,7 @@ class SegmentedChoice<T> extends StatelessWidget {
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: value == selected
-                                ? palette.violetSoft
+                                ? palette.text
                                 : palette.muted,
                           ),
                       child: Padding(
@@ -676,20 +687,12 @@ class SettingRow extends StatelessWidget {
             (value != null && onChanged != null
                 ? () => onChanged!(!value!)
                 : null),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 3),
-        leading: Container(
-          width: 32,
-          height: 32,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: palette.violet.withValues(alpha: .10),
-            borderRadius: BorderRadius.circular(AppRadius.xs),
-            border: Border.all(
-              color: palette.violet.withValues(alpha: .22),
-            ),
-          ),
-          child: Icon(icon, color: palette.violetSoft, size: 17),
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        minLeadingWidth: 24,
+        horizontalTitleGap: 14,
+        // A plain glyph. A tinted tile behind every row's icon made a settings
+        // page into a column of violet squares that all said the same thing.
+        leading: Icon(icon, color: palette.muted, size: 20),
         title: Text(
           title,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -730,8 +733,8 @@ class SettingGroup extends StatelessWidget {
                 rows[i],
                 if (i < rows.length - 1)
                   Divider(
-                    indent: 60,
-                    endIndent: Gap.md,
+                    indent: 54,
+                    endIndent: 0,
                     height: 1,
                     color: palette.border.withValues(alpha: dark ? .5 : .8),
                   ),
@@ -769,11 +772,12 @@ class EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: palette.violet.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(AppRadius.lg),
+              color: palette.surface2,
+              shape: BoxShape.circle,
+              border: Border.all(color: palette.border),
             ),
             child: Icon(icon, color: palette.violetSoft, size: 24),
           ),

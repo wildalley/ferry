@@ -34,10 +34,15 @@ class _ExitAddressRow extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(Gap.md, Gap.sm, Gap.xs, Gap.sm),
+      padding: const EdgeInsets.fromLTRB(Gap.md, 3, 3, 3),
+      // Inset rather than raised: it sits inside the hero, and a card in a
+      // card reads as nesting.
       decoration: BoxDecoration(
-        color: palette.surface2,
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        color: Color.alphaBlend(
+          palette.bg.withValues(alpha: .45),
+          palette.surface,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         border: Border.all(color: palette.border),
       ),
       child: Row(
@@ -51,17 +56,22 @@ class _ExitAddressRow extends StatelessWidget {
                 .labelSmall
                 ?.copyWith(letterSpacing: 1.1),
           ),
-          const Spacer(),
+          const SizedBox(width: Gap.md),
           // The address is data, so it is monospaced like every other reading
           // here; it also stops the row twitching as digits change on a refresh.
-          Flexible(
+          Expanded(
             child: AnimatedDefaultTextStyle(
               duration: motionOf(context, Motion.normal),
               curve: Motion.curve,
               style: DefaultTextStyle.of(context)
                   .style
                   .merge(monoStyle(color: colour, weight: FontWeight.w600)),
-              child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+              ),
             ),
           ),
           if (address?.countryCode case final code?) ...[
@@ -92,6 +102,8 @@ class _ExitAddressRow extends StatelessWidget {
             onPressed: checking ? null : state.refreshExitAddress,
             tooltip: l10n.actionRefresh,
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+            padding: EdgeInsets.zero,
             iconSize: 16,
             color: palette.faint,
             icon: checking

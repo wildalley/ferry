@@ -231,6 +231,9 @@ class _LogsPageState extends State<LogsPage> {
 
   /// sing-box prefixes its lines with a level; tint the ones that matter.
   ///
+  /// Info stays plain body text. It is most of the log, and tinting it put
+  /// warnings and errors in a sea of colour instead of on a page of text.
+  ///
   /// Matching is on the engine's own English level words, which are not
   /// localized, so this stays independent of the UI language.
   static Color _colorFor(AppPalette palette, String message) {
@@ -239,7 +242,6 @@ class _LogsPageState extends State<LogsPage> {
       return palette.danger;
     }
     if (lower.contains('warn')) return palette.amber;
-    if (lower.contains('info') || lower.contains('started')) return palette.sky;
     return palette.text;
   }
 }

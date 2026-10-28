@@ -289,7 +289,7 @@ class BoxPlatform(private val service: SingBoxVpnService) : PlatformInterface {
     override fun sendNotification(notification: Notification) = Unit
 
     private companion object {
-        const val SESSION_NAME = "SingBox Client"
+        const val SESSION_NAME = "渡"
     }
 }
 

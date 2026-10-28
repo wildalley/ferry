@@ -284,11 +284,11 @@ void main() {
         Icons.alt_route_outlined,
         Icons.receipt_long_outlined,
         Icons.settings_outlined,
-        Icons.home_outlined,
+        Icons.waves_rounded,
       ]) {
         await tester.tap(
           find.descendant(
-            of: find.byType(NavigationBar),
+            of: find.byKey(const Key('mobile-nav')),
             matching: find.byIcon(icon),
           ),
         );
@@ -581,8 +581,15 @@ void main() {
             anyOf(AppFonts.body, AppFonts.display, AppFonts.mono),
             reason: '$brightness ${entry.key} uses an unbundled family',
           );
-          expect(style.fontFamilyFallback, AppFonts.cjkFallback,
-              reason: '$brightness ${entry.key} would render CJK as tofu');
+          // The display face falls back to a CJK serif first, but its chain
+          // still ends in the sans chain, so nothing renders as tofu.
+          expect(
+            style.fontFamilyFallback,
+            style.fontFamily == AppFonts.display
+                ? AppFonts.serifFallback
+                : AppFonts.cjkFallback,
+            reason: '$brightness ${entry.key} would render CJK as tofu',
+          );
         }
       }
     });
@@ -611,8 +618,15 @@ void main() {
           expect(style, isNotNull, reason: entry.key);
           expect(style!.fontFamily, AppFonts.body,
               reason: '$brightness ${entry.key} lost the body family');
-          expect(style.fontFamilyFallback, AppFonts.cjkFallback,
-              reason: '$brightness ${entry.key} would render CJK as tofu');
+          // The display face falls back to a CJK serif first, but its chain
+          // still ends in the sans chain, so nothing renders as tofu.
+          expect(
+            style.fontFamilyFallback,
+            style.fontFamily == AppFonts.display
+                ? AppFonts.serifFallback
+                : AppFonts.cjkFallback,
+            reason: '$brightness ${entry.key} would render CJK as tofu',
+          );
         }
       }
     });

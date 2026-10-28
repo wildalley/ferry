@@ -100,19 +100,19 @@ abstract class L10n {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Kinetix Client'**
+  /// **'Ferry'**
   String get appTitle;
 
   /// No description provided for @appShortName.
   ///
   /// In en, this message translates to:
-  /// **'Kinetix'**
+  /// **'Ferry'**
   String get appShortName;
 
   /// No description provided for @appTagline.
   ///
   /// In en, this message translates to:
-  /// **'ORBITAL VELOCITY TUNNEL'**
+  /// **'CROSS THE WATER'**
   String get appTagline;
 
   /// No description provided for @actionCancel.
@@ -1758,6 +1758,180 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'newest last'**
   String get logsNewestLast;
+
+  /// No description provided for @homeTideLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tide {rate}'**
+  String homeTideLevel(String rate);
+
+  /// No description provided for @homeSwitchOnHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected · tap to stop'**
+  String get homeSwitchOnHint;
+
+  /// No description provided for @homeSwitchOffHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave via {name}'**
+  String homeSwitchOffHint(String name);
+
+  /// No description provided for @rulesTargetGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Group'**
+  String get rulesTargetGroup;
+
+  /// No description provided for @rulesGroups.
+  ///
+  /// In en, this message translates to:
+  /// **'Policy groups'**
+  String get rulesGroups;
+
+  /// No description provided for @rulesGroupsAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'New group'**
+  String get rulesGroupsAdd;
+
+  /// No description provided for @rulesGroupsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No policy groups yet'**
+  String get rulesGroupsEmpty;
+
+  /// No description provided for @rulesGroupsEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Make a group, pick a node for it, then point rules at it — those sites will leave through that node while everything else keeps the main one.'**
+  String get rulesGroupsEmptyBody;
+
+  /// No description provided for @rulesGroupName.
+  ///
+  /// In en, this message translates to:
+  /// **'Group name'**
+  String get rulesGroupName;
+
+  /// No description provided for @rulesGroupNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. AI, Streaming'**
+  String get rulesGroupNameHint;
+
+  /// No description provided for @rulesGroupRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
+  String get rulesGroupRename;
+
+  /// No description provided for @rulesGroupDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete group'**
+  String get rulesGroupDelete;
+
+  /// No description provided for @rulesGroupDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Rules that use “{name}” will go through the main node instead.'**
+  String rulesGroupDeleteBody(String name);
+
+  /// No description provided for @rulesGroupRuleCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No rules yet} =1{1 rule} other{{count} rules}}'**
+  String rulesGroupRuleCount(int count);
+
+  /// No description provided for @rulesGroupSendVia.
+  ///
+  /// In en, this message translates to:
+  /// **'Send “{name}” through'**
+  String rulesGroupSendVia(String name);
+
+  /// No description provided for @rulesGroupNodeGone.
+  ///
+  /// In en, this message translates to:
+  /// **'Node removed · using Auto'**
+  String get rulesGroupNodeGone;
+
+  /// No description provided for @rulesSendToGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Or a policy group'**
+  String get rulesSendToGroup;
+
+  /// No description provided for @rulesGroupsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Each group switches on its own, live, without touching the main node.'**
+  String get rulesGroupsNote;
+
+  /// No description provided for @noticeUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is available'**
+  String noticeUpdateAvailable(String version);
+
+  /// No description provided for @noticeUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re on the latest version'**
+  String get noticeUpToDate;
+
+  /// No description provided for @noticeUpdateCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t check for updates. Try again later.'**
+  String get noticeUpdateCheckFailed;
+
+  /// No description provided for @noticeLinkCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get noticeLinkCopied;
+
+  /// No description provided for @settingsCheckUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get settingsCheckUpdate;
+
+  /// No description provided for @settingsUpdateCurrent.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} · up to date as far as we know'**
+  String settingsUpdateCurrent(String version);
+
+  /// No description provided for @settingsUpdateNew.
+  ///
+  /// In en, this message translates to:
+  /// **'{version} available — tap to open the release page'**
+  String settingsUpdateNew(String version);
+
+  /// No description provided for @updateBannerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New version {version}'**
+  String updateBannerTitle(String version);
+
+  /// No description provided for @updateBannerBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional. Download it from the release page whenever you like.'**
+  String get updateBannerBody;
+
+  /// No description provided for @actionView.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get actionView;
+
+  /// No description provided for @actionLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get actionLater;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

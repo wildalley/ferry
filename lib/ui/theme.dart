@@ -1,4 +1,12 @@
-/// Synapse V4 design tokens, in dark and light variants.
+/// 渡 Ferry design tokens, in light and dark.
+///
+/// One brand colour, violet, for everything the user acts on or reads as the
+/// tunnel — the connect switch, the tide gauge, the selected tab, the mark —
+/// over neutral surfaces and a faint grid. Mint is the one accent beside it,
+/// and it means only "connected".
+///
+/// [violet] is the brand *fill* (white text sits on it) and [violetSoft] the
+/// brand *foreground* (it sits on a surface).
 ///
 /// Colours live in an [AppPalette] theme extension rather than in static
 /// constants, so both brightnesses can share one widget tree. Read them with
@@ -30,6 +38,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.sky,
     required this.amber,
     required this.danger,
+    required this.water,
   });
 
   /// Page background, one step behind [surface].
@@ -80,53 +89,50 @@ class AppPalette extends ThemeExtension<AppPalette> {
   /// Error.
   final Color danger;
 
+  /// The water in the tide gauge, surface to depth. Fills only; two stops.
+  final List<Color> water;
+
   static const dark = AppPalette(
-    bg: Color(0xFF080C12),
-    surface: Color(0xFF11171F),
-    surface2: Color(0xFF1B222E),
-    surface3: Color(0xFF252D3B),
-    border: Color(0x1AFFFFFF),
-    borderStrong: Color(0x2EFFFFFF),
-    text: Color(0xFFF0F2F8),
-    muted: Color(0xFF8A93A6),
-    // Lifted from 6E7889, which was 3.90:1 on surface — fine for decoration,
-    // short of the bar for the 10px text this actually draws. Taken past 4.5:1
-    // on surface so it still clears it on a [tintFill] of itself, where the
-    // fill lightens toward the text rather than away from it.
-    faint: Color(0xFF828B9C),
-    violet: Color(0xFF6C40FF),
-    violetSoft: Color(0xFFB9A9FF),
-    mint: Color(0xFF22E1A6),
-    sky: Color(0xFF7FD2FF),
-    amber: Color(0xFFF4B860),
-    danger: Color(0xFFF07979),
+    bg: Color(0xFF09090F),
+    surface: Color(0xFF111119),
+    surface2: Color(0xFF181822),
+    surface3: Color(0xFF22222F),
+    border: Color(0x14FFFFFF),
+    borderStrong: Color(0x29FFFFFF),
+    text: Color(0xFFEFEEF6),
+    muted: Color(0xFFA09FB4),
+    // Held past 4.5:1 on surface and on a [tintFill] of itself: it draws log
+    // timestamps and node addresses, so it is quiet text, not decoration.
+    faint: Color(0xFF8E8DA3),
+    violet: Color(0xFF6A3BF0),
+    violetSoft: Color(0xFFBCA8FF),
+    mint: Color(0xFF3BE3B0),
+    sky: Color(0xFF5AD2FF),
+    amber: Color(0xFFFFB766),
+    danger: Color(0xFFFF7085),
+    water: [Color(0xFF8B6BFF), Color(0xFF2E2170)],
   );
 
   static const light = AppPalette(
-    bg: Color(0xFFF4F6F8),
+    bg: Color(0xFFF4F3F9),
     surface: Color(0xFFFFFFFF),
-    surface2: Color(0xFFF5F6F9),
-    surface3: Color(0xFFE9EBEF),
+    surface2: Color(0xFFF6F5FB),
+    surface3: Color(0xFFEBE9F3),
     border: Color(0x14000000),
     borderStrong: Color(0x29000000),
-    text: Color(0xFF0B1220),
-    muted: Color(0xFF5C6779),
-    // Darkened from 7C8698 (3.67:1 on white) for the reason above. Light mode
-    // needs the bigger move: its surface is white, so there is no headroom.
-    faint: Color(0xFF606B7C),
-    violet: Color(0xFF5B34E8),
-    // Darkened: this is a foreground colour on white.
-    violetSoft: Color(0xFF4C28D6),
-    // Darkened for the same reason; the dark-mode mint is 1.70:1 on white.
-    // Darkened again past the on-white bar: the connection dial draws this
-    // label on a disc filled with mint at 9%, and the old #0B7F58 measured
-    // 4.42:1 there. Mint's only fills are the switch thumb and its 22% track,
-    // which a deeper green does not hurt.
+    text: Color(0xFF13121E),
+    muted: Color(0xFF54526A),
+    // White surface, so no headroom: darker than it looks like it should be.
+    faint: Color(0xFF646279),
+    violet: Color(0xFF5A33E6),
+    // Foreground accents get darker, not lighter, on white.
+    violetSoft: Color(0xFF4A25CF),
+    // Deep enough to clear 4.5:1 on a 9% disc of itself.
     mint: Color(0xFF0A7550),
-    // Same story: dark sky is 1.67:1 on white, so light mode re-picks it.
-    sky: Color(0xFF116E96),
-    amber: Color(0xFF9A6300),
-    danger: Color(0xFFC5323C),
+    sky: Color(0xFF0F6D94),
+    amber: Color(0xFF946000),
+    danger: Color(0xFFC22D47),
+    water: [Color(0xFF9B84F7), Color(0xFF5A33E6)],
   );
 
   @override
@@ -146,6 +152,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? sky,
     Color? amber,
     Color? danger,
+    List<Color>? water,
   }) {
     return AppPalette(
       bg: bg ?? this.bg,
@@ -163,6 +170,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       sky: sky ?? this.sky,
       amber: amber ?? this.amber,
       danger: danger ?? this.danger,
+      water: water ?? this.water,
     );
   }
 
@@ -185,6 +193,12 @@ class AppPalette extends ThemeExtension<AppPalette> {
       sky: Color.lerp(sky, other.sky, t)!,
       amber: Color.lerp(amber, other.amber, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
+      water: other.water.length == water.length
+          ? [
+              for (var i = 0; i < water.length; i++)
+                Color.lerp(water[i], other.water[i], t)!,
+            ]
+          : (t < .5 ? water : other.water),
     );
   }
 }
@@ -195,7 +209,7 @@ extension AppPaletteContext on BuildContext {
       Theme.of(this).extension<AppPalette>() ?? AppPalette.dark;
 }
 
-/// Font families. Inter and Space Grotesk are variable fonts (one file each);
+/// Font families. Inter and Source Serif 4 are variable fonts (one file each);
 /// JetBrains Mono ships Regular + Medium as separate files, which is the pair
 /// [monoStyle] draws on.
 ///
@@ -207,8 +221,24 @@ class AppFonts {
   const AppFonts._();
 
   static const body = 'Inter';
-  static const display = 'SpaceGrotesk';
+
+  /// A Latin serif for titles, the exit's name and the live rates. Han
+  /// characters in those come from [serifFallback], so the display voice is a
+  /// serif in both scripts.
+  static const display = 'SourceSerif4';
   static const mono = 'JetBrainsMono';
+
+  /// The display face's Han fallback: the system's CJK serif (Android ships
+  /// Noto Serif CJK; most Linux desktops too), then the sans chain so a device
+  /// without one still renders Chinese rather than tofu.
+  static const serifFallback = <String>[
+    'Noto Serif CJK SC',
+    'Source Han Serif SC',
+    'Noto Serif SC',
+    'Songti SC', // macOS
+    'SimSun', // Windows
+    ...cjkFallback,
+  ];
 
   /// Tried in order; unknown families are skipped by the engine.
   static const cjkFallback = <String>[
@@ -246,7 +276,7 @@ class AppRadius {
   static const xs = 4.0;
   static const sm = 8.0;
   static const md = 12.0;
-  static const lg = 16.0;
+  static const lg = 20.0;
   static const xl = 24.0;
 }
 
@@ -318,6 +348,9 @@ TextStyle _componentStyle({
       color: color,
     );
 
+/// Buttons are pills: the water-worn shape the rest of the surfaces echo.
+const pillShape = StadiumBorder();
+
 ThemeData buildAppTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final palette = dark ? AppPalette.dark : AppPalette.light;
@@ -345,21 +378,24 @@ ThemeData buildAppTheme(Brightness brightness) {
     splashFactory: InkSparkle.splashFactory,
     extensions: [palette],
     textTheme: TextTheme(
-      // Display: Space Grotesk 700, tracking -0.03em (i.e. -0.03 × font size).
+      // Display: a serif in both scripts, bold, with a touch of air between
+      // Han characters — set tight they read as a single dark block.
       headlineLarge: TextStyle(
         fontFamily: AppFonts.display,
-        fontFamilyFallback: AppFonts.cjkFallback,
+        fontFamilyFallback: AppFonts.serifFallback,
         fontSize: 28,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.84,
+        letterSpacing: .4,
+        height: 1.2,
         color: palette.text,
       ),
       headlineMedium: TextStyle(
         fontFamily: AppFonts.display,
-        fontFamilyFallback: AppFonts.cjkFallback,
+        fontFamilyFallback: AppFonts.serifFallback,
         fontSize: 22,
         fontWeight: FontWeight.w700,
-        letterSpacing: -0.66,
+        letterSpacing: .3,
+        height: 1.2,
         color: palette.text,
       ),
       titleMedium: TextStyle(
@@ -370,9 +406,9 @@ ThemeData buildAppTheme(Brightness brightness) {
       bodyMedium: TextStyle(fontSize: 13, height: 1.4, color: palette.text),
       bodySmall: TextStyle(fontSize: 11, color: palette.muted, height: 1.4),
       labelSmall: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.2,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.0,
         color: palette.muted,
       ),
     ),
@@ -412,21 +448,17 @@ ThemeData buildAppTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: Gap.xl, vertical: 14),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-        ),
+        shape: pillShape,
         textStyle: _componentStyle(weight: FontWeight.w600),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: palette.violetSoft,
-        side: BorderSide(color: palette.border),
+        foregroundColor: palette.text,
+        side: BorderSide(color: palette.borderStrong),
         padding: const EdgeInsets.symmetric(horizontal: Gap.lg, vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-        ),
-        textStyle: _componentStyle(),
+        shape: pillShape,
+        textStyle: _componentStyle(weight: FontWeight.w600),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
@@ -465,13 +497,55 @@ ThemeData buildAppTheme(Brightness brightness) {
         );
       }),
     ),
+    // The same language as the connect switch: a solid track in the brand
+    // colour when on, a plain one when off, and no Material outline ring —
+    // the default M3 switch, with its outlined track and shrinking thumb, read
+    // as a different widget set next to it.
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) =>
-          states.contains(WidgetState.selected) ? palette.mint : null),
+      thumbColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.disabled)) return palette.surface3;
+        return states.contains(WidgetState.selected)
+            ? Colors.white
+            : palette.faint;
+      }),
       trackColor: WidgetStateProperty.resolveWith((states) =>
           states.contains(WidgetState.selected)
-              ? palette.mint.withValues(alpha: dark ? .28 : .22)
+              ? palette.violet
               : palette.surface3),
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      trackOutlineWidth: const WidgetStatePropertyAll(0),
+      thumbIcon: const WidgetStatePropertyAll(null),
+      overlayColor:
+          WidgetStatePropertyAll(palette.violet.withValues(alpha: .08)),
+    ),
+    // Every menu — settings pickers, the rule matcher, a group's actions — on
+    // one surface: the card colour, a hairline edge, the panel radius.
+    popupMenuTheme: PopupMenuThemeData(
+      color: palette.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shadowColor: Colors.black.withValues(alpha: dark ? .5 : .14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        side: BorderSide(color: palette.border),
+      ),
+      textStyle: _componentStyle(size: 13, color: palette.text),
+      labelTextStyle: WidgetStatePropertyAll(
+        _componentStyle(size: 13, color: palette.text),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: palette.surface,
+      selectedColor: palette.text,
+      side: BorderSide(color: palette.border),
+      shape: const StadiumBorder(),
+      showCheckmark: false,
+      labelStyle: _componentStyle(size: 12, color: palette.muted),
+      secondaryLabelStyle: _componentStyle(
+        size: 12,
+        weight: FontWeight.w600,
+        color: palette.bg,
+      ),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(
       color: palette.violetSoft,

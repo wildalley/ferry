@@ -20,7 +20,7 @@ import 'widgets.dart';
 
 /// Navigation destinations, shared by both layouts.
 enum AppTab {
-  home(Icons.home_outlined, Icons.home_rounded),
+  home(Icons.waves_rounded, Icons.waves_rounded),
   nodes(Icons.hub_outlined, Icons.hub_rounded),
   rules(Icons.alt_route_outlined, Icons.alt_route_rounded),
   logs(Icons.receipt_long_outlined, Icons.receipt_long_rounded),
@@ -158,18 +158,11 @@ class _AppShellState extends State<AppShell> {
                 signals: signals,
                 child: SafeArea(bottom: false, child: transitioningPage),
               ),
-              bottomNavigationBar: NavigationBar(
-                selectedIndex: _tab.index,
-                onDestinationSelected: (index) =>
-                    _goToTab(AppTab.values[index]),
-                destinations: [
-                  for (final tab in AppTab.values)
-                    NavigationDestination(
-                      icon: Icon(tab.icon),
-                      selectedIcon: Icon(tab.selectedIcon),
-                      label: tab.label(l10n),
-                    ),
-                ],
+              bottomNavigationBar: _MobileNavBar(
+                key: const Key('mobile-nav'),
+                selected: _tab,
+                onSelected: _goToTab,
+                labelOf: (tab) => tab.label(l10n),
               ),
             );
           },
@@ -275,17 +268,17 @@ class _DesktopRail extends StatelessWidget {
     final palette = context.palette;
 
     return Container(
-      width: 240,
+      width: 232,
       padding: const EdgeInsets.fromLTRB(Gap.lg, 26, Gap.lg, Gap.lg),
       decoration: BoxDecoration(
-        color: Color.lerp(palette.bg, palette.surface, .35),
+        color: Color.lerp(palette.bg, palette.surface, .5),
         border: Border(right: BorderSide(color: palette.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: Gap.xs, bottom: 28),
+            padding: const EdgeInsets.only(left: Gap.xs, bottom: 32),
             child: const _Wordmark(),
           ),
           for (final tab in AppTab.values)
@@ -432,7 +425,7 @@ class _Wordmark extends StatelessWidget {
 
     return Row(
       children: [
-        const BrandMark(size: 44),
+        const BrandLogo(size: 36),
         const SizedBox(width: Gap.md),
         Expanded(
           child: Column(
@@ -445,21 +438,21 @@ class _Wordmark extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: AppFonts.display,
                   fontFamilyFallback: AppFonts.cjkFallback,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.4,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 1),
+              const SizedBox(height: 3),
               Text(
                 l10n.appTagline,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: palette.faint,
-                  fontSize: 9,
+                  fontSize: 8.5,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 1.1,
+                  letterSpacing: .6,
                 ),
               ),
             ],
@@ -486,40 +479,28 @@ class _RailItem extends StatelessWidget {
     final palette = context.palette;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 2),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
+          // The same pill as the selected fill below. With a smaller radius
+          // here the press ripple and hover wash showed square-ish corners
+          // poking out past the pill.
+          customBorder: const StadiumBorder(),
           onTap: onTap,
+          hoverColor: palette.text.withValues(alpha: .04),
+          highlightColor: palette.violetSoft.withValues(alpha: .08),
+          splashColor: palette.violetSoft.withValues(alpha: .12),
           child: AnimatedContainer(
-            duration: Motion.fast,
+            duration: motionOf(context, Motion.fast),
             curve: Motion.curve,
             padding:
                 const EdgeInsets.symmetric(horizontal: Gap.md, vertical: 11),
             decoration: BoxDecoration(
-              gradient: active
-                  ? LinearGradient(
-                      colors: [
-                        palette.violet.withValues(alpha: .22),
-                        palette.violet.withValues(alpha: .06),
-                      ],
-                    )
-                  : null,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              border: Border.all(
-                color: active
-                    ? palette.violet.withValues(alpha: .40)
-                    : Colors.transparent,
-              ),
-              boxShadow: active
-                  ? [
-                      BoxShadow(
-                        color: palette.violet.withValues(alpha: .20),
-                        blurRadius: 8,
-                      )
-                    ]
-                  : null,
+              color: active
+                  ? palette.violetSoft.withValues(alpha: .12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
               children: [
@@ -529,17 +510,133 @@ class _RailItem extends StatelessWidget {
                   color: active ? palette.violetSoft : palette.muted,
                 ),
                 const SizedBox(width: Gap.md),
-                Text(
-                  tab.railLabel(L10n.of(context)),
-                  style: TextStyle(
-                    color: active ? palette.text : palette.muted,
-                    fontSize: 13,
-                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                Expanded(
+                  child: Text(
+                    tab.railLabel(L10n.of(context)),
+                    style: TextStyle(
+                      color: active ? palette.text : palette.muted,
+                      fontSize: 13,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The phone's tab bar.
+///
+/// Drawn here rather than taken from [NavigationBar]: its pill indicator is
+/// the most recognisable Material default there is, and at 80px tall it spent
+/// a tenth of a phone screen on five icons. This is 62px, and marks the
+/// current tab with a tinted pill behind its icon in the river's colour.
+class _MobileNavBar extends StatelessWidget {
+  const _MobileNavBar({
+    super.key,
+    required this.selected,
+    required this.onSelected,
+    required this.labelOf,
+  });
+
+  final AppTab selected;
+  final ValueChanged<AppTab> onSelected;
+  final String Function(AppTab tab) labelOf;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        border: Border(top: BorderSide(color: palette.border)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottom),
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              for (final tab in AppTab.values)
+                Expanded(
+                  child: _MobileNavItem(
+                    icon: tab == selected ? tab.selectedIcon : tab.icon,
+                    label: labelOf(tab),
+                    active: tab == selected,
+                    onTap: () => onSelected(tab),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  const _MobileNavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.palette;
+    final color = active ? palette.violetSoft : palette.muted;
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      excludeSemantics: true,
+      child: InkResponse(
+        onTap: onTap,
+        containedInkWell: true,
+        highlightShape: BoxShape.rectangle,
+        highlightColor: Colors.transparent,
+        splashColor: palette.text.withValues(alpha: .06),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedContainer(
+              duration: motionOf(context, Motion.normal),
+              curve: Motion.curve,
+              width: 46,
+              height: 28,
+              decoration: BoxDecoration(
+                color: active
+                    ? palette.violetSoft.withValues(alpha: .13)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 21, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.2,
+                color: active ? palette.violetSoft : palette.muted,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
