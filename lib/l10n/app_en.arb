@@ -1,8 +1,8 @@
 {
   "@@locale": "en",
-  "appTitle": "SingBox Client",
-  "appShortName": "SingBox",
-  "appTagline": "PROXY & TRAFFIC",
+  "appTitle": "Kinetix Client",
+  "appShortName": "Kinetix",
+  "appTagline": "ORBITAL VELOCITY TUNNEL",
   "actionCancel": "Cancel",
   "actionSave": "Save",
   "actionCopy": "Copy",

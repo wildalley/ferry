@@ -100,19 +100,19 @@ abstract class L10n {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'SingBox Client'**
+  /// **'Kinetix Client'**
   String get appTitle;
 
   /// No description provided for @appShortName.
   ///
   /// In en, this message translates to:
-  /// **'SingBox'**
+  /// **'Kinetix'**
   String get appShortName;
 
   /// No description provided for @appTagline.
   ///
   /// In en, this message translates to:
-  /// **'PROXY & TRAFFIC'**
+  /// **'ORBITAL VELOCITY TUNNEL'**
   String get appTagline;
 
   /// No description provided for @actionCancel.

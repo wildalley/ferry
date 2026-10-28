@@ -49,7 +49,7 @@ static void my_application_activate(GApplication* application) {
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "SingBox Client");
+    gtk_window_set_title(window, "Kinetix");
   }
 
   gtk_window_set_default_size(window, 1280, 720);

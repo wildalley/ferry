@@ -9,13 +9,13 @@ class L10nEn extends L10n {
   L10nEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'SingBox Client';
+  String get appTitle => 'Kinetix Client';
 
   @override
-  String get appShortName => 'SingBox';
+  String get appShortName => 'Kinetix';
 
   @override
-  String get appTagline => 'PROXY & TRAFFIC';
+  String get appTagline => 'ORBITAL VELOCITY TUNNEL';
 
   @override
   String get actionCancel => 'Cancel';

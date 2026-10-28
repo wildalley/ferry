@@ -28,7 +28,7 @@ for t in $targets; do
 done
 wants() { case " $targets " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
-APP_NAME="SingBox Client"
+APP_NAME="Kinetix"
 BINARY=singbox_client
 APP_ID=com.wildalley.singbox_client
 PKG=singbox-client

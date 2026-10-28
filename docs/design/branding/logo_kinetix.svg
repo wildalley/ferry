@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="kBgGlow" cx="50%" cy="35%" r="75%">
+      <stop offset="0%" stop-color="#14182E"/>
+      <stop offset="50%" stop-color="#090D1C"/>
+      <stop offset="100%" stop-color="#04060C"/>
+    </radialGradient>
+    
+    <linearGradient id="kBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.7"/>
+      <stop offset="40%" stop-color="#7000FF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#FF007A" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <linearGradient id="bladeLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="50%" stop-color="#0080FF"/>
+      <stop offset="100%" stop-color="#7000FF"/>
+    </linearGradient>
+
+    <linearGradient id="bladeTopRight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="60%" stop-color="#7000FF"/>
+      <stop offset="100%" stop-color="#FF007A"/>
+    </linearGradient>
+
+    <linearGradient id="bladeBottomRight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7000FF"/>
+      <stop offset="60%" stop-color="#FF007A"/>
+      <stop offset="100%" stop-color="#FF5500"/>
+    </linearGradient>
+
+    <filter id="kGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <filter id="kShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect x="24" y="24" width="464" height="464" rx="112" ry="112" fill="url(#kBgGlow)"/>
+  <rect x="24" y="24" width="464" height="464" rx="112" ry="112" fill="none" stroke="url(#kBorder)" stroke-width="2.5"/>
+
+  <!-- Orbital Track Ring in background -->
+  <ellipse cx="256" cy="256" rx="175" ry="75" transform="rotate(-30 256 256)"
+           fill="none" stroke="#00F0FF" stroke-opacity="0.18" stroke-width="2" stroke-dasharray="12 16"/>
+  <ellipse cx="256" cy="256" rx="175" ry="75" transform="rotate(30 256 256)"
+           fill="none" stroke="#FF007A" stroke-opacity="0.18" stroke-width="2" stroke-dasharray="12 16"/>
+
+  <!-- Kinetix Geometric Mark -->
+  <g filter="url(#kShadow)">
+    <!-- Vertical Kinetic Mast / Left Pillar -->
+    <path d="M 160,135 L 210,135 L 210,377 L 160,377 Z"
+          fill="url(#bladeLeft)" rx="6"/>
+    <!-- Specular rim on Mast -->
+    <path d="M 160,135 L 175,135 L 175,377 L 160,377 Z"
+          fill="#FFFFFF" fill-opacity="0.35"/>
+
+    <!-- Upper Supersonic Wing (Northeast thrust) -->
+    <path d="M 225,240 L 335,135 L 390,135 L 270,256 Z"
+          fill="url(#bladeTopRight)" rx="4"/>
+    <polygon points="335,135 390,135 375,150 320,150" fill="#FFFFFF" fill-opacity="0.4"/>
+
+    <!-- Lower Supersonic Wing (Southeast thrust) -->
+    <path d="M 270,256 L 390,377 L 335,377 L 225,272 Z"
+          fill="url(#bladeBottomRight)" rx="4"/>
+    <polygon points="335,377 390,377 375,362 320,362" fill="#FFFFFF" fill-opacity="0.4"/>
+
+    <!-- Kinetic Singularity Core Spark -->
+    <circle cx="256" cy="256" r="12" fill="#FFFFFF" filter="url(#kGlow)"/>
+    <circle cx="256" cy="256" r="5" fill="#00F0FF"/>
+  </g>
+</svg>

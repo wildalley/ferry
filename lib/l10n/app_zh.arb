@@ -1,8 +1,8 @@
 {
   "@@locale": "zh",
-  "appTitle": "SingBox 客户端",
-  "appShortName": "SingBox",
-  "appTagline": "代理与流量管理",
+  "appTitle": "Kinetix 客户端",
+  "appShortName": "Kinetix",
+  "appTagline": "动能星轨 · 穿透边界",
   "actionCancel": "取消",
   "actionSave": "保存",
   "actionCopy": "复制",

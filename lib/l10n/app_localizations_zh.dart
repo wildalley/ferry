@@ -9,13 +9,13 @@ class L10nZh extends L10n {
   L10nZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => 'SingBox 客户端';
+  String get appTitle => 'Kinetix 客户端';
 
   @override
-  String get appShortName => 'SingBox';
+  String get appShortName => 'Kinetix';
 
   @override
-  String get appTagline => '代理与流量管理';
+  String get appTagline => '动能星轨 · 穿透边界';
 
   @override
   String get actionCancel => '取消';
