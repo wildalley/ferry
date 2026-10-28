@@ -5,4 +5,4 @@
 /// a literal that can drift. Keep in sync with `version:` in `pubspec.yaml`.
 library;
 
-const appVersion = '0.2.0';
+const appVersion = '0.3.0';
