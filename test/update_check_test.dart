@@ -39,7 +39,7 @@ class FakeChecker extends UpdateChecker {
 AppRelease release(String tag) => AppRelease(
       tag: tag,
       version: parseAppVersion(tag)!,
-      url: 'https://github.com/wildalley/singbox-client/releases/tag/$tag',
+      url: 'https://github.com/wildalley/ferry/releases/tag/$tag',
     );
 
 Future<({AppState state, Storage storage})> harness(FakeChecker checker,
@@ -89,7 +89,7 @@ void main() {
     test('reads the tag, the page and the first lines of the notes', () {
       final parsed = UpdateChecker.parseRelease('''
 {"tag_name": "v0.3.0",
- "html_url": "https://github.com/wildalley/singbox-client/releases/tag/v0.3.0",
+ "html_url": "https://github.com/wildalley/ferry/releases/tag/v0.3.0",
  "body": "Policy groups\\nNew theme"}''');
 
       expect(parsed.tag, 'v0.3.0');

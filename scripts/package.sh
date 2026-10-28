@@ -32,7 +32,7 @@ APP_NAME="渡"
 BINARY=ferry
 APP_ID=com.wildalley.ferry
 PKG=ferry
-URL=https://github.com/wildalley/singbox-client
+URL=https://github.com/wildalley/ferry
 
 # pubspec carries "0.1.0+1": the left half is the release, the right the build.
 raw_version=$(sed -n 's/^version: *//p' pubspec.yaml | head -1)

@@ -58,7 +58,7 @@ bool isNewerVersion(List<int> candidate, List<int> current) {
 
 class UpdateChecker {
   UpdateChecker({
-    this.repository = 'wildalley/singbox-client',
+    this.repository = 'wildalley/ferry',
     HttpClient? httpClient,
   }) : _httpClient = httpClient ?? HttpClient();
 
