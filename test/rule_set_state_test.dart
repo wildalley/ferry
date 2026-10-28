@@ -101,6 +101,7 @@ void main() {
     );
     addTearDown(state.dispose);
     // The constructor reads the install record off disk.
+    await state.ruleSetInstallRead;
     await pumpEventQueue();
     return (state: state, controller: controller);
   }

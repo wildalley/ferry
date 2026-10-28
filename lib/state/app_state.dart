@@ -312,6 +312,9 @@ class AppState extends ChangeNotifier {
   /// also where [updateRuleSets] has nothing to write to.
   RuleSetInstall? get ruleSetInstall => _ruleSetInstall;
 
+  @visibleForTesting
+  Future<void>? get ruleSetInstallRead => _ruleSetInstallRead;
+
   bool get hasLocalRuleSets => _ruleSetDir != null;
   bool get isUpdatingRuleSets => _updatingRuleSets;
 
