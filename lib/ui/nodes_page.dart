@@ -197,6 +197,54 @@ class _NodesPageState extends State<NodesPage> {
           ),
         ],
       ),
+      // The sources as slivers, so their rows are built as they scroll into
+      // view. A subscription routinely carries two or three hundred nodes, and
+      // building every row up front made opening this page — and every latency
+      // sort, which rebuilds it — the slowest thing in the app.
+      slivers: [
+        if (state.nodes.isNotEmpty) ...[
+          for (final subscription in state.subscriptions)
+            if (source == null || source == subscription.id)
+              _SubscriptionSection(
+                state: state,
+                subscription: subscription,
+                nodes: grouped[subscription.id] ?? const [],
+                collapsed: !expanded(subscription.id),
+                onToggle: () => _toggleSource(subscription.id),
+              ),
+          if (grouped.containsKey(null) &&
+              (source == null || source == _manualSource)) ...[
+            // A section label is one small line high, which is too thin a
+            // target on a phone, so the fold takes a little padding of its own.
+            SliverToBoxAdapter(
+              child: InkWell(
+                onTap: () => _toggleSource(_manualSource),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Gap.sm),
+                  child: SectionLabel(
+                    l10n.nodesGroupManual,
+                    trailing: _FoldChevron(collapsed: !expanded(_manualSource)),
+                  ),
+                ),
+              ),
+            ),
+            if (expanded(_manualSource))
+              _NodeGroup(rows: _nodeRows(state, grouped[null]!).toList()),
+            const SliverToBoxAdapter(child: SizedBox(height: 22)),
+          ],
+          if (nodes.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: Gap.sm),
+                child: EmptyState(
+                  icon: Icons.search_off_outlined,
+                  title: l10n.nodesNoMatches,
+                  message: l10n.nodesNoMatchesBody,
+                ),
+              ),
+            ),
+        ],
+      ],
       children: [
         if (state.nodes.isEmpty)
           EmptyState(
@@ -280,42 +328,6 @@ class _NodesPageState extends State<NodesPage> {
             _AutoRow(state: state),
             const SizedBox(height: 18),
           ],
-          for (final subscription in state.subscriptions)
-            if (source == null || source == subscription.id)
-              _SubscriptionSection(
-                state: state,
-                subscription: subscription,
-                nodes: grouped[subscription.id] ?? const [],
-                collapsed: !expanded(subscription.id),
-                onToggle: () => _toggleSource(subscription.id),
-              ),
-          if (grouped.containsKey(null) &&
-              (source == null || source == _manualSource)) ...[
-            // A section label is one small line high, which is too thin a
-            // target on a phone, so the fold takes a little padding of its own.
-            InkWell(
-              onTap: () => _toggleSource(_manualSource),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: Gap.sm),
-                child: SectionLabel(
-                  l10n.nodesGroupManual,
-                  trailing: _FoldChevron(collapsed: !expanded(_manualSource)),
-                ),
-              ),
-            ),
-            if (expanded(_manualSource))
-              _NodeGroup(rows: _nodeRows(state, grouped[null]!).toList()),
-            const SizedBox(height: 22),
-          ],
-          if (nodes.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: Gap.sm),
-              child: EmptyState(
-                icon: Icons.search_off_outlined,
-                title: l10n.nodesNoMatches,
-                message: l10n.nodesNoMatchesBody,
-              ),
-            ),
         ],
       ],
     );
@@ -480,9 +492,9 @@ class _SubscriptionSection extends StatelessWidget {
 
     // Header and rows share one card, so a source reads as one thing that
     // folds rather than a header card floating above a stack of others.
-    return Padding(
+    return SliverPadding(
       padding: const EdgeInsets.only(bottom: Gap.lg),
-      child: _NodeGroup(
+      sliver: _NodeGroup(
         header: header,
         accent: failure != null ? palette.amber : null,
         rows: collapsed ? const [] : _nodeRows(state, nodes).toList(),
@@ -868,6 +880,11 @@ class _NodeRow extends StatelessWidget {
 /// One surface per source instead of one per row. Separate cards put a border,
 /// a gap and a corner radius between every pair of nodes, and on a list of
 /// forty that is most of what the eye sees.
+///
+/// A sliver, so only the rows on screen are built. The card is painted behind
+/// the list by [DecoratedSliver], which cannot clip, so the first and last
+/// child clip themselves to the rounded corners — that is where a selected
+/// row's fill or the header's press ripple would otherwise show square.
 class _NodeGroup extends StatelessWidget {
   const _NodeGroup({this.header, required this.rows, this.accent});
 
@@ -880,31 +897,91 @@ class _NodeGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
+    final offset = header == null ? 0 : 1;
+    final count = rows.length + offset;
+    const radius = Radius.circular(AppRadius.lg);
+    // Rows keep their state across a re-sort — the slide animation needs the
+    // row that moved, not a fresh one built at the new index.
+    final indexOfKey = <Key, int>{
+      for (var i = 0; i < rows.length; i++)
+        if (rows[i].key != null) rows[i].key!: i + offset,
+    };
+
+    // Every row gets the clip, switched off in the middle, rather than only
+    // the ends getting one: a row that moves to or from an end would otherwise
+    // change shape, lose its element, and with it the slide it was making.
+    Widget rounded(int index, Widget child) {
+      final top = index == 0;
+      final bottom = index == count - 1;
+      return ClipRRect(
+        clipBehavior: top || bottom ? Clip.antiAlias : Clip.none,
+        borderRadius: BorderRadius.vertical(
+          top: top ? radius : Radius.zero,
+          bottom: bottom ? radius : Radius.zero,
+        ),
+        child: child,
+      );
+    }
+
+    return DecoratedSliver(
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
+        borderRadius: const BorderRadius.all(radius),
         border: Border.all(
           color: accent?.withValues(alpha: .40) ?? palette.border,
         ),
       ),
-      // Clipped so a selected row's fill and edge bar stop at the corners.
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (header != null) header!,
-          for (var i = 0; i < rows.length; i++) ...[
-            if (i > 0 || header != null)
-              // Inset past the region tile, so the rule separates names
-              // rather than cutting through the column of tiles.
-              Divider(indent: i == 0 ? 0 : 64, height: 1),
-            rows[i],
-          ],
-        ],
+      sliver: SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            if (index == 0 && header != null) return rounded(0, header!);
+            final row = rows[index - offset];
+            return KeyedSubtree(
+              key: row.key,
+              // A rule painted over the row's top edge rather than a Divider
+              // between rows: a wrapper around the row would become the
+              // parent the slide animation measures against, and it never
+              // moves. Inset past the region tile, so the rule separates
+              // names rather than cutting through the column of tiles.
+              child: CustomPaint(
+                foregroundPainter: index == 0
+                    ? null
+                    : _RuleAbove(
+                        indent: index == offset ? 0 : 64,
+                        color: palette.border,
+                      ),
+                child: rounded(index, row),
+              ),
+            );
+          },
+          childCount: count,
+          findChildIndexCallback: (key) => indexOfKey[key],
+        ),
       ),
     );
   }
+}
+
+class _RuleAbove extends CustomPainter {
+  const _RuleAbove({required this.indent, required this.color});
+
+  final double indent;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawLine(
+      Offset(indent, .5),
+      Offset(size.width, .5),
+      Paint()
+        ..color = color
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RuleAbove old) =>
+      old.indent != indent || old.color != color;
 }
 
 /// One tappable line inside a [_NodeGroup]: hover tint, and for the chosen

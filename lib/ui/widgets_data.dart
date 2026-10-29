@@ -317,12 +317,13 @@ class _ReorderSlideState extends State<ReorderSlide>
   /// in the list moves.
   ///
   /// Render objects in between that merely pass layout through — the
-  /// RepaintBoundary a [SliverList] wraps each child in, for one — hold no
-  /// position of their own, so the walk climbs past them. An unrecognised layout
+  /// RepaintBoundary and IndexedSemantics a [SliverList] wraps each child in,
+  /// and the node list's own clip and divider painter — hold no position of
+  /// their own, so the walk climbs past them. An unrecognised layout
   /// returns null and the row simply does not animate.
   double? _positionInList() {
     RenderObject? node = context.findRenderObject();
-    for (var hops = 0; node != null && hops < 4; hops++, node = node.parent) {
+    for (var hops = 0; node != null && hops < 6; hops++, node = node.parent) {
       final data = node.parentData;
       if (data is SliverMultiBoxAdaptorParentData) return data.layoutOffset;
       if (data is FlexParentData) return data.offset.dy;

@@ -287,6 +287,7 @@ class PageFrame extends StatelessWidget {
     this.trailing,
     this.onRefresh,
     this.fill = false,
+    this.slivers = const [],
   });
 
   final String title;
@@ -304,6 +305,11 @@ class PageFrame extends StatelessWidget {
   /// when the last child actually wants the room: stretching a short card (an
   /// empty state) to full height looks like a bug, not a layout.
   final bool fill;
+
+  /// Slivers after [children], inside the same padding and scroll. For a body
+  /// long enough that it should be built lazily — the node list — rather than
+  /// all at once as [children] are.
+  final List<Widget> slivers;
 
   /// Wide enough for the dashboard's connection table to keep its columns on
   /// a 1440px display, narrow enough that a line of text stays readable.
@@ -397,7 +403,12 @@ class PageFrame extends StatelessWidget {
         slivers: [
           SliverPadding(
             padding: padding,
-            sliver: SliverList.list(children: [header, ...children]),
+            sliver: SliverMainAxisGroup(
+              slivers: [
+                SliverList.list(children: [header, ...children]),
+                ...slivers,
+              ],
+            ),
           ),
         ],
       );
@@ -431,6 +442,8 @@ class PageFrame extends StatelessWidget {
     // filling shape the page has none — the scroller belongs to the last child.
     // No caller combines the two today; the assert says so rather than leaving a
     // pull-to-refresh that silently never fires.
+    assert(slivers.isEmpty || !fill,
+        'PageFrame cannot fill and take slivers: filling has no scroll of its own');
     assert(
       onRefresh == null || !fill,
       'PageFrame cannot combine onRefresh with fill: the filling shape has no '
