@@ -1,7 +1,31 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// The release key, from the environment (CI) or android/key.properties (a
+// local machine). Neither is in the repository. Without one, release builds
+// fall back to the debug key so `flutter build apk` keeps working — but such a
+// build cannot update an install signed with the real key, which is why CI
+// checks the signature of what it ships.
+val releaseSigning: Map<String, String>? = run {
+    val env = System.getenv()
+    if (!env["FERRY_KEYSTORE"].isNullOrEmpty()) {
+        return@run mapOf(
+            "storeFile" to env.getValue("FERRY_KEYSTORE"),
+            "storePassword" to env["FERRY_KEYSTORE_PASSWORD"].orEmpty(),
+            "keyAlias" to env["FERRY_KEY_ALIAS"].orEmpty(),
+            "keyPassword" to env["FERRY_KEY_PASSWORD"].orEmpty(),
+        )
+    }
+    val file = rootProject.file("key.properties")
+    if (!file.exists()) return@run null
+    val props = Properties().apply { file.inputStream().use(::load) }
+    listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+        .associateWith { props.getProperty(it).orEmpty() }
 }
 
 android {
@@ -36,6 +60,17 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        releaseSigning?.let { key ->
+            create("release") {
+                storeFile = file(key.getValue("storeFile"))
+                storePassword = key.getValue("storePassword")
+                keyAlias = key.getValue("keyAlias")
+                keyPassword = key.getValue("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Installs beside a release build instead of over it: a release
@@ -44,9 +79,8 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
             // libbox's Java bindings are reached by name from Go through JNI, so
             // code shrinking risks stripping live classes. Resource shrinking must
             // be disabled alongside it (AGP rejects one without the other).

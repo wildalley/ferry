@@ -266,8 +266,14 @@ run as root.
 Every build job uploads its own artifacts, and `release` runs even when one of
 them failed, so a broken artifact does not withhold the others.
 
-One thing the workflow deliberately leaves alone: **signing** stays on the debug
-key, as `android/app/build.gradle.kts` already does. The APK is for testing.
+**Signing.** The APK is signed with the release key, restored from four
+repository secrets: `FERRY_KEYSTORE_BASE64` (the `.jks`, base64-encoded),
+`FERRY_KEYSTORE_PASSWORD`, `FERRY_KEY_ALIAS` and `FERRY_KEY_PASSWORD`. Without
+them the build falls back to the debug key; a `v*` tag then fails rather than
+publish an APK that cannot update existing installs. Locally, put the same four
+values in `android/key.properties` (gitignored) as `storeFile`, `storePassword`,
+`keyAlias` and `keyPassword`. Keep the keystore backed up: releases signed with
+any other key cannot update an installed copy.
 
 ## Verification
 
@@ -397,8 +403,9 @@ the same `ProxyController` interface.
 
 ## Known gaps
 
-- Release builds are signed with the debug key
-  (`android/app/build.gradle.kts`). Replace before distributing.
+- APKs up to 0.3.0 were signed with throwaway CI debug keys, so updating one of
+  them means a reinstall; from 0.3.1 on, releases share one key and update in
+  place.
 - arm64 only. Other ABIs need another `scripts/build-libbox.sh` run with a
   different `-target`.
 - Android per-app proxy can exclude selected launchable apps from the VPN.

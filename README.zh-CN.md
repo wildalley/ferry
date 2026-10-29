@@ -169,7 +169,7 @@ Arch 包单独一个任务，因为写 `.PKGINFO`、`.MTREE` 和 `.BUILDINFO` �
 
 每个构建任务各自上传产物，即使其中一个失败，`release` 也会运行，一个坏掉的产物不会拖住其他产物的发布。
 
-有一件事工作流刻意没有处理：**签名**仍然使用 debug 密钥，和 `android/app/build.gradle.kts` 一致。APK 仅供测试。
+**签名**：APK 使用正式密钥签名，密钥从仓库的 4 个 secret 还原：`FERRY_KEYSTORE_BASE64`（`.jks` 文件的 base64）、`FERRY_KEYSTORE_PASSWORD`、`FERRY_KEY_ALIAS` 和 `FERRY_KEY_PASSWORD`。缺少它们时构建会退回 debug 密钥；如果是 `v*` tag，构建会直接失败，而不是发布一个无法覆盖升级已安装版本的 APK。本地构建时，把同样的 4 个值以 `storeFile`、`storePassword`、`keyAlias`、`keyPassword` 写进 `android/key.properties`（已被 git 忽略）。请务必备份密钥库：用其他密钥签名的版本无法升级已安装的应用。
 
 ## 验证
 
@@ -244,7 +244,7 @@ sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
 
 ## 已知不足
 
-- 发布版使用 debug 密钥签名（`android/app/build.gradle.kts`），正式分发前需要替换。
+- 0.3.0 及以前的 APK 由 CI 临时生成的 debug 密钥签名，从这些版本升级需要卸载重装；从 0.3.1 起所有版本使用同一把密钥，可以直接覆盖升级。
 - 只支持 arm64。其他架构需要用不同的 `-target` 再跑一次 `scripts/build-libbox.sh`。
 - Android 的分应用代理可以把选中的可启动应用排除在 VPN 之外。
 - Android 无法在 0.3.0 改名时保留数据，见「从 SingBox Client 升级」。
