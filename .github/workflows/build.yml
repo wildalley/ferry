@@ -159,8 +159,15 @@ jobs:
       - name: Check the APK's signing key
         run: |
           apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
-          certs=$("$apksigner" verify --print-certs dist/*.apk)
-          echo "$certs" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          echo "apksigner: $apksigner"
+          # apksigner reports a failed verification on stdout and exits 1, so
+          # capturing it plainly under `bash -e` ended the step without a word.
+          if ! certs=$("$apksigner" verify --verbose --print-certs dist/*.apk 2>&1); then
+            echo "$certs"
+            echo "::error::apksigner could not verify the APK"
+            exit 1
+          fi
+          echo "$certs" | grep -E 'certificate (DN|SHA-256)' || echo "$certs"
           if echo "$certs" | grep -q 'CN=Android Debug'; then
             if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
               echo "::error::release APK is signed with the debug key — set the FERRY_KEY* secrets"
