@@ -44,8 +44,10 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  /// Drives the uptime label without rebuilding on every traffic event.
+  /// Ticks once a second while connected, for the uptime line alone. It used
+  /// to setState the whole page every second.
   Timer? _ticker;
+  final _clock = _Ticker();
 
   @override
   void initState() {
@@ -60,7 +62,7 @@ class _HomePageState extends State<HomePage> {
     _ticker = null;
     if (TickerMode.valuesOf(context).enabled) {
       _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted && widget.state.isConnected) setState(() {});
+        if (mounted && widget.state.isConnected) _clock.notify();
       });
     }
   }
@@ -69,11 +71,16 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     widget.state.removeListener(_onStateChanged);
     _ticker?.cancel();
+    _clock.dispose();
     super.dispose();
   }
 
+  /// Rebuilds the page for anything but a traffic sample or a log burst. The
+  /// widgets that show traffic listen to [AppState.trafficChanges] themselves,
+  /// and nothing here shows the log.
   void _onStateChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || widget.state.lastChange != StateChange.general) return;
+    setState(() {});
   }
 
   @override
@@ -106,11 +113,13 @@ class _HomePageState extends State<HomePage> {
               return _MobileHomeDashboard(
                 state: state,
                 onOpenNodes: widget.onOpenNodes,
+                clock: _clock,
               );
             }
             return _DesktopHomeDashboard(
               state: state,
               onOpenNodes: widget.onOpenNodes,
+              clock: _clock,
               wide: width > _wideWidth,
             );
           },
@@ -129,6 +138,25 @@ class _HomePageState extends State<HomePage> {
 }
 
 // --------------------------------------------------------------- shared bits
+
+/// A [ChangeNotifier] whose only job is to say "now".
+class _Ticker extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
+/// Rebuilds [builder] on each traffic sample, without the page around it.
+class _OnTraffic extends StatelessWidget {
+  const _OnTraffic({required this.state, required this.builder});
+
+  final AppState state;
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+        listenable: state.trafficChanges,
+        builder: (context, _) => builder(context),
+      );
+}
 
 /// Accent for the current stage: mint healthy, danger failed, muted otherwise.
 ///

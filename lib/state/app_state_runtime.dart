@@ -108,7 +108,7 @@ extension _AppStateRuntime on AppState {
     if (_logNotify != null) return;
     _logNotify = Timer(Duration.zero, () {
       _logNotify = null;
-      _notifyUnlessDisposed();
+      if (!_disposed) _notifyAs(StateChange.logs);
     });
   }
 

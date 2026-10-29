@@ -4,51 +4,78 @@ part of 'home_page.dart';
 
 /// Tablet and desktop: the hero across the top, totals in a row, then traffic
 /// beside the routing split.
+///
+/// Everything that reads traffic is wrapped in [_OnTraffic], so a sample
+/// redraws those panels and not the page.
 class _DesktopHomeDashboard extends StatelessWidget {
   const _DesktopHomeDashboard({
     required this.state,
     required this.onOpenNodes,
+    required this.clock,
     required this.wide,
   });
 
   final AppState state;
   final VoidCallback onOpenNodes;
+  final Listenable clock;
   final bool wide;
 
   @override
   Widget build(BuildContext context) {
-    final connected = state.isConnected;
-    final traffic = state.traffic;
-    final showConnections = connected &&
-        (traffic.connectionList.isNotEmpty || traffic.connections == 0);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _HeroPanel(state: state, onOpenNodes: onOpenNodes, wide: true),
+        _HeroPanel(
+          state: state,
+          onOpenNodes: onOpenNodes,
+          clock: clock,
+          wide: true,
+        ),
         const SizedBox(height: Gap.lg),
-        _StatTiles(state: state, columns: wide ? 4 : 2),
+        _OnTraffic(
+          state: state,
+          builder: (_) => _StatTiles(state: state, columns: wide ? 4 : 2),
+        ),
         const SizedBox(height: Gap.lg),
-        if (wide)
-          PixelRow(
-            flex: const [5, 3],
-            children: [
-              _TrafficPanel(state: state, height: 168),
-              _RoutingPanel(state: state, stretch: true),
-            ],
-          )
-        else ...[
-          _TrafficPanel(state: state, height: 120),
-          const SizedBox(height: Gap.lg),
-          _RoutingPanel(state: state, stretch: false),
-        ],
-        if (showConnections) ...[
-          const SizedBox(height: Gap.lg),
-          _ConnectionsPanel(state: state, compact: !wide),
-        ],
+        _OnTraffic(
+          state: state,
+          builder: (_) => wide
+              ? PixelRow(
+                  flex: const [5, 3],
+                  children: [
+                    _TrafficPanel(state: state, height: 168),
+                    _RoutingPanel(state: state, stretch: true),
+                  ],
+                )
+              : Column(
+                  children: [
+                    _TrafficPanel(state: state, height: 120),
+                    const SizedBox(height: Gap.lg),
+                    _RoutingPanel(state: state, stretch: false),
+                  ],
+                ),
+        ),
+        _OnTraffic(
+          state: state,
+          builder: (_) => _showConnections(state)
+              ? Padding(
+                  padding: const EdgeInsets.only(top: Gap.lg),
+                  child: _ConnectionsPanel(state: state, compact: !wide),
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
+}
+
+/// Whether the connections panel has something to say: connected, and either a
+/// list to show or an honest zero. The runtime can report a count without a
+/// list (libbox), and an empty panel there would read as "no connections".
+bool _showConnections(AppState state) {
+  final traffic = state.traffic;
+  return state.isConnected &&
+      (traffic.connectionList.isNotEmpty || traffic.connections == 0);
 }
 
 /// Phone: everything the tunnel needs in the hero, within a thumb's reach of
@@ -61,32 +88,42 @@ class _MobileHomeDashboard extends StatelessWidget {
   const _MobileHomeDashboard({
     required this.state,
     required this.onOpenNodes,
+    required this.clock,
   });
 
   final AppState state;
   final VoidCallback onOpenNodes;
+  final Listenable clock;
 
   @override
   Widget build(BuildContext context) {
-    final connected = state.isConnected;
-    final list = state.traffic.connectionList;
-    final showConnections =
-        connected && (list.isNotEmpty || state.traffic.connections == 0);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _HeroPanel(state: state, onOpenNodes: onOpenNodes, wide: false),
+        _HeroPanel(
+          state: state,
+          onOpenNodes: onOpenNodes,
+          clock: clock,
+          wide: false,
+        ),
         const SizedBox(height: Gap.md),
-        _StatGrid(state: state),
+        _OnTraffic(state: state, builder: (_) => _StatGrid(state: state)),
         const SizedBox(height: Gap.md),
-        _TrafficPanel(state: state, height: 104),
-        const SizedBox(height: Gap.md),
-        _RoutingPanel(state: state, stretch: false),
-        if (showConnections) ...[
-          const SizedBox(height: Gap.md),
-          _ConnectionsPanel(state: state, compact: true),
-        ],
+        _OnTraffic(
+          state: state,
+          builder: (_) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TrafficPanel(state: state, height: 104),
+              const SizedBox(height: Gap.md),
+              _RoutingPanel(state: state, stretch: false),
+              if (_showConnections(state)) ...[
+                const SizedBox(height: Gap.md),
+                _ConnectionsPanel(state: state, compact: true),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -100,11 +137,15 @@ class _HeroPanel extends StatelessWidget {
   const _HeroPanel({
     required this.state,
     required this.onOpenNodes,
+    required this.clock,
     required this.wide,
   });
 
   final AppState state;
   final VoidCallback onOpenNodes;
+
+  /// Ticks the uptime in the status line, and nothing else.
+  final Listenable clock;
 
   /// Beam beside the text instead of under it.
   final bool wide;
@@ -128,58 +169,69 @@ class _HeroPanel extends StatelessWidget {
           bare: true,
         ),
         const SizedBox(height: 4),
-        Text(
-          _stageDetail(l10n, state),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall,
+        ListenableBuilder(
+          listenable: clock,
+          builder: (context, _) => Text(
+            _stageDetail(l10n, state),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
         ),
       ],
     );
 
     final exit = _ExitName(state: state, onTap: onOpenNodes, large: wide);
 
-    final down = state.downlinkHistory;
-    final up = state.uplinkHistory;
-    final beam = TideGauge(
-      live: connected,
-      reading: state.traffic,
-      downlink: down,
-      uplink: up,
-      height: wide ? 170 : 124,
-      label: l10n.homeTideLevel(
-        connected
-            ? formatRate(
-                (down.isEmpty ? 0 : down.last) + (up.isEmpty ? 0 : up.last))
-            : '—',
-      ),
+    final beam = _OnTraffic(
+      state: state,
+      builder: (_) {
+        final down = state.downlinkHistory;
+        final up = state.uplinkHistory;
+        return TideGauge(
+          live: connected,
+          reading: state.traffic,
+          downlink: down,
+          uplink: up,
+          height: wide ? 170 : 124,
+          label: l10n.homeTideLevel(
+            connected
+                ? formatRate(
+                    (down.isEmpty ? 0 : down.last) + (up.isEmpty ? 0 : up.last))
+                : '—',
+          ),
+        );
+      },
     );
 
-    final rates = Row(
-      children: [
-        Expanded(
-          child: _RateReadout(
-            key: const Key('home-download-rate'),
-            label: l10n.homeDownload,
-            icon: Icons.south_rounded,
-            color: palette.sky,
-            rate: state.traffic.downlink,
-            connected: connected,
-            size: wide ? 34 : 26,
+    final rates = _OnTraffic(
+      state: state,
+      builder: (_) => Row(
+        children: [
+          Expanded(
+            child: _RateReadout(
+              key: const Key('home-download-rate'),
+              label: l10n.homeDownload,
+              icon: Icons.south_rounded,
+              color: palette.sky,
+              rate: state.traffic.downlink,
+              connected: connected,
+              size: wide ? 34 : 26,
+            ),
           ),
-        ),
-        const SizedBox(width: Gap.lg),
-        Expanded(
-          child: _RateReadout(
-            label: l10n.homeUpload,
-            icon: Icons.north_rounded,
-            color: palette.mint,
-            rate: state.traffic.uplink,
-            connected: connected,
-            size: wide ? 34 : 26,
+          const SizedBox(width: Gap.lg),
+          Expanded(
+            child: _RateReadout(
+              label: l10n.homeUpload,
+              icon: Icons.north_rounded,
+              color: palette.mint,
+              rate: state.traffic.uplink,
+              connected: connected,
+              size: wide ? 34 : 26,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
 
     final actions = Row(

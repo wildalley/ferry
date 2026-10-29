@@ -40,6 +40,14 @@ part 'app_state_rules.dart';
 part 'app_state_runtime.dart';
 part 'app_state_update.dart';
 
+/// What a notification from [AppState] was about.
+///
+/// Most listeners ignore this and rebuild on any change. The ones that redraw
+/// a whole page read [AppState.lastChange] to skip the two high-frequency kinds
+/// that only a few widgets care about: a traffic sample every second while
+/// connected, and log bursts.
+enum StateChange { general, traffic, logs }
+
 class AppState extends ChangeNotifier {
   AppState({
     required Storage storage,
@@ -87,7 +95,8 @@ class AppState extends ChangeNotifier {
     _trafficSub = _controller.traffic.listen((value) {
       _traffic = value;
       _pushHistory(value);
-      notifyListeners();
+      _trafficChanges.notify();
+      _notifyAs(StateChange.traffic);
     });
     _logSub = _controller.logs.listen((entry) {
       // The buffer drops its own oldest entry at capacity, so there is no
@@ -311,6 +320,27 @@ class AppState extends ChangeNotifier {
   AppSettings get settings => _settings;
   ProxyState get proxyState => _proxyState;
   ProxyTraffic get traffic => _traffic;
+
+  /// What the notification being delivered right now is about. Only
+  /// meaningful inside a listener callback; [StateChange.general] otherwise.
+  StateChange get lastChange => _lastChange;
+  var _lastChange = StateChange.general;
+
+  /// Fires on each traffic sample, and only then: for the widgets that draw
+  /// rates, totals and connections, so the page around them need not rebuild
+  /// every second to keep them current.
+  Listenable get trafficChanges => _trafficChanges;
+  final _trafficChanges = _Ticker();
+
+  void _notifyAs(StateChange kind) {
+    _lastChange = kind;
+    try {
+      notifyListeners();
+    } finally {
+      _lastChange = StateChange.general;
+    }
+  }
+
   ExitAddress? get exitAddress => _exitAddress;
   bool get isCheckingExitAddress => _checkingExitAddress;
 
@@ -519,6 +549,7 @@ class AppState extends ChangeNotifier {
     _logNotify?.cancel();
     _stateSub?.cancel();
     _trafficSub?.cancel();
+    _trafficChanges.dispose();
     _logSub?.cancel();
     _controller.dispose();
     _importer.dispose();
@@ -534,4 +565,9 @@ class AppState extends ChangeNotifier {
     _didDispose = true;
     super.dispose();
   }
+}
+
+/// A [ChangeNotifier] whose only job is to say "now".
+class _Ticker extends ChangeNotifier {
+  void notify() => notifyListeners();
 }
