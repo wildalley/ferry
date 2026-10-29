@@ -478,6 +478,9 @@ class _CustomRuleRow extends StatelessWidget {
     // would be a lie about why. It reads as a problem, in amber, with the reason.
     final broken = problem != null;
     final active = rule.enabled && !broken;
+    // A phone folds reordering and delete into one menu: the arrows, badge,
+    // switch and bin side by side left the rule itself a dozen characters.
+    final compact = MediaQuery.sizeOf(context).width < 600;
 
     final accent = switch (rule.target) {
       RuleTarget.proxy => palette.violetSoft,
@@ -553,8 +556,10 @@ class _CustomRuleRow extends StatelessWidget {
             const SizedBox(width: Gap.sm),
             // Position, and the way to change it. Order is behaviour, so it is
             // shown rather than left to be inferred from the list.
-            _ReorderButtons(state: state, index: index, total: total),
-            const SizedBox(width: Gap.xs),
+            if (!compact) ...[
+              _ReorderButtons(state: state, index: index, total: total),
+              const SizedBox(width: Gap.xs),
+            ],
             _ActionBadge(
               label: badge,
               color: active ? accent : palette.faint,
@@ -568,13 +573,45 @@ class _CustomRuleRow extends StatelessWidget {
               onChanged: (value) =>
                   state.updateCustomRule(rule.copyWith(enabled: value)),
             ),
-            IconButton(
-              onPressed: () => state.removeCustomRule(rule.id),
-              tooltip: l10n.actionRemove,
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              color: palette.faint,
-            ),
+            if (compact)
+              PopupMenuButton<_RuleMenu>(
+                tooltip: l10n.actionMore,
+                icon: Icon(Icons.more_vert, size: 19, color: palette.faint),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 160),
+                onSelected: (action) => switch (action) {
+                  _RuleMenu.up => state.moveCustomRule(index, index - 1),
+                  _RuleMenu.down => state.moveCustomRule(index, index + 1),
+                  _RuleMenu.remove => state.removeCustomRule(rule.id),
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _RuleMenu.up,
+                    enabled: index > 0,
+                    child: Text(l10n.rulesMoveUp),
+                  ),
+                  PopupMenuItem(
+                    value: _RuleMenu.down,
+                    enabled: index < total - 1,
+                    child: Text(l10n.rulesMoveDown),
+                  ),
+                  PopupMenuItem(
+                    value: _RuleMenu.remove,
+                    child: Text(
+                      l10n.actionRemove,
+                      style: TextStyle(color: palette.danger),
+                    ),
+                  ),
+                ],
+              )
+            else
+              IconButton(
+                onPressed: () => state.removeCustomRule(rule.id),
+                tooltip: l10n.actionRemove,
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.delete_outline, size: 18),
+                color: palette.faint,
+              ),
           ],
         ),
       ),
@@ -600,6 +637,8 @@ class _CustomRuleRow extends StatelessWidget {
         RuleMatcher.processName => Icons.memory_outlined,
       };
 }
+
+enum _RuleMenu { up, down, remove }
 
 /// Up and down, disabled at the ends.
 ///

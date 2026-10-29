@@ -240,9 +240,16 @@ void main() {
     await tester.pumpWidget(SingBoxApp(state: harness.state));
     await tester.pumpAndSettle();
 
-    expect(find.text('No nodes yet'), findsOneWidget);
-    // Nothing to connect to, so the control invites an import.
-    expect(find.text('Add nodes'), findsWidgets);
+    // Nothing to connect to, so the dashboard is one card inviting an import
+    // — no connect switch, no gauge waiting on nodes that are not there.
+    expect(find.text('Add your first subscription'), findsOneWidget);
+    expect(find.text('Connect'), findsNothing);
+    expect(find.text('From image'), findsOneWidget);
+
+    await tester.tap(find.text('Add nodes'));
+    await tester.pumpAndSettle();
+    expect(find.byType(BottomSheet), findsOneWidget,
+        reason: 'the button opens the import sheet itself');
     expect(harness.controller.startedConfigs, isEmpty);
   });
 

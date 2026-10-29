@@ -15,9 +15,12 @@ import '../data/config_builder.dart';
 import '../l10n/app_localizations.dart';
 import '../models/proxy_state.dart';
 import '../state/app_state.dart';
+import 'brand.dart';
 import 'clock.dart';
 import 'components.dart';
 import 'notice_text.dart';
+import 'import_sheet.dart';
+import 'qr_import.dart';
 import 'tide_gauge.dart';
 import 'update_prompt.dart';
 import 'theme.dart';
@@ -105,25 +108,28 @@ class _HomePageState extends State<HomePage> {
       ),
       children: [
         UpdateBanner(state: state),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final isMobile = width < _phoneWidth;
-            if (isMobile) {
-              return _MobileHomeDashboard(
+        if (state.nodes.isEmpty)
+          _Onboarding(state: state)
+        else
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final isMobile = width < _phoneWidth;
+              if (isMobile) {
+                return _MobileHomeDashboard(
+                  state: state,
+                  onOpenNodes: widget.onOpenNodes,
+                  clock: _clock,
+                );
+              }
+              return _DesktopHomeDashboard(
                 state: state,
                 onOpenNodes: widget.onOpenNodes,
                 clock: _clock,
+                wide: width > _wideWidth,
               );
-            }
-            return _DesktopHomeDashboard(
-              state: state,
-              onOpenNodes: widget.onOpenNodes,
-              clock: _clock,
-              wide: width > _wideWidth,
-            );
-          },
-        ),
+            },
+          ),
       ],
     );
   }
@@ -134,6 +140,84 @@ class _HomePageState extends State<HomePage> {
     if (hour < 12) return l10n.greetingMorning;
     if (hour < 18) return l10n.greetingAfternoon;
     return l10n.greetingEvening;
+  }
+}
+
+/// The dashboard before there is anything to connect to: one card with the
+/// ways to add a subscription, instead of a hero, a gauge and a grid of zeros
+/// that all wait on the same missing thing.
+class _Onboarding extends StatelessWidget {
+  const _Onboarding({required this.state});
+
+  final AppState state;
+
+  Future<void> _fromQr(BuildContext context, Future<String?> scan) async {
+    final text = await scan;
+    if (text != null && context.mounted) {
+      await showImportSheet(context, state, initialText: text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final palette = context.palette;
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const BrandLogo(size: 48),
+          const SizedBox(height: Gap.lg),
+          Text(
+            l10n.homeOnboardingTitle,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: Gap.sm),
+          Text(
+            l10n.homeOnboardingBody,
+            style: TextStyle(color: palette.muted, fontSize: 13, height: 1.5),
+          ),
+          const SizedBox(height: Gap.xl),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => showImportSheet(context, state),
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 52)),
+              icon: const Icon(Icons.add_rounded, size: 20),
+              label: Text(l10n.homeAddNodes),
+            ),
+          ),
+          const SizedBox(height: Gap.sm),
+          Row(
+            children: [
+              if (cameraScanSupported) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        _fromQr(context, scanQrWithCamera(context)),
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(0, 48)),
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                    label: Text(l10n.qrScan),
+                  ),
+                ),
+                const SizedBox(width: Gap.sm),
+              ],
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _fromQr(context, pickQrImage(context)),
+                  style:
+                      OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
+                  icon: const Icon(Icons.image_outlined, size: 18),
+                  label: Text(l10n.qrFromImage),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

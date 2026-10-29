@@ -721,12 +721,18 @@ class _NodeRow extends StatelessWidget {
     final selected = state.selectedNodeId == node.id;
     final color = latencyColor(palette, node.latencyMs);
     final region = node.regionCode;
+    // A phone folds the star and chain buttons into one menu: side by side
+    // they took a fifth of the row and cut most names short. Their state
+    // moves next to the name, where it costs nothing when it is off.
+    final compact = MediaQuery.sizeOf(context).width < 600;
+    final chained = node.detourNodeId != null;
 
     // The list re-sorts under the user when a latency sweep lands, so the row
     // slides from its old place rather than appearing in its new one.
     return ReorderSlide(
       child: _RowSurface(
         onTap: () => state.selectNode(node),
+        onLongPress: () => _showNodeActions(context, state, node),
         selected: selected,
         child: Row(
           children: [
@@ -763,14 +769,30 @@ class _NodeRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    node.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          node.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      if (compact && node.favorite) ...[
+                        const SizedBox(width: 4),
+                        Icon(Icons.star_rounded,
+                            size: 14, color: palette.amber),
+                      ],
+                      if (compact && chained) ...[
+                        const SizedBox(width: 4),
+                        Icon(Icons.link_rounded,
+                            size: 14, color: palette.violetSoft),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 5),
                   Row(
@@ -827,33 +849,46 @@ class _NodeRow extends StatelessWidget {
                 child: const Text(' ms'),
               ),
             const SizedBox(width: Gap.xs),
-            IconButton(
-              onPressed: () => state.toggleFavorite(node.id),
-              visualDensity: VisualDensity.compact,
-              constraints: _rowAction,
-              padding: EdgeInsets.zero,
-              icon: Icon(
-                node.favorite ? Icons.star_rounded : Icons.star_border_rounded,
-                size: 19,
-                color: node.favorite ? palette.amber : palette.faint,
+            if (compact)
+              IconButton(
+                tooltip: l10n.actionMore,
+                onPressed: () => _showNodeActions(context, state, node),
+                visualDensity: VisualDensity.compact,
+                constraints: _rowAction,
+                padding: EdgeInsets.zero,
+                icon: Icon(Icons.more_vert, size: 19, color: palette.faint),
+              )
+            else ...[
+              IconButton(
+                onPressed: () => state.toggleFavorite(node.id),
+                visualDensity: VisualDensity.compact,
+                constraints: _rowAction,
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  node.favorite
+                      ? Icons.star_rounded
+                      : Icons.star_border_rounded,
+                  size: 19,
+                  color: node.favorite ? palette.amber : palette.faint,
+                ),
               ),
-            ),
-            IconButton(
-              tooltip: l10n.nodesChain,
-              onPressed: () => _showChainSheet(context, state, node),
-              visualDensity: VisualDensity.compact,
-              constraints: _rowAction,
-              padding: EdgeInsets.zero,
-              icon: Icon(
-                node.detourNodeId == null
-                    ? Icons.link_outlined
-                    : Icons.link_rounded,
-                size: 19,
-                color: node.detourNodeId == null
-                    ? palette.faint
-                    : palette.violetSoft,
+              IconButton(
+                tooltip: l10n.nodesChain,
+                onPressed: () => _showChainSheet(context, state, node),
+                visualDensity: VisualDensity.compact,
+                constraints: _rowAction,
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  node.detourNodeId == null
+                      ? Icons.link_outlined
+                      : Icons.link_rounded,
+                  size: 19,
+                  color: node.detourNodeId == null
+                      ? palette.faint
+                      : palette.violetSoft,
+                ),
               ),
-            ),
+            ],
             // Eases the width open instead of reserving a slot on every row:
             // at rest this is exactly the old layout — the mark on the selected
             // row, nothing on the others — and only the change is animated.
@@ -990,11 +1025,13 @@ class _RowSurface extends StatelessWidget {
   const _RowSurface({
     required this.child,
     required this.onTap,
+    this.onLongPress,
     this.selected = false,
   });
 
   final Widget child;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool selected;
 
   @override
@@ -1009,6 +1046,7 @@ class _RowSurface extends StatelessWidget {
           : Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         hoverColor: palette.text.withValues(alpha: .03),
         highlightColor: palette.violet.withValues(alpha: .06),
         child: Stack(
@@ -1033,6 +1071,72 @@ class _RowSurface extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A node's actions: favourite, and its chain. The phone's way to both, and a
+/// long press anywhere.
+Future<void> _showNodeActions(
+  BuildContext context,
+  AppState state,
+  ProxyNode node,
+) async {
+  final l10n = L10n.of(context);
+  final palette = context.palette;
+  String? upstream;
+  for (final candidate in state.nodes) {
+    if (candidate.id == node.detourNodeId) upstream = candidate.name;
+  }
+  final action = await showModalBottomSheet<String>(
+    context: context,
+    useSafeArea: true,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+            child: Text(
+              node.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            ),
+          ),
+          ListTile(
+            leading: Icon(
+              node.favorite ? Icons.star_rounded : Icons.star_border_rounded,
+              color: node.favorite ? palette.amber : palette.muted,
+            ),
+            title:
+                Text(node.favorite ? l10n.nodesUnfavorite : l10n.nodesFavorite),
+            onTap: () => Navigator.pop(context, 'favorite'),
+          ),
+          ListTile(
+            leading: Icon(
+              upstream == null ? Icons.link_outlined : Icons.link_rounded,
+              color: upstream == null ? palette.muted : palette.violetSoft,
+            ),
+            title: Text(l10n.nodesChain),
+            subtitle: Text(
+              upstream == null
+                  ? l10n.nodesChainDirect
+                  : l10n.nodesChainVia(upstream),
+            ),
+            onTap: () => Navigator.pop(context, 'chain'),
+          ),
+          const SizedBox(height: Gap.sm),
+        ],
+      ),
+    ),
+  );
+  if (!context.mounted) return;
+  switch (action) {
+    case 'favorite':
+      await state.toggleFavorite(node.id);
+    case 'chain':
+      await _showChainSheet(context, state, node);
   }
 }
 
