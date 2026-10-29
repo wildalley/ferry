@@ -93,6 +93,10 @@ android {
         jniLibs {
             // libbox.so is large; keeping it uncompressed lets the loader mmap it.
             useLegacyPackaging = false
+            // libbox exists for arm64 only, so other ABIs can never run. The
+            // QR scanner's bundled ML Kit still ships its native barcode
+            // library for them — about 9 MB that only ever sat in the APK.
+            excludes += setOf("lib/x86_64/**", "lib/x86/**", "lib/armeabi-v7a/**")
         }
     }
 }

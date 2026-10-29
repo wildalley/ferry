@@ -312,5 +312,19 @@
   "updateBannerTitle": "发现新版本 {version}",
   "updateBannerBody": "可选更新，随时到发布页下载即可。",
   "actionView": "查看",
-  "actionLater": "稍后"
+  "actionLater": "稍后",
+  "nodesFavorite": "收藏",
+  "nodesUnfavorite": "取消收藏",
+  "actionMore": "更多",
+  "nodesChainVia": "经由 {name}",
+  "qrScan": "扫码",
+  "qrFromImage": "从图片识别",
+  "qrScanTitle": "扫描二维码",
+  "qrScanHint": "对准订阅或节点的二维码",
+  "qrNotFound": "图片中没有找到二维码",
+  "qrCameraDenied": "扫码需要相机权限。请在系统设置中允许，或改用图片识别。",
+  "qrCameraUnavailable": "相机无法启动，请改用图片识别。",
+  "homeOnboardingTitle": "添加第一个订阅",
+  "homeOnboardingBody": "粘贴订阅链接或分享链接，扫描它的二维码，或选一张二维码截图。",
+  "qrImageGroup": "图片"
 }

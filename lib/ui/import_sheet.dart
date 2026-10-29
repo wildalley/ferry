@@ -6,14 +6,21 @@ import 'package:flutter/services.dart';
 
 import '../l10n/app_localizations.dart';
 import '../state/app_state.dart';
+import 'qr_import.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
-Future<void> showImportSheet(BuildContext context, AppState state) {
+/// [initialText] pre-fills the link field — what a QR scan found, say — for
+/// the user to check before importing.
+Future<void> showImportSheet(
+  BuildContext context,
+  AppState state, {
+  String? initialText,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) => _ImportSheet(state: state),
+    builder: (context) => _ImportSheet(state: state, initialText: initialText),
   );
 }
 
@@ -28,16 +35,18 @@ enum _ImportKind {
 }
 
 class _ImportSheet extends StatefulWidget {
-  const _ImportSheet({required this.state});
+  const _ImportSheet({required this.state, this.initialText});
 
   final AppState state;
+  final String? initialText;
 
   @override
   State<_ImportSheet> createState() => _ImportSheetState();
 }
 
 class _ImportSheetState extends State<_ImportSheet> {
-  final _contentController = TextEditingController();
+  late final _contentController =
+      TextEditingController(text: widget.initialText);
   final _nameController = TextEditingController();
   var _kind = _ImportKind.paste;
   var _submitting = false;
@@ -65,6 +74,16 @@ class _ImportSheetState extends State<_ImportSheet> {
     if (!mounted) return;
     setState(() => _submitting = false);
     Navigator.of(context).pop();
+  }
+
+  /// Puts what a QR code held into the link field, in paste mode, for the
+  /// user to read before importing.
+  void _fill(String? text) {
+    if (text == null || !mounted) return;
+    setState(() {
+      _kind = _ImportKind.paste;
+      _contentController.text = text;
+    });
   }
 
   Future<void> _pasteFromClipboard() async {
@@ -142,6 +161,27 @@ class _ImportSheetState extends State<_ImportSheet> {
                     : null,
               ),
             ),
+            if (_kind == _ImportKind.paste) ...[
+              const SizedBox(height: Gap.sm),
+              Wrap(
+                spacing: Gap.sm,
+                runSpacing: Gap.sm,
+                children: [
+                  if (cameraScanSupported)
+                    OutlinedButton.icon(
+                      onPressed: () async =>
+                          _fill(await scanQrWithCamera(context)),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                      label: Text(l10n.qrScan),
+                    ),
+                  OutlinedButton.icon(
+                    onPressed: () async => _fill(await pickQrImage(context)),
+                    icon: const Icon(Icons.image_outlined, size: 18),
+                    label: Text(l10n.qrFromImage),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: Gap.md),
             TextField(
               controller: _nameController,

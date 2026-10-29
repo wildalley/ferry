@@ -1932,6 +1932,90 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Later'**
   String get actionLater;
+
+  /// No description provided for @nodesFavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get nodesFavorite;
+
+  /// No description provided for @nodesUnfavorite.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get nodesUnfavorite;
+
+  /// No description provided for @actionMore.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get actionMore;
+
+  /// No description provided for @nodesChainVia.
+  ///
+  /// In en, this message translates to:
+  /// **'Through {name}'**
+  String nodesChainVia(String name);
+
+  /// No description provided for @qrScan.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan QR code'**
+  String get qrScan;
+
+  /// No description provided for @qrFromImage.
+  ///
+  /// In en, this message translates to:
+  /// **'From image'**
+  String get qrFromImage;
+
+  /// No description provided for @qrScanTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan a QR code'**
+  String get qrScanTitle;
+
+  /// No description provided for @qrScanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Point at a subscription or node QR code'**
+  String get qrScanHint;
+
+  /// No description provided for @qrNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No QR code found in that image'**
+  String get qrNotFound;
+
+  /// No description provided for @qrCameraDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is needed to scan. Allow it in system settings, or use an image instead.'**
+  String get qrCameraDenied;
+
+  /// No description provided for @qrCameraUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The camera couldn\'t start. Use an image instead.'**
+  String get qrCameraUnavailable;
+
+  /// No description provided for @homeOnboardingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first subscription'**
+  String get homeOnboardingTitle;
+
+  /// No description provided for @homeOnboardingBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste a subscription link or share link, scan its QR code, or pick a screenshot of one.'**
+  String get homeOnboardingBody;
+
+  /// No description provided for @qrImageGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Images'**
+  String get qrImageGroup;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

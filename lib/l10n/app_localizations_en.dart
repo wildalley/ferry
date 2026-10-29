@@ -1096,4 +1096,51 @@ class L10nEn extends L10n {
 
   @override
   String get actionLater => 'Later';
+
+  @override
+  String get nodesFavorite => 'Add to favorites';
+
+  @override
+  String get nodesUnfavorite => 'Remove from favorites';
+
+  @override
+  String get actionMore => 'More';
+
+  @override
+  String nodesChainVia(String name) {
+    return 'Through $name';
+  }
+
+  @override
+  String get qrScan => 'Scan QR code';
+
+  @override
+  String get qrFromImage => 'From image';
+
+  @override
+  String get qrScanTitle => 'Scan a QR code';
+
+  @override
+  String get qrScanHint => 'Point at a subscription or node QR code';
+
+  @override
+  String get qrNotFound => 'No QR code found in that image';
+
+  @override
+  String get qrCameraDenied =>
+      'Camera access is needed to scan. Allow it in system settings, or use an image instead.';
+
+  @override
+  String get qrCameraUnavailable =>
+      'The camera couldn\'t start. Use an image instead.';
+
+  @override
+  String get homeOnboardingTitle => 'Add your first subscription';
+
+  @override
+  String get homeOnboardingBody =>
+      'Paste a subscription link or share link, scan its QR code, or pick a screenshot of one.';
+
+  @override
+  String get qrImageGroup => 'Images';
 }

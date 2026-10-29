@@ -648,5 +648,26 @@
   },
   "updateBannerBody": "Optional. Download it from the release page whenever you like.",
   "actionView": "View",
-  "actionLater": "Later"
+  "actionLater": "Later",
+  "nodesFavorite": "Add to favorites",
+  "nodesUnfavorite": "Remove from favorites",
+  "actionMore": "More",
+  "nodesChainVia": "Through {name}",
+  "@nodesChainVia": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "qrScan": "Scan QR code",
+  "qrFromImage": "From image",
+  "qrScanTitle": "Scan a QR code",
+  "qrScanHint": "Point at a subscription or node QR code",
+  "qrNotFound": "No QR code found in that image",
+  "qrCameraDenied": "Camera access is needed to scan. Allow it in system settings, or use an image instead.",
+  "qrCameraUnavailable": "The camera couldn't start. Use an image instead.",
+  "homeOnboardingTitle": "Add your first subscription",
+  "homeOnboardingBody": "Paste a subscription link or share link, scan its QR code, or pick a screenshot of one.",
+  "qrImageGroup": "Images"
 }

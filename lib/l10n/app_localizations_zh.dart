@@ -1019,4 +1019,48 @@ class L10nZh extends L10n {
 
   @override
   String get actionLater => '稍后';
+
+  @override
+  String get nodesFavorite => '收藏';
+
+  @override
+  String get nodesUnfavorite => '取消收藏';
+
+  @override
+  String get actionMore => '更多';
+
+  @override
+  String nodesChainVia(String name) {
+    return '经由 $name';
+  }
+
+  @override
+  String get qrScan => '扫码';
+
+  @override
+  String get qrFromImage => '从图片识别';
+
+  @override
+  String get qrScanTitle => '扫描二维码';
+
+  @override
+  String get qrScanHint => '对准订阅或节点的二维码';
+
+  @override
+  String get qrNotFound => '图片中没有找到二维码';
+
+  @override
+  String get qrCameraDenied => '扫码需要相机权限。请在系统设置中允许，或改用图片识别。';
+
+  @override
+  String get qrCameraUnavailable => '相机无法启动，请改用图片识别。';
+
+  @override
+  String get homeOnboardingTitle => '添加第一个订阅';
+
+  @override
+  String get homeOnboardingBody => '粘贴订阅链接或分享链接，扫描它的二维码，或选一张二维码截图。';
+
+  @override
+  String get qrImageGroup => '图片';
 }
