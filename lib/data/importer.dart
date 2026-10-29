@@ -1,4 +1,5 @@
-/// Import pipelines: subscription URL, share links, and sing-box JSON.
+/// Import pipelines: subscription URL, share links, sing-box JSON, and Clash /
+/// mihomo YAML.
 library;
 
 import 'dart:async';
@@ -8,6 +9,7 @@ import 'dart:io';
 
 import '../models/node.dart';
 import '../models/subscription.dart';
+import 'clash_parser.dart';
 import 'local_proxy.dart';
 import 'share_link_parser.dart';
 
@@ -98,6 +100,9 @@ class Importer {
     if (_looksLikeJson(trimmed)) {
       return importSingBoxConfig(trimmed, subscriptionId: subscriptionId);
     }
+    if (ClashParser.looksLikeClash(trimmed)) {
+      return importClashConfig(trimmed, subscriptionId: subscriptionId);
+    }
 
     // A bare http(s) URL is a subscription, not an http:// proxy share link:
     // share links carry credentials or a fragment, subscriptions do not.
@@ -179,6 +184,27 @@ class Importer {
     return ImportResult(nodes: nodes, skipped: skipped);
   }
 
+  /// Reads the `proxies:` list of a Clash / mihomo YAML config.
+  ImportResult importClashConfig(String text, {String? subscriptionId}) {
+    final ({List<ProxyNode> nodes, int skipped}) parsed;
+    try {
+      parsed = ClashParser.parse(text, subscriptionId: subscriptionId);
+    } on FormatException catch (error) {
+      throw ImportException(
+        'Invalid Clash config: ${error.message}',
+        failure: SubscriptionFailure.badSource,
+      );
+    }
+    if (parsed.nodes.isEmpty) {
+      throw ImportException(
+        parsed.skipped > 0
+            ? 'No supported proxies in Clash config (${parsed.skipped} unsupported)'
+            : 'No proxies in Clash config',
+      );
+    }
+    return ImportResult(nodes: parsed.nodes, skipped: parsed.skipped);
+  }
+
   /// Reads a config or link-list file from disk.
   Future<ImportResult> importFile(String path, {String? subscriptionId}) async {
     final file = File(path);
@@ -194,7 +220,8 @@ class Importer {
 
   /// Fetches a subscription URL and parses its body.
   ///
-  /// Panels return either a base64 link list or a sing-box JSON config, and
+  /// Panels return a base64 link list, a sing-box JSON config or a Clash YAML
+  /// config, and
   /// advertise quota/expiry through `subscription-userinfo`.
   ///
   /// With [viaLocalProxy] the tunnel is tried first and the direct path second.
@@ -391,9 +418,12 @@ class Importer {
         );
       }
 
-      final base = _looksLikeJson(body.trim())
+      final trimmedBody = body.trim();
+      final base = _looksLikeJson(trimmedBody)
           ? importSingBoxConfig(body, subscriptionId: subscriptionId)
-          : importShareLinks(body, subscriptionId: subscriptionId);
+          : ClashParser.looksLikeClash(trimmedBody)
+              ? importClashConfig(body, subscriptionId: subscriptionId)
+              : importShareLinks(body, subscriptionId: subscriptionId);
 
       final info =
           _parseUserInfo(response.headers.value('subscription-userinfo'));

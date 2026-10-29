@@ -137,7 +137,7 @@ class ShareLinkParser {
 
     final name = (json['ps'] ?? '').toString();
     return ProxyNode(
-      id: _makeId('vmess', server, port, uuid),
+      id: makeId('vmess', server, port, uuid),
       name: name.isNotEmpty ? name : '$server:$port',
       protocol: NodeProtocol.vmess,
       server: server,
@@ -193,7 +193,7 @@ class ShareLinkParser {
     if (transport != null) raw['transport'] = transport;
 
     return ProxyNode(
-      id: _makeId('vless', uri.host, uri.port, uuid),
+      id: makeId('vless', uri.host, uri.port, uuid),
       name: _fragmentName(uri, '${uri.host}:${uri.port}'),
       protocol: NodeProtocol.vless,
       server: uri.host,
@@ -234,7 +234,7 @@ class ShareLinkParser {
     if (transport != null) raw['transport'] = transport;
 
     return ProxyNode(
-      id: _makeId('trojan', uri.host, uri.port, password),
+      id: makeId('trojan', uri.host, uri.port, password),
       name: _fragmentName(uri, '${uri.host}:${uri.port}'),
       protocol: NodeProtocol.trojan,
       server: uri.host,
@@ -325,7 +325,7 @@ class ShareLinkParser {
     };
 
     return ProxyNode(
-      id: _makeId('ss', server, port, password),
+      id: makeId('ss', server, port, password),
       name: fragment?.isNotEmpty == true ? fragment! : '$server:$port',
       protocol: NodeProtocol.shadowsocks,
       server: server,
@@ -360,7 +360,7 @@ class ShareLinkParser {
     };
 
     return ProxyNode(
-      id: _makeId('hysteria2', uri.host, uri.port, uri.userInfo),
+      id: makeId('hysteria2', uri.host, uri.port, uri.userInfo),
       name: _fragmentName(uri, '${uri.host}:${uri.port}'),
       protocol: NodeProtocol.hysteria2,
       server: uri.host,
@@ -399,7 +399,7 @@ class ShareLinkParser {
     };
 
     return ProxyNode(
-      id: _makeId('tuic', uri.host, uri.port, userInfo),
+      id: makeId('tuic', uri.host, uri.port, userInfo),
       name: _fragmentName(uri, '${uri.host}:${uri.port}'),
       protocol: NodeProtocol.tuic,
       server: uri.host,
@@ -424,7 +424,7 @@ class ShareLinkParser {
       },
     };
     return ProxyNode(
-      id: _makeId('anytls', uri.host, uri.port, uri.userInfo),
+      id: makeId('anytls', uri.host, uri.port, uri.userInfo),
       name: _fragmentName(uri, '${uri.host}:${uri.port}'),
       protocol: NodeProtocol.anytls,
       server: uri.host,
@@ -459,7 +459,7 @@ class ShareLinkParser {
     }
 
     return ProxyNode(
-      id: _makeId(scheme, uri.host, uri.port, userInfo),
+      id: makeId(scheme, uri.host, uri.port, userInfo),
       name: _fragmentName(uri, '${uri.host}:${uri.port}'),
       protocol: protocol,
       server: uri.host,
@@ -576,7 +576,7 @@ class ShareLinkParser {
       };
 
   /// Stable id so re-importing the same subscription keeps latency/favorites.
-  static String _makeId(String scheme, String host, int port, String secret) {
+  static String makeId(String scheme, String host, int port, String secret) {
     final material = '$scheme|$host|$port|$secret';
     var hash = 0x811c9dc5;
     for (final unit in material.codeUnits) {
