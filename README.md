@@ -85,6 +85,14 @@ Shared by Linux and Windows.
 **Import**
 
 - Subscription URL, including `subscription-userinfo` quota and expiry
+- Clash / mihomo YAML (`proxies:`), pasted, fetched or from a file: vless
+  (reality, flow, uTLS), vmess, trojan, shadowsocks (obfs, v2ray-plugin),
+  hysteria2, tuic v5, anytls, socks5 and http, with ws/httpupgrade/grpc/h2/http
+  transports. Ids match the share-link parser's, so an endpoint keeps its
+  latency and favourite in either format
+- QR codes: scanned with the camera on Android, or read from an image file on
+  every platform (a screenshot, on the desktop). The text lands in the import
+  field for checking before anything is fetched
 - Share links: vless, vmess, trojan, shadowsocks, hysteria2, tuic, anytls,
   socks, http — with reality, uTLS, and ws/grpc/h2/httpupgrade transports.
   A `fp=` fingerprint the engine would reject (panels emit junk like `unsafe`,
@@ -110,7 +118,8 @@ measured latency and favourites.
   proxy — and by bounded TCP handshakes for TCP nodes when it is not; UDP/QUIC
   nodes are measured after the tunnel starts so they are not falsely marked
   unreachable
-- Nodes grouped by source, foldable, searchable, and sortable by latency; each
+- Nodes grouped by source, foldable, searchable, and sortable by latency, built
+  lazily so a subscription of hundreds of nodes opens instantly; each
   shows its region's flag (the region code on Windows, whose emoji font has no
   flags)
 - Per-node chain proxy selection: route one node through another, with multi-hop
@@ -147,6 +156,10 @@ measured latency and favourites.
   connections. Deleting a group moves its rules to the main exit, and a group
   whose node disappeared falls back to Auto, so a stale reference can never stop
   the engine from starting
+- A group can also carry **rule-sets**: a geosite category (`openai`,
+  `netflix`), a geoip country (`geoip:jp`) or a link to any `.srs` file. They
+  are downloaded by the app and referenced as local files, so a list that has
+  not downloaded is left out rather than stopping the engine
 
 ## Requirements
 
@@ -282,10 +295,12 @@ flutter analyze
 flutter test
 ```
 
-610 tests pass and 19 are skipped: share-link parsing — including the uTLS
+638 tests pass and 19 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
-placement, policy-group rendering and live switching, the update check, the
+placement, policy-group rendering, live switching and rule-sets, Clash YAML import (with
+`sing-box check` run on its output during development), QR decoding, lazy node
+rows, the update check, the
 desktop data migration from SingBox Client, import format detection, the Clash API client both desktop runtimes
 drive, the polkit capability grant, the Linux system-proxy backend against fakes,
 the shutdown path, the single-instance socket, tray menu construction, background

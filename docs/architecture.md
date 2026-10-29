@@ -286,6 +286,17 @@ config does not contain yet (`_liveGroupTags`, `_liveOutboundTags`) is reached
 by a reload instead. Creating a group while connected reloads, so a rule made
 next can route to it immediately.
 
+A group's rule-sets (`RuleSetSource`: a geosite category, `geoip:CC`, or an
+https `.srs` link) follow the bundled lists' rule: the app downloads them
+(`RuleSetUpdater.fetchSource`, through the tunnel when connected) and the
+config references local files only, because sing-box refuses to start when a
+`remote` rule-set fails to download. `ConfigBuilder` receives just the tags
+whose files exist, renders their rules below the user's own and above the
+bundled lists, and declares a list shared by two groups once. Downloads run
+outside the operation queue and queue a reload when they land; the refresh
+that rides on "update rule-sets" is not awaited, since it runs inside that
+queue.
+
 ### Notifications and the log
 
 `AppState` is one `ChangeNotifier` for the whole app, which makes how often it

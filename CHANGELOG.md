@@ -1,5 +1,29 @@
 # Changelog / 更新日志
 
+## Unreleased
+
+### 中文
+
+- **扫码添加**：Android 可用摄像头扫描订阅或节点二维码；所有平台都可以从图片（如截图）识别。结果填进导入框，确认后导入。
+- **Clash / mihomo 订阅**：支持导入 YAML 格式的订阅（粘贴、订阅链接或文件），覆盖主流协议和传输方式。
+- **策略组规则集**：策略组可以挂 geosite 分类、geoip 国家或 `.srs` 链接，不用逐条写域名。
+- **手机端布局**：节点行、规则行的次要按钮收进「更多」菜单，名称不再被截断；没有节点时首页显示引导卡片。
+- **性能**：节点列表按需构建；首页不再每秒整页重建。
+
+### English
+
+- **QR import**: scan a subscription or node QR code with the camera on
+  Android, or read one from an image (a screenshot) anywhere. The result goes
+  into the import field for checking first.
+- **Clash / mihomo subscriptions**: YAML configs import, pasted, fetched or
+  from a file, across the common protocols and transports.
+- **Rule-sets for policy groups**: geosite categories, geoip countries or
+  `.srs` links, instead of typing domains one by one.
+- **Phone layout**: node and rule rows fold their side buttons into a menu so
+  names fit; an empty dashboard shows a first-run card.
+- **Performance**: node rows are built lazily; the dashboard no longer
+  rebuilds whole every second.
+
 ## 0.3.1
 
 ### 中文
