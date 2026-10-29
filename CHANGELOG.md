@@ -1,5 +1,20 @@
 # Changelog / 更新日志
 
+## 0.3.1
+
+### 中文
+
+- Android 安装包改用固定的正式密钥签名。0.3.0 及以前的 APK 由 CI 每次临时生成的密钥签名，无法覆盖升级；从本版本起，以后的版本都可以直接覆盖安装，数据保留。从 0.3.0 升到本版本需要最后一次卸载重装。
+- 检查更新改为查询改名后的仓库 `wildalley/ferry`。
+
+### English
+
+- Android APKs are now signed with a persistent release key. Up to 0.3.0 each
+  CI run signed with a fresh throwaway key, so no release could update the one
+  before it; from this one on, updates install in place and keep your data.
+  Moving from 0.3.0 to this release needs one last reinstall.
+- The update check asks the renamed `wildalley/ferry` repository.
+
 ## 0.3.0
 
 ### 中文
