@@ -33,6 +33,8 @@ String noticeText(L10n l10n, AppNotice notice) {
     NoticeKind.ruleSetsUpdated => l10n.noticeRuleSetsUpdated,
     NoticeKind.ruleSetsUpdateFailed => l10n.noticeRuleSetsUpdateFailed,
     NoticeKind.ruleSetsUnavailable => l10n.noticeRuleSetsUnavailable,
+    NoticeKind.ruleSetDownloadFailed =>
+      l10n.noticeRuleSetDownloadFailed(notice.detail ?? ''),
     NoticeKind.updateAvailable =>
       l10n.noticeUpdateAvailable(notice.detail ?? ''),
     NoticeKind.upToDate => l10n.noticeUpToDate,

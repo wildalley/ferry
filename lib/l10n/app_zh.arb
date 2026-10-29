@@ -326,5 +326,17 @@
   "qrCameraUnavailable": "相机无法启动，请改用图片识别。",
   "homeOnboardingTitle": "添加第一个订阅",
   "homeOnboardingBody": "粘贴订阅链接或分享链接，扫描它的二维码，或选一张二维码截图。",
-  "qrImageGroup": "图片"
+  "qrImageGroup": "图片",
+  "noticeRuleSetDownloadFailed": "无法下载 {name}，下载成功前这些网站照常分流。",
+  "rulesGroupRuleSets": "规则集",
+  "rulesGroupRuleSetCount": "{count} 个规则集",
+  "rulesGroupRuleSetsBody": "这些列表里的网站走「{name}」，优先于内置规则。",
+  "rulesGroupRuleSetHint": "openai、geoip:jp，或 .srs 文件的 https 链接",
+  "rulesGroupRuleSetInvalid": "请填写 geosite 分类名、geoip:国家代码或 https 链接",
+  "rulesGroupRuleSetDuplicate": "该策略组已包含此规则集",
+  "rulesGroupRuleSetPending": "未下载 · 点击重试",
+  "rulesGroupRuleSetDownloading": "下载中…",
+  "rulesGroupRuleSetReady": "已下载",
+  "rulesGroupRuleSetCommon": "常用",
+  "actionAdd": "添加"
 }

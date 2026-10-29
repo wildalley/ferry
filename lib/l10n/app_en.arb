@@ -669,5 +669,38 @@
   "qrCameraUnavailable": "The camera couldn't start. Use an image instead.",
   "homeOnboardingTitle": "Add your first subscription",
   "homeOnboardingBody": "Paste a subscription link or share link, scan its QR code, or pick a screenshot of one.",
-  "qrImageGroup": "Images"
+  "qrImageGroup": "Images",
+  "noticeRuleSetDownloadFailed": "Couldn't download {name}. Those sites keep their usual route until it downloads.",
+  "@noticeRuleSetDownloadFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rulesGroupRuleSets": "Rule sets",
+  "rulesGroupRuleSetCount": "{count, plural, =1{1 rule set} other{{count} rule sets}}",
+  "@rulesGroupRuleSetCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rulesGroupRuleSetsBody": "Sites in these lists go through “{name}”, above the built-in rules.",
+  "@rulesGroupRuleSetsBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rulesGroupRuleSetHint": "openai, geoip:jp, or an https link to a .srs file",
+  "rulesGroupRuleSetInvalid": "Use a geosite category, geoip:CC, or an https link",
+  "rulesGroupRuleSetDuplicate": "This group already has it",
+  "rulesGroupRuleSetPending": "Not downloaded · tap to retry",
+  "rulesGroupRuleSetDownloading": "Downloading…",
+  "rulesGroupRuleSetReady": "Downloaded",
+  "rulesGroupRuleSetCommon": "Common",
+  "actionAdd": "Add"
 }

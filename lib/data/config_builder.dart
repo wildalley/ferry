@@ -84,7 +84,9 @@ class ConfigBuilder {
   /// Invalid and disabled entries are skipped here rather than at the call site.
   /// [policyGroups] each become a selector over the same members as the main
   /// one; a rule targeting a group that is not in the list falls back to the
-  /// main selector.
+  /// main selector. [groupRuleSets] maps a group's id to the tags of its
+  /// rule-sets that are on disk in [ruleSetDir]; one that is not downloaded
+  /// yet is simply left out, never rendered as a missing file.
   static Map<String, dynamic> build({
     required List<ProxyNode> nodes,
     required String? selectedNodeId,
@@ -94,6 +96,7 @@ class ConfigBuilder {
     int localProxyPort = defaultLocalProxyPort,
     List<CustomRule> customRules = const [],
     List<PolicyGroup> policyGroups = const [],
+    Map<String, List<String>> groupRuleSets = const {},
     String? ruleSetDir,
     bool? tunOnly,
     bool? android,
@@ -225,6 +228,7 @@ class ConfigBuilder {
         ruleSetDir,
         customRules,
         {for (final group in policyGroups) group.id},
+        groupRuleSets,
       ),
       'experimental': {
         'clash_api': {
@@ -401,6 +405,7 @@ class ConfigBuilder {
     String? ruleSetDir,
     List<CustomRule> customRules,
     Set<String> groupIds,
+    Map<String, List<String>> groupRuleSets,
   ) {
     final rules = <Map<String, dynamic>>[
       // Sniff first so domain rules can match on TLS/HTTP hostnames.
@@ -465,6 +470,25 @@ class ConfigBuilder {
             },
           },
         ));
+
+    // Policy groups' rule-sets: below the user's own rules, which are more
+    // specific, and above the bundled lists, so a group's sites leave through
+    // the group even when they would otherwise be blocked or sent direct.
+    // Local files only: a remote rule-set that fails to download stops the
+    // engine from starting, which is the one thing these must never do.
+    if (ruleSetDir != null) {
+      final rendered = <String>{};
+      for (final MapEntry(key: groupId, value: tags) in groupRuleSets.entries) {
+        if (!groupIds.contains(groupId) || tags.isEmpty) continue;
+        for (final tag in tags) {
+          if (rendered.add(tag)) ruleSets.add(_localRuleSet(tag, ruleSetDir));
+        }
+        rules.add({
+          'rule_set': tags,
+          'outbound': ConfigTags.group(groupId),
+        });
+      }
+    }
 
     if (settings.blockAds) {
       ruleSets.add(_ruleSet('geosite-ads', ruleSetDir));

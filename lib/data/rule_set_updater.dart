@@ -21,6 +21,7 @@ library;
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../models/policy_group.dart';
 import 'local_proxy.dart';
 import 'rule_sets.dart';
 
@@ -34,8 +35,10 @@ class RuleSetUpdateException implements Exception {
 }
 
 class RuleSetUpdater {
-  RuleSetUpdater({HttpClient? httpClient, this.base = BundledRuleSets.upstreamBase})
-      : _httpClient = httpClient ?? (HttpClient()..connectionTimeout = _timeout);
+  RuleSetUpdater(
+      {HttpClient? httpClient, this.base = BundledRuleSets.upstreamBase})
+      : _httpClient =
+            httpClient ?? (HttpClient()..connectionTimeout = _timeout);
 
   final HttpClient _httpClient;
 
@@ -88,20 +91,61 @@ class RuleSetUpdater {
     return BundledRuleSets.markDownloaded(dir);
   }
 
-  Future<void> _fetchInto(Directory dir, String tag) async {
-    final bytes = await _get(BundledRuleSets.upstreamUrl(tag, base: base));
+  /// Downloads one of a policy group's rule-sets into [dir] as
+  /// `<source.tag>.srs`, replacing any older copy atomically.
+  ///
+  /// The same checks as the bundled lists, except the size floor: a small
+  /// geosite category compiles to a few hundred bytes, so only the header is
+  /// required here.
+  Future<void> fetchSource(
+    Directory dir,
+    RuleSetSource source, {
+    bool viaLocalProxy = false,
+    int? localProxyPort,
+  }) async {
+    routeHttp(
+      _httpClient,
+      viaLocalProxy: viaLocalProxy,
+      localProxyPort: localProxyPort,
+    );
+    await dir.create(recursive: true);
+    await _download(
+      dir,
+      url: source.url(base: base),
+      fileName: BundledRuleSets.fileName(source.tag),
+      label: source.label,
+      minBytes: 16,
+    );
+  }
+
+  Future<void> _fetchInto(Directory dir, String tag) => _download(
+        dir,
+        url: BundledRuleSets.upstreamUrl(tag, base: base),
+        fileName: BundledRuleSets.fileName(tag),
+        label: tag,
+        minBytes: 1024,
+      );
+
+  Future<void> _download(
+    Directory dir, {
+    required Uri url,
+    required String fileName,
+    required String label,
+    required int minBytes,
+  }) async {
+    final bytes = await _get(url);
 
     // A 200 is not proof of a rule-set: a proxy error page and a captive-portal
     // login both arrive as content, and would only fail on the device, at start,
     // as an unreadable rule-set.
-    if (bytes.length < 1024 ||
+    if (bytes.length < minBytes ||
         String.fromCharCodes(bytes.take(3)) != BundledRuleSets.magic) {
-      throw RuleSetUpdateException('$tag: not a compiled rule-set');
+      throw RuleSetUpdateException('$label: not a compiled rule-set');
     }
 
     // Write beside the target and rename: the file the config points at is
     // never half-written, even if the process dies mid-download.
-    final target = File('${dir.path}/${BundledRuleSets.fileName(tag)}');
+    final target = File('${dir.path}/$fileName');
     final staging = File('${target.path}.new');
     try {
       await staging.writeAsBytes(bytes, flush: true);

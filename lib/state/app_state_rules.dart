@@ -44,6 +44,9 @@ extension _AppStateRules on AppState {
         localProxyPort: _localProxyPort,
       );
       if (!silent) _notice = const AppNotice(NoticeKind.ruleSetsUpdated);
+      // Not awaited: this runs inside the operation queue, and the refresh
+      // ends by queueing a reload — waiting on it here would wait on itself.
+      unawaited(_refreshGroupRuleSets());
     } on Object {
       // The updater names the tags that failed, but in English and with nothing
       // the user can act on: offline, blocked, or an upstream hiccup all read the

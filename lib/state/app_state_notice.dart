@@ -52,6 +52,10 @@ enum NoticeKind {
   /// The host's proxy settings could not be taken over.
   systemProxyUnavailable,
 
+  /// One of a policy group's rule-sets could not be downloaded;
+  /// [AppNotice.detail] names it.
+  ruleSetDownloadFailed,
+
   /// A manual update check found a newer release; [AppNotice.detail] is its
   /// tag.
   updateAvailable,

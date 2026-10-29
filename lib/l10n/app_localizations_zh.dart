@@ -1063,4 +1063,46 @@ class L10nZh extends L10n {
 
   @override
   String get qrImageGroup => '图片';
+
+  @override
+  String noticeRuleSetDownloadFailed(String name) {
+    return '无法下载 $name，下载成功前这些网站照常分流。';
+  }
+
+  @override
+  String get rulesGroupRuleSets => '规则集';
+
+  @override
+  String rulesGroupRuleSetCount(int count) {
+    return '$count 个规则集';
+  }
+
+  @override
+  String rulesGroupRuleSetsBody(String name) {
+    return '这些列表里的网站走「$name」，优先于内置规则。';
+  }
+
+  @override
+  String get rulesGroupRuleSetHint => 'openai、geoip:jp，或 .srs 文件的 https 链接';
+
+  @override
+  String get rulesGroupRuleSetInvalid => '请填写 geosite 分类名、geoip:国家代码或 https 链接';
+
+  @override
+  String get rulesGroupRuleSetDuplicate => '该策略组已包含此规则集';
+
+  @override
+  String get rulesGroupRuleSetPending => '未下载 · 点击重试';
+
+  @override
+  String get rulesGroupRuleSetDownloading => '下载中…';
+
+  @override
+  String get rulesGroupRuleSetReady => '已下载';
+
+  @override
+  String get rulesGroupRuleSetCommon => '常用';
+
+  @override
+  String get actionAdd => '添加';
 }

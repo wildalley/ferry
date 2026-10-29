@@ -1143,4 +1143,54 @@ class L10nEn extends L10n {
 
   @override
   String get qrImageGroup => 'Images';
+
+  @override
+  String noticeRuleSetDownloadFailed(String name) {
+    return 'Couldn\'t download $name. Those sites keep their usual route until it downloads.';
+  }
+
+  @override
+  String get rulesGroupRuleSets => 'Rule sets';
+
+  @override
+  String rulesGroupRuleSetCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count rule sets',
+      one: '1 rule set',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String rulesGroupRuleSetsBody(String name) {
+    return 'Sites in these lists go through “$name”, above the built-in rules.';
+  }
+
+  @override
+  String get rulesGroupRuleSetHint =>
+      'openai, geoip:jp, or an https link to a .srs file';
+
+  @override
+  String get rulesGroupRuleSetInvalid =>
+      'Use a geosite category, geoip:CC, or an https link';
+
+  @override
+  String get rulesGroupRuleSetDuplicate => 'This group already has it';
+
+  @override
+  String get rulesGroupRuleSetPending => 'Not downloaded · tap to retry';
+
+  @override
+  String get rulesGroupRuleSetDownloading => 'Downloading…';
+
+  @override
+  String get rulesGroupRuleSetReady => 'Downloaded';
+
+  @override
+  String get rulesGroupRuleSetCommon => 'Common';
+
+  @override
+  String get actionAdd => 'Add';
 }

@@ -172,6 +172,8 @@ class _GroupRow extends StatelessWidget {
                           ? l10n.rulesGroupNodeGone
                           : node?.name ?? l10n.nodesAuto,
                       l10n.rulesGroupRuleCount(rules),
+                      if (group.ruleSets.isNotEmpty)
+                        l10n.rulesGroupRuleSetCount(group.ruleSets.length),
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -187,10 +189,16 @@ class _GroupRow extends StatelessWidget {
               tooltip: l10n.rulesGroupRename,
               icon: Icon(Icons.more_vert, size: 20, color: palette.faint),
               onSelected: (action) => switch (action) {
+                _GroupAction.ruleSets =>
+                  showGroupRuleSets(context, state, group.id),
                 _GroupAction.rename => _rename(context, state, group),
                 _GroupAction.delete => _delete(context, state, group),
               },
               itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _GroupAction.ruleSets,
+                  child: Text(l10n.rulesGroupRuleSets),
+                ),
                 PopupMenuItem(
                   value: _GroupAction.rename,
                   child: Text(l10n.rulesGroupRename),
@@ -211,7 +219,7 @@ class _GroupRow extends StatelessWidget {
   }
 }
 
-enum _GroupAction { rename, delete }
+enum _GroupAction { ruleSets, rename, delete }
 
 ProxyNode? _nodeOf(AppState state, PolicyGroup group) {
   for (final node in state.nodes) {
@@ -484,6 +492,237 @@ class _NodePicker extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A group's rule-sets: each list with whether it is downloaded, a field to
+/// add one, and the common categories one tap away.
+Future<void> showGroupRuleSets(
+  BuildContext context,
+  AppState state,
+  String groupId,
+) =>
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _RuleSetsSheet(state: state, groupId: groupId),
+    );
+
+class _RuleSetsSheet extends StatefulWidget {
+  const _RuleSetsSheet({required this.state, required this.groupId});
+
+  final AppState state;
+  final String groupId;
+
+  @override
+  State<_RuleSetsSheet> createState() => _RuleSetsSheetState();
+}
+
+class _RuleSetsSheetState extends State<_RuleSetsSheet> {
+  final _input = TextEditingController();
+  String? _error;
+
+  /// Categories people reach for first. Names as sing-geosite publishes them.
+  static const _common = [
+    'openai',
+    'anthropic',
+    'google',
+    'youtube',
+    'netflix',
+    'disney',
+    'spotify',
+    'telegram',
+    'github',
+    'twitter',
+    'tiktok',
+    'apple',
+    'microsoft',
+  ];
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
+
+  Future<void> _add(String text) async {
+    final l10n = L10n.of(context);
+    final source = RuleSetSource.parse(text);
+    final group = widget.state.policyGroup(widget.groupId);
+    if (source == null) {
+      setState(() => _error = l10n.rulesGroupRuleSetInvalid);
+      return;
+    }
+    if (group?.ruleSets.contains(source.entry) ?? false) {
+      setState(() => _error = l10n.rulesGroupRuleSetDuplicate);
+      return;
+    }
+    setState(() => _error = null);
+    _input.clear();
+    await widget.state.addGroupRuleSet(widget.groupId, text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final palette = context.palette;
+    final insets = MediaQuery.viewInsetsOf(context).bottom;
+
+    return ListenableBuilder(
+      listenable: widget.state,
+      builder: (context, _) {
+        final group = widget.state.policyGroup(widget.groupId);
+        if (group == null) return const SizedBox.shrink();
+        final entries = group.ruleSets;
+        return Padding(
+          padding: EdgeInsets.only(bottom: insets),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: Gap.md),
+                    decoration: BoxDecoration(
+                      color: palette.borderStrong,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                    ),
+                  ),
+                ),
+                Text(
+                  '${group.name} · ${l10n.rulesGroupRuleSets}',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: Gap.xs),
+                Text(
+                  l10n.rulesGroupRuleSetsBody(group.name),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: Gap.lg),
+                for (final entry in entries) _entryRow(context, group, entry),
+                if (entries.isNotEmpty) const SizedBox(height: Gap.md),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _input,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: _add,
+                        style: monoStyle(size: 13, color: palette.text),
+                        decoration: InputDecoration(
+                          hintText: l10n.rulesGroupRuleSetHint,
+                          errorText: _error,
+                          errorMaxLines: 2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Gap.sm),
+                    SizedBox(
+                      height: 48,
+                      child: FilledButton(
+                        onPressed: () => _add(_input.text),
+                        child: Text(l10n.actionAdd),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Gap.lg),
+                SectionLabel(l10n.rulesGroupRuleSetCommon),
+                Wrap(
+                  spacing: Gap.sm,
+                  runSpacing: Gap.sm,
+                  children: [
+                    for (final name in _common)
+                      if (!entries.contains('geosite:$name'))
+                        ActionChip(
+                          label: Text(name),
+                          avatar: const Icon(Icons.add, size: 16),
+                          onPressed: () => _add(name),
+                        ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _entryRow(BuildContext context, PolicyGroup group, String entry) {
+    final l10n = L10n.of(context);
+    final palette = context.palette;
+    final source = RuleSetSource.parse(entry)!;
+    final downloading = widget.state.isDownloadingRuleSet(entry);
+    final ready = widget.state.isRuleSetDownloaded(entry);
+    final (IconData icon, Color color, String status) = switch (true) {
+      _ when downloading => (
+          Icons.downloading_rounded,
+          palette.muted,
+          l10n.rulesGroupRuleSetDownloading,
+        ),
+      _ when ready => (
+          Icons.check_circle_rounded,
+          palette.mint,
+          l10n.rulesGroupRuleSetReady,
+        ),
+      _ => (
+          Icons.error_outline_rounded,
+          palette.amber,
+          l10n.rulesGroupRuleSetPending,
+        ),
+    };
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        onTap: ready || downloading
+            ? null
+            : () => widget.state.retryGroupRuleSet(entry),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: color),
+              const SizedBox(width: Gap.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      source.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: monoStyle(size: 13, color: palette.text),
+                    ),
+                    Text(
+                      status,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: color),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: l10n.actionRemove,
+                onPressed: () =>
+                    widget.state.removeGroupRuleSet(group.id, entry),
+                icon: Icon(Icons.close_rounded, size: 18, color: palette.faint),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

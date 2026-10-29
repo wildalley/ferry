@@ -258,7 +258,12 @@ Future<({AppState state, FakeProxyController controller})> _harness({
   await storage.writeSettings(settings);
   if (groups) {
     await storage.writePolicyGroups(const [
-      PolicyGroup(id: 'g1', name: 'AI', nodeId: 'la'),
+      PolicyGroup(
+        id: 'g1',
+        name: 'AI',
+        nodeId: 'la',
+        ruleSets: ['geosite:openai', 'geosite:anthropic'],
+      ),
       PolicyGroup(id: 'g2', name: 'Streaming'),
     ]);
     await storage.writeCustomRules(const [

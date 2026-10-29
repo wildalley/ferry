@@ -2016,6 +2016,78 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Images'**
   String get qrImageGroup;
+
+  /// No description provided for @noticeRuleSetDownloadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t download {name}. Those sites keep their usual route until it downloads.'**
+  String noticeRuleSetDownloadFailed(String name);
+
+  /// No description provided for @rulesGroupRuleSets.
+  ///
+  /// In en, this message translates to:
+  /// **'Rule sets'**
+  String get rulesGroupRuleSets;
+
+  /// No description provided for @rulesGroupRuleSetCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 rule set} other{{count} rule sets}}'**
+  String rulesGroupRuleSetCount(int count);
+
+  /// No description provided for @rulesGroupRuleSetsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Sites in these lists go through “{name}”, above the built-in rules.'**
+  String rulesGroupRuleSetsBody(String name);
+
+  /// No description provided for @rulesGroupRuleSetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'openai, geoip:jp, or an https link to a .srs file'**
+  String get rulesGroupRuleSetHint;
+
+  /// No description provided for @rulesGroupRuleSetInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a geosite category, geoip:CC, or an https link'**
+  String get rulesGroupRuleSetInvalid;
+
+  /// No description provided for @rulesGroupRuleSetDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'This group already has it'**
+  String get rulesGroupRuleSetDuplicate;
+
+  /// No description provided for @rulesGroupRuleSetPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Not downloaded · tap to retry'**
+  String get rulesGroupRuleSetPending;
+
+  /// No description provided for @rulesGroupRuleSetDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get rulesGroupRuleSetDownloading;
+
+  /// No description provided for @rulesGroupRuleSetReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloaded'**
+  String get rulesGroupRuleSetReady;
+
+  /// No description provided for @rulesGroupRuleSetCommon.
+  ///
+  /// In en, this message translates to:
+  /// **'Common'**
+  String get rulesGroupRuleSetCommon;
+
+  /// No description provided for @actionAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get actionAdd;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

@@ -24,6 +24,7 @@ extension _AppStateConfig on AppState {
         localProxyPort: _localProxyPort,
         customRules: _customRules,
         policyGroups: _policyGroups,
+        groupRuleSets: _groupRuleSetTags(),
         ruleSetDir: _ruleSetDir,
       );
 
@@ -240,6 +241,139 @@ extension _AppStatePolicyGroups on AppState {
           );
         }
       });
+}
+
+extension _AppStateGroupRuleSets on AppState {
+  // ------------------------------------------------- policy group rule-sets
+
+  File? _ruleSetFile(String entry) {
+    final dir = _ruleSetDir;
+    final source = RuleSetSource.parse(entry);
+    if (dir == null || source == null) return null;
+    return File('$dir/${BundledRuleSets.fileName(source.tag)}');
+  }
+
+  /// Each group's rule-set tags whose files are on disk. One still to be
+  /// downloaded is left out of the config rather than named as a missing file.
+  Map<String, List<String>> _groupRuleSetTags() => {
+        for (final group in _policyGroups)
+          group.id: [
+            for (final entry in group.ruleSets)
+              if (_ruleSetFile(entry)?.existsSync() ?? false)
+                RuleSetSource.parse(entry)!.tag,
+          ],
+      };
+
+  Future<bool> _addGroupRuleSetIntent(String groupId, String input) async {
+    final source = RuleSetSource.parse(input);
+    final group = policyGroup(groupId);
+    if (source == null || group == null) return false;
+    if (group.ruleSets.contains(source.entry)) return false;
+    await _enqueue(() async {
+      _policyGroups = [
+        for (final item in _policyGroups)
+          item.id == groupId
+              ? item.copyWith(ruleSets: [...item.ruleSets, source.entry])
+              : item,
+      ];
+      await _storage.writePolicyGroups(_policyGroups);
+      notifyListeners();
+    });
+    // Another group may already have downloaded the same list.
+    if (isRuleSetDownloaded(source.entry)) {
+      if (isConnected) await _enqueue(_reloadLive);
+      return true;
+    }
+    await _downloadRuleSets([source], report: true);
+    return true;
+  }
+
+  Future<void> _removeGroupRuleSetIntent(String groupId, String entry) async {
+    final wasRendered = isRuleSetDownloaded(entry);
+    await _enqueue(() async {
+      _policyGroups = [
+        for (final item in _policyGroups)
+          item.id == groupId
+              ? item.copyWith(
+                  ruleSets: item.ruleSets.where((e) => e != entry).toList(),
+                )
+              : item,
+      ];
+      await _storage.writePolicyGroups(_policyGroups);
+      notifyListeners();
+      if (wasRendered && isConnected) await _reloadLive();
+      // The file goes once no group lists it, so the directory does not
+      // collect every list ever tried.
+      if (!_policyGroups.any((g) => g.ruleSets.contains(entry))) {
+        try {
+          _ruleSetFile(entry)?.deleteSync();
+        } on Object {
+          // Already gone, or held open; either way it no longer renders.
+        }
+      }
+    });
+  }
+
+  Future<void> _retryGroupRuleSet(String entry) async {
+    final source = RuleSetSource.parse(entry);
+    if (source != null) await _downloadRuleSets([source], report: true);
+  }
+
+  /// Downloads [sources], through the tunnel when it is up, and puts the new
+  /// rules into a running engine. Outside the operation queue on purpose: a
+  /// slow download must not hold up a connect or a node switch.
+  Future<void> _downloadRuleSets(
+    List<RuleSetSource> sources, {
+    required bool report,
+  }) async {
+    final dir = _ruleSetDir;
+    if (dir == null || !_acceptingWork) return;
+    final fresh =
+        sources.where((s) => !_downloadingRuleSets.contains(s.entry)).toList();
+    if (fresh.isEmpty) return;
+    _downloadingRuleSets.addAll(fresh.map((s) => s.entry));
+    notifyListeners();
+
+    var landed = false;
+    final failed = <String>[];
+    for (final source in fresh) {
+      try {
+        await _ruleSetUpdater.fetchSource(
+          Directory(dir),
+          source,
+          viaLocalProxy: isConnected,
+          localProxyPort: _localProxyPort,
+        );
+        landed = true;
+      } on Object {
+        failed.add(source.label);
+      } finally {
+        _downloadingRuleSets.remove(source.entry);
+      }
+    }
+    if (_disposed) return;
+    if (report && failed.isNotEmpty) {
+      _notice = AppNotice.error(
+        NoticeKind.ruleSetDownloadFailed,
+        detail: failed.join(', '),
+      );
+    }
+    _notifyUnlessDisposed();
+    if (landed && isConnected) await _enqueue(_reloadLive);
+  }
+
+  /// Every group's rule-sets, refreshed beside the bundled lists. Like those,
+  /// a refreshed file takes effect at the next start; one downloaded for the
+  /// first time is new to the config, so that does reload.
+  Future<void> _refreshGroupRuleSets() async {
+    final sources = <String, RuleSetSource>{
+      for (final group in _policyGroups)
+        for (final entry in group.ruleSets)
+          if (RuleSetSource.parse(entry) case final source?) entry: source,
+    };
+    if (sources.isEmpty) return;
+    await _downloadRuleSets(sources.values.toList(), report: false);
+  }
 }
 
 const _maskedSecret = '<hidden>';

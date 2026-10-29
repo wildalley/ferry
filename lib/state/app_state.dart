@@ -290,6 +290,9 @@ class AppState extends ChangeNotifier {
 
   final UpdateChecker _updateChecker;
 
+  /// Group rule-set entries with a download in flight.
+  final _downloadingRuleSets = <String>{};
+
   /// A newer release than the running app, once a check has found one.
   AppRelease? _availableUpdate;
   var _checkingUpdate = false;
@@ -491,6 +494,22 @@ class AppState extends ChangeNotifier {
   Future<void> renamePolicyGroup(String id, String name) =>
       _renamePolicyGroupIntent(id, name);
   Future<void> removePolicyGroup(String id) => _removePolicyGroupIntent(id);
+
+  /// Adds a rule-set to a group and downloads it. False when [input] is not a
+  /// rule-set the app understands, or the group already has it.
+  Future<bool> addGroupRuleSet(String groupId, String input) =>
+      _addGroupRuleSetIntent(groupId, input);
+  Future<void> removeGroupRuleSet(String groupId, String entry) =>
+      _removeGroupRuleSetIntent(groupId, entry);
+
+  /// Downloads [entry] again, reporting a failure.
+  Future<void> retryGroupRuleSet(String entry) => _retryGroupRuleSet(entry);
+
+  /// Whether [entry]'s file is on disk, so its rules are in the config.
+  bool isRuleSetDownloaded(String entry) =>
+      _ruleSetFile(entry)?.existsSync() ?? false;
+  bool isDownloadingRuleSet(String entry) =>
+      _downloadingRuleSets.contains(entry);
 
   /// Points a group at [nodeId], or at the engine's own pick when null.
   Future<void> selectGroupNode(String groupId, String? nodeId) =>
