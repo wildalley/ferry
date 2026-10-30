@@ -1,6 +1,6 @@
 # Changelog / 更新日志
 
-## Unreleased
+## 0.4.0
 
 ### 中文
 
