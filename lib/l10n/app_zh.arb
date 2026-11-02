@@ -338,5 +338,13 @@
   "rulesGroupRuleSetDownloading": "下载中…",
   "rulesGroupRuleSetReady": "已下载",
   "rulesGroupRuleSetCommon": "常用",
-  "actionAdd": "添加"
+  "actionAdd": "添加",
+  "actionEdit": "编辑",
+  "subscriptionEditTitle": "编辑订阅",
+  "subscriptionName": "名称",
+  "subscriptionNameRequired": "请输入名称",
+  "subscriptionUrl": "订阅链接",
+  "subscriptionUrlInvalid": "请输入 http 或 https 链接",
+  "subscriptionUserAgent": "User-Agent（客户端标识）",
+  "subscriptionUserAgentHelp": "订阅服务端会按它决定返回的格式。留空使用默认值。修改链接或 User-Agent 后保存会立即更新订阅。"
 }

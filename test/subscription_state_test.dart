@@ -170,4 +170,69 @@ void main() {
       expect(importer.viaLocalProxyCalls, [true]);
     });
   });
+
+  group('editing a subscription', () {
+    test('a rename is kept and locked against profile-title', () async {
+      final importer = _FakeImporter(nodes: [node('a', 'Tokyo')]);
+      final harness = await stateWith(importer);
+
+      await harness.state.updateSubscription('s1',
+          name: ' Work ', url: _remote.url, userAgent: '');
+
+      final edited = harness.state.subscriptions.single;
+      expect(edited.name, 'Work');
+      expect(edited.nameLocked, isTrue);
+      expect(importer.viaLocalProxyCalls, isEmpty,
+          reason: 'only the name changed, nothing to refetch');
+    });
+
+    test('a new URL or User-Agent is saved and refetched', () async {
+      final importer = _FakeImporter(nodes: [node('a', 'Tokyo')]);
+      final harness = await stateWith(importer);
+
+      await harness.state.updateSubscription('s1',
+          name: 'Panel',
+          url: 'https://other.example.com/sub',
+          userAgent: 'clash.meta');
+
+      final edited = harness.state.subscriptions.single;
+      expect(edited.url, 'https://other.example.com/sub');
+      expect(edited.userAgent, 'clash.meta');
+      expect(edited.nameLocked, isFalse);
+      expect(importer.viaLocalProxyCalls, hasLength(1));
+      expect(harness.state.nodes.single.name, 'Tokyo');
+
+      // Survives a reload.
+      final reloaded = Storage(await SharedPreferences.getInstance());
+      expect(reloaded.readSubscriptions().single.userAgent, 'clash.meta');
+    });
+
+    test('clearing the User-Agent goes back to the default', () async {
+      final importer = _FakeImporter(nodes: [node('a', 'Tokyo')]);
+      final harness = await stateWith(importer,
+          subscriptions: [_remote.copyWith(userAgent: 'mihomo')]);
+
+      await harness.state.updateSubscription('s1',
+          name: 'Panel', url: _remote.url, userAgent: '  ');
+
+      expect(harness.state.subscriptions.single.userAgent, isNull);
+      expect(importer.viaLocalProxyCalls, hasLength(1));
+    });
+
+    test('a local source only takes a new name', () async {
+      final importer = _FakeImporter();
+      final harness = await stateWith(importer, subscriptions: const [
+        Subscription(id: 'm1', name: 'Pasted', kind: SubscriptionKind.manual),
+      ]);
+
+      await harness.state.updateSubscription('m1',
+          name: 'Links', url: 'https://x.example.com', userAgent: 'mihomo');
+
+      final edited = harness.state.subscriptions.single;
+      expect(edited.name, 'Links');
+      expect(edited.url, isNull);
+      expect(edited.userAgent, isNull);
+      expect(importer.viaLocalProxyCalls, isEmpty);
+    });
+  });
 }

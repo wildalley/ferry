@@ -216,6 +216,7 @@ void main() {
     late HttpServer server;
     late String url;
     late void Function(HttpResponse response) respond;
+    String? lastUserAgent;
 
     setUp(() async {
       respond = (response) => response.write(
@@ -225,6 +226,7 @@ void main() {
       // A token in the query, because it must never reach a message.
       url = 'http://${server.address.address}:${server.port}/sub?token=s3cr3t';
       server.listen((request) async {
+        lastUserAgent = request.headers.value(HttpHeaders.userAgentHeader);
         respond(request.response);
         await request.response.close();
       });
@@ -235,6 +237,41 @@ void main() {
     test('parses a link list body', () async {
       final result = await importer.fetchSubscription(url);
       expect(result.nodes.single.name, 'A');
+    });
+
+    test('sends the default User-Agent, versioned with the app', () async {
+      await importer.fetchSubscription(url);
+      expect(lastUserAgent, Importer.defaultUserAgent);
+      expect(lastUserAgent, isNot(contains('0.1.0')));
+    });
+
+    test('a refresh sends the subscription\'s own User-Agent', () async {
+      await importer.refresh(Subscription(
+        id: 's1',
+        name: 'Panel',
+        kind: SubscriptionKind.remote,
+        url: url,
+        userAgent: 'clash.meta',
+      ));
+      expect(lastUserAgent, 'clash.meta');
+    });
+
+    test('a refresh keeps a name the user typed over profile-title', () async {
+      respond = (response) => response
+        ..headers.set('profile-title', 'Panel Title')
+        ..write('trojan://pass@a.example.com:443#A');
+      final base = Subscription(
+        id: 's1',
+        name: 'Mine',
+        kind: SubscriptionKind.remote,
+        url: url,
+      );
+
+      final unlocked = await importer.refresh(base);
+      final locked = await importer.refresh(base.copyWith(nameLocked: true));
+
+      expect(unlocked.subscription.name, 'Panel Title');
+      expect(locked.subscription.name, 'Mine');
     });
 
     test('an error status is reported as a status, with the code', () async {

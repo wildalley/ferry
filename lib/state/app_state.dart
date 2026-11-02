@@ -470,6 +470,18 @@ class AppState extends ChangeNotifier {
     bool silent = false,
   }) =>
       _refreshSubscriptionIntent(subscriptionId, silent: silent);
+  Future<void> updateSubscription(
+    String subscriptionId, {
+    required String name,
+    String? url,
+    String? userAgent,
+  }) =>
+      _updateSubscriptionIntent(
+        subscriptionId,
+        name: name,
+        url: url,
+        userAgent: userAgent,
+      );
   Future<void> removeSubscription(String subscriptionId) =>
       _removeSubscriptionIntent(subscriptionId);
   Future<void> removeNode(String nodeId) => _removeNodeIntent(nodeId);

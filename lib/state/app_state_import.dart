@@ -178,6 +178,50 @@ extension _AppStateImport on AppState {
     }
   }
 
+  /// Edits a source's name, and for a remote one its URL and User-Agent.
+  ///
+  /// A changed URL or agent is refetched straight away: either one changes what
+  /// the panel answers, and the nodes on screen would otherwise be the old
+  /// answer under the new settings until the next refresh.
+  Future<void> _updateSubscriptionIntent(
+    String subscriptionId, {
+    required String name,
+    String? url,
+    String? userAgent,
+  }) async {
+    var refetch = false;
+    await _enqueue(() async {
+      final index =
+          _subscriptions.indexWhere((item) => item.id == subscriptionId);
+      if (index < 0) return;
+      final current = _subscriptions[index];
+      final trimmedName = name.trim();
+      final renamed = trimmedName.isNotEmpty && trimmedName != current.name;
+      var updated = current.copyWith(
+        name: renamed ? trimmedName : null,
+        nameLocked: renamed ? true : null,
+      );
+      if (current.isRemote) {
+        final trimmedUrl = url?.trim();
+        final trimmedAgent = userAgent?.trim() ?? '';
+        final agent = trimmedAgent.isEmpty ? null : trimmedAgent;
+        refetch = (trimmedUrl != null &&
+                trimmedUrl.isNotEmpty &&
+                trimmedUrl != current.url) ||
+            agent != current.userAgent;
+        updated = updated.copyWith(
+          url: trimmedUrl?.isNotEmpty == true ? trimmedUrl : null,
+          userAgent: agent,
+          clearUserAgent: agent == null,
+        );
+      }
+      _subscriptions = [..._subscriptions]..[index] = updated;
+      await _storage.writeSubscriptions(_subscriptions);
+      notifyListeners();
+    });
+    if (refetch) await _refreshSubscriptionIntent(subscriptionId);
+  }
+
   Future<void> _removeSubscriptionIntent(String subscriptionId) =>
       _enqueue(() => _removeSubscription(subscriptionId));
 

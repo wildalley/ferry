@@ -11,6 +11,7 @@ import '../state/app_state.dart';
 import 'clock.dart';
 import 'import_sheet.dart';
 import 'notice_text.dart';
+import 'subscription_sheet.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -477,12 +478,18 @@ class _SubscriptionSection extends StatelessWidget {
                   : const Icon(Icons.refresh, size: 18),
             ),
           IconButton(
+            onPressed: () => editSubscription(context, state, subscription),
+            tooltip: l10n.actionEdit,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            color: palette.faint,
+          ),
+          IconButton(
             onPressed: () => _confirmRemove(context),
             tooltip: l10n.actionRemove,
             icon: const Icon(Icons.delete_outline, size: 18),
             color: palette.faint,
           ),
-          // No hit area of its own: the two buttons beside it already take
+          // No hit area of its own: the buttons beside it already take
           // theirs out of the panel, and a third would push the name in
           // further for something the whole header does.
           _FoldChevron(collapsed: collapsed),

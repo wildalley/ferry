@@ -1193,4 +1193,29 @@ class L10nEn extends L10n {
 
   @override
   String get actionAdd => 'Add';
+
+  @override
+  String get actionEdit => 'Edit';
+
+  @override
+  String get subscriptionEditTitle => 'Edit subscription';
+
+  @override
+  String get subscriptionName => 'Name';
+
+  @override
+  String get subscriptionNameRequired => 'Enter a name';
+
+  @override
+  String get subscriptionUrl => 'Subscription URL';
+
+  @override
+  String get subscriptionUrlInvalid => 'Enter an http or https URL';
+
+  @override
+  String get subscriptionUserAgent => 'User-Agent';
+
+  @override
+  String get subscriptionUserAgentHelp =>
+      'Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription.';
 }

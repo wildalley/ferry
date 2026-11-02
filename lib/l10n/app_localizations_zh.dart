@@ -1105,4 +1105,29 @@ class L10nZh extends L10n {
 
   @override
   String get actionAdd => '添加';
+
+  @override
+  String get actionEdit => '编辑';
+
+  @override
+  String get subscriptionEditTitle => '编辑订阅';
+
+  @override
+  String get subscriptionName => '名称';
+
+  @override
+  String get subscriptionNameRequired => '请输入名称';
+
+  @override
+  String get subscriptionUrl => '订阅链接';
+
+  @override
+  String get subscriptionUrlInvalid => '请输入 http 或 https 链接';
+
+  @override
+  String get subscriptionUserAgent => 'User-Agent（客户端标识）';
+
+  @override
+  String get subscriptionUserAgentHelp =>
+      '订阅服务端会按它决定返回的格式。留空使用默认值。修改链接或 User-Agent 后保存会立即更新订阅。';
 }

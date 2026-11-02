@@ -51,6 +51,8 @@ class Subscription {
     this.expiresAt,
     this.usedBytes,
     this.totalBytes,
+    this.userAgent,
+    this.nameLocked = false,
   });
 
   final String id;
@@ -72,6 +74,16 @@ class Subscription {
   final DateTime? expiresAt;
   final int? usedBytes;
   final int? totalBytes;
+
+  /// User-Agent sent when fetching, or null for `Importer.defaultUserAgent`.
+  ///
+  /// Panels pick the response format by it: a `clash` agent gets YAML, a
+  /// `sing-box` one JSON, and some refuse an agent they do not recognise.
+  final String? userAgent;
+
+  /// True once the user renamed this source by hand, so a refresh keeps their
+  /// name instead of the panel's `profile-title`.
+  final bool nameLocked;
 
   bool get isRemote => kind == SubscriptionKind.remote;
 
@@ -102,6 +114,9 @@ class Subscription {
     DateTime? expiresAt,
     int? usedBytes,
     int? totalBytes,
+    String? userAgent,
+    bool clearUserAgent = false,
+    bool? nameLocked,
   }) {
     return Subscription(
       id: id,
@@ -116,6 +131,8 @@ class Subscription {
       expiresAt: expiresAt ?? this.expiresAt,
       usedBytes: usedBytes ?? this.usedBytes,
       totalBytes: totalBytes ?? this.totalBytes,
+      userAgent: clearUserAgent ? null : (userAgent ?? this.userAgent),
+      nameLocked: nameLocked ?? this.nameLocked,
     );
   }
 
@@ -138,6 +155,8 @@ class Subscription {
         expiresAt: expiresAt,
         usedBytes: usedBytes,
         totalBytes: totalBytes,
+        userAgent: userAgent,
+        nameLocked: nameLocked,
       );
 
   Map<String, dynamic> toJson() => {
@@ -152,6 +171,8 @@ class Subscription {
         if (expiresAt != null) 'expires_at': expiresAt!.toIso8601String(),
         if (usedBytes != null) 'used_bytes': usedBytes,
         if (totalBytes != null) 'total_bytes': totalBytes,
+        if (userAgent != null) 'user_agent': userAgent,
+        if (nameLocked) 'name_locked': true,
       };
 
   static Subscription fromJson(Map<String, dynamic> json) => Subscription(
@@ -179,6 +200,11 @@ class Subscription {
         },
         usedBytes: (json['used_bytes'] as num?)?.toInt(),
         totalBytes: (json['total_bytes'] as num?)?.toInt(),
+        userAgent: switch (json['user_agent']) {
+          final String value when value.trim().isNotEmpty => value,
+          _ => null,
+        },
+        nameLocked: json['name_locked'] == true,
       );
 
   static SubscriptionFailure? _failureNamed(Object? name) {

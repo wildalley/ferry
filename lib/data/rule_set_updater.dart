@@ -22,6 +22,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../models/policy_group.dart';
+import '../version.dart';
 import 'local_proxy.dart';
 import 'rule_sets.dart';
 
@@ -46,7 +47,7 @@ class RuleSetUpdater {
   final String base;
 
   static const _timeout = Duration(seconds: 20);
-  static const _userAgent = 'sing-box; SingBoxClient/0.1.0';
+  static const _userAgent = 'sing-box; SingBoxClient/$appVersion';
 
   /// A compiled list is tens of KB; anything this large is not one, and the cap
   /// keeps a wrong URL from filling the phone before the magic check runs.

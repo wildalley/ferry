@@ -16,6 +16,7 @@ import 'clock.dart';
 import 'import_sheet.dart';
 import 'json_highlight.dart';
 import 'notice_text.dart';
+import 'subscription_sheet.dart';
 import 'theme.dart';
 import 'update_prompt.dart';
 import 'widgets.dart';
@@ -734,6 +735,11 @@ class _SubscriptionRow extends StatelessWidget {
                     )
                   : const Icon(Icons.refresh, size: 18),
             ),
+          IconButton(
+            tooltip: l10n.actionEdit,
+            onPressed: () => editSubscription(context, state, subscription),
+            icon: const Icon(Icons.edit_outlined, size: 18),
+          ),
           IconButton(
             tooltip: l10n.actionRemove,
             onPressed: () => _confirmRemove(context),

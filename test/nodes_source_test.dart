@@ -485,6 +485,28 @@ void main() {
       expect(state.isSourceCollapsed('s1'), isFalse);
     });
 
+    testWidgets('the edit button renames without folding', (tester) async {
+      final state = await _stateWith(
+        subscriptions: [_source('s1', 'Alpha')],
+        nodes: [node('a', 'Tokyo').copyWith(subscriptionId: 's1')],
+      );
+
+      await _openNodes(tester, state);
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit subscription'), findsOneWidget);
+      expect(find.text('USER-AGENT'), findsOneWidget);
+
+      await tester.enterText(find.widgetWithText(TextField, 'Alpha'), 'Beta');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(state.subscriptions.single.name, 'Beta');
+      expect(state.subscriptions.single.nameLocked, isTrue);
+      expect(find.text('Tokyo'), findsOneWidget);
+      expect(state.isSourceCollapsed('s1'), isFalse);
+    });
+
     testWidgets('works on the manual group too', (tester) async {
       final state = await _stateWith(
         subscriptions: [_source('s1', 'Alpha')],

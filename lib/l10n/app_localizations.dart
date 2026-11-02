@@ -2088,6 +2088,54 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Add'**
   String get actionAdd;
+
+  /// No description provided for @actionEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get actionEdit;
+
+  /// No description provided for @subscriptionEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit subscription'**
+  String get subscriptionEditTitle;
+
+  /// No description provided for @subscriptionName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get subscriptionName;
+
+  /// No description provided for @subscriptionNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name'**
+  String get subscriptionNameRequired;
+
+  /// No description provided for @subscriptionUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscription URL'**
+  String get subscriptionUrl;
+
+  /// No description provided for @subscriptionUrlInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an http or https URL'**
+  String get subscriptionUrlInvalid;
+
+  /// No description provided for @subscriptionUserAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'User-Agent'**
+  String get subscriptionUserAgent;
+
+  /// No description provided for @subscriptionUserAgentHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription.'**
+  String get subscriptionUserAgentHelp;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

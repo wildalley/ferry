@@ -9,6 +9,7 @@ import 'dart:io';
 
 import '../models/node.dart';
 import '../models/subscription.dart';
+import '../version.dart';
 import 'clash_parser.dart';
 import 'local_proxy.dart';
 import 'share_link_parser.dart';
@@ -76,7 +77,9 @@ class Importer {
   static const _timeout = Duration(seconds: 20);
   static const _maxResponseBytes = 4 * 1024 * 1024;
   static const _maxConcurrentFetches = 3;
-  static const _userAgent = 'sing-box; SingBoxClient/0.1.0';
+
+  /// Sent when a subscription has no User-Agent of its own.
+  static const defaultUserAgent = 'sing-box; SingBoxClient/$appVersion';
 
   /// Detects the format of pasted [text] and imports it.
   ///
@@ -236,6 +239,7 @@ class Importer {
     String? subscriptionId,
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? userAgent,
   }) async {
     final Uri uri;
     try {
@@ -263,6 +267,7 @@ class Importer {
           subscriptionId: subscriptionId,
           viaLocalProxy: throughTunnel,
           localProxyPort: localProxyPort,
+          userAgent: userAgent,
         );
       } on ImportException catch (error) {
         // Only a transport failure is worth the other path. A status code or an
@@ -283,6 +288,7 @@ class Importer {
     String? subscriptionId,
     required bool viaLocalProxy,
     int? localProxyPort,
+    String? userAgent,
   }) async {
     if (_disposed) {
       throw StateError('Importer is disposed');
@@ -299,6 +305,7 @@ class Importer {
             subscriptionId: subscriptionId,
             viaLocalProxy: viaLocalProxy,
             localProxyPort: localProxyPort,
+            userAgent: userAgent,
           ),
         );
       }
@@ -310,6 +317,7 @@ class Importer {
         subscriptionId: subscriptionId,
         viaLocalProxy: viaLocalProxy,
         localProxyPort: localProxyPort,
+        userAgent: userAgent,
         closeClient: true,
       );
     } finally {
@@ -358,6 +366,7 @@ class Importer {
     String? subscriptionId,
     required bool viaLocalProxy,
     int? localProxyPort,
+    String? userAgent,
     bool closeClient = false,
   }) async {
     if (closeClient) _activeClients.add(client);
@@ -381,7 +390,13 @@ class Importer {
         }
 
         final request = await client.getUrl(uri).timeout(remaining());
-        request.headers.set(HttpHeaders.userAgentHeader, _userAgent);
+        request.headers.set(
+          HttpHeaders.userAgentHeader,
+          switch (userAgent?.trim()) {
+            final String value when value.isNotEmpty => value,
+            _ => defaultUserAgent,
+          },
+        );
         response = await request.close().timeout(remaining());
         if (response.contentLength > _maxResponseBytes) {
           throw const _ResponseTooLarge();
@@ -473,10 +488,13 @@ class Importer {
       subscriptionId: subscription.id,
       viaLocalProxy: viaLocalProxy,
       localProxyPort: localProxyPort,
+      userAgent: subscription.userAgent,
     );
     return (
       subscription: subscription.copyWith(
-        name: result.subscriptionName?.isNotEmpty == true
+        // A name the user typed outranks the panel's `profile-title`.
+        name: !subscription.nameLocked &&
+                result.subscriptionName?.isNotEmpty == true
             ? result.subscriptionName
             : null,
         updatedAt: DateTime.now(),

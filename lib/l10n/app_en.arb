@@ -702,5 +702,13 @@
   "rulesGroupRuleSetDownloading": "Downloading…",
   "rulesGroupRuleSetReady": "Downloaded",
   "rulesGroupRuleSetCommon": "Common",
-  "actionAdd": "Add"
+  "actionAdd": "Add",
+  "actionEdit": "Edit",
+  "subscriptionEditTitle": "Edit subscription",
+  "subscriptionName": "Name",
+  "subscriptionNameRequired": "Enter a name",
+  "subscriptionUrl": "Subscription URL",
+  "subscriptionUrlInvalid": "Enter an http or https URL",
+  "subscriptionUserAgent": "User-Agent",
+  "subscriptionUserAgentHelp": "Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription."
 }
