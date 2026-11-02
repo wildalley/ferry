@@ -1,5 +1,19 @@
 # Changelog / 更新日志
 
+## 0.4.1
+
+### 中文
+
+- **编辑订阅**：节点页和设置页可修改订阅名称、链接及 User-Agent；修改链接或 User-Agent 后立即刷新节点。
+- **保留自定义名称**：手动重命名后，刷新订阅不再被服务端的名称覆盖；本地导入来源也可以重命名。
+- **客户端标识**：支持常用 User-Agent 预设和自定义值，留空恢复默认；订阅与规则集请求的默认标识随应用版本更新。
+
+### English
+
+- **Edit subscriptions**: change the name, URL, and User-Agent from Nodes or Settings. Changing the URL or User-Agent refreshes the nodes immediately.
+- **Keep custom names**: refreshing no longer overwrites a manually renamed subscription with the server's title. Local sources can also be renamed.
+- **Client identification**: choose a common User-Agent preset or enter a custom value; leave it empty to restore the default. Default subscription and rule-set request agents now use the app version.
+
 ## 0.4.0
 
 ### 中文
