@@ -570,7 +570,7 @@ class ConfigBuilder {
   static String outboundTag(ProxyNode node) =>
       '${_sanitizeTag(node.name)}-${node.id}';
 
-  /// Strips `tls.utls` members whose fingerprint sing-box rejects.
+  /// Normalizes stale TLS fingerprint fields before sing-box sees them.
   ///
   /// Nodes imported before the share-link parser started filtering the `fp`
   /// parameter still carry whatever the panel emitted — `unsafe` is in the
@@ -581,6 +581,17 @@ class ConfigBuilder {
     Map<String, dynamic> outbound,
   ) {
     void walk(Map<dynamic, dynamic> map) {
+      final tls = map['tls'];
+      if (tls is Map && tls.containsKey('fingerprint')) {
+        // Older imported configs used `tls.fingerprint`; current sing-box
+        // expects the uTLS object instead. Preserve it when it is valid, and
+        // always remove the legacy key because it is an unknown field.
+        final fingerprint = ShareLinkParser.utls(tls['fingerprint']);
+        tls.remove('fingerprint');
+        if (fingerprint != null && !tls.containsKey('utls')) {
+          tls['utls'] = fingerprint;
+        }
+      }
       map.removeWhere((key, value) {
         if (key != 'utls' || value is! Map) return false;
         return ShareLinkParser.utls(value['fingerprint']) == null;

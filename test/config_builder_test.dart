@@ -168,6 +168,36 @@ void main() {
       expect(goodTls['utls']['fingerprint'], 'chrome');
     });
 
+    test('migrates the legacy direct TLS fingerprint field', () {
+      final node = ProxyNode(
+        id: 'legacy',
+        name: 'Legacy TLS',
+        protocol: NodeProtocol.vless,
+        server: 'example.com',
+        serverPort: 443,
+        raw: {
+          'uuid': 'b831381d-6324-4d53-ad4f-8cda48b30811',
+          'tls': {
+            'enabled': true,
+            'server_name': 'sni.example.com',
+            'fingerprint': 'chrome',
+          },
+        },
+      );
+
+      final tls = _outbound(
+        _build(
+          nodes: [node],
+          selectedNodeId: node.id,
+          settings: const AppSettings(),
+        ),
+        ConfigBuilder.outboundTag(node),
+      )!['tls'] as Map;
+
+      expect(tls, isNot(contains('fingerprint')));
+      expect(tls['utls'], {'enabled': true, 'fingerprint': 'chrome'});
+    });
+
     test('with no nodes the selector points at direct so start still works',
         () {
       final config = _build(
