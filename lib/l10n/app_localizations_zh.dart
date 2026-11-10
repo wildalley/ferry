@@ -1151,7 +1151,8 @@ class L10nZh extends L10n {
   String get settingsProxyAuth => '本地代理鉴权';
 
   @override
-  String get settingsProxyAuthAndroid => 'Android 默认强制开启。其他应用使用此代理时需填写下方凭据。';
+  String get settingsProxyAuthAndroid =>
+      '本地 HTTP/SOCKS 代理必须鉴权；普通 VPN 流量无需填写密码。';
 
   @override
   String get settingsProxyAuthDesktop =>
@@ -1162,7 +1163,7 @@ class L10nZh extends L10n {
 
   @override
   String get settingsProxyCredentialsBody =>
-      '请在可信代理客户端中填写以下用户名和密码。持有凭据的应用可使用你的代理。';
+      '请在可信代理客户端中填写以下凭据。密码会保存，重连后保持不变；持有凭据的应用可使用你的代理。';
 
   @override
   String get plainHttpWarning => '此订阅使用未加密的 HTTP，传输中的地址、令牌和内容可能被读取或篡改。';
@@ -1175,4 +1176,16 @@ class L10nZh extends L10n {
 
   @override
   String get proxyPassword => '密码';
+
+  @override
+  String get settingsSystemProxyAndroidBody =>
+      '向应用提供本地 HTTP 代理；普通 VPN/TUN 使用无需开启。';
+
+  @override
+  String get settingsProxyCompatibilityAndroid =>
+      '系统 HTTP 代理已开启，使用它的应用需要提供密码。不支持鉴权的应用可能无法联网；此时请关闭“系统 HTTP 代理”，继续使用 VPN/TUN。';
+
+  @override
+  String get settingsProxyCompatibilityDesktop =>
+      '系统代理已启用鉴权。浏览器可能要求输入凭据，不支持鉴权的软件可能无法联网；关闭“本地代理鉴权”可恢复兼容模式。';
 }

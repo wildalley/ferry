@@ -2176,7 +2176,7 @@ abstract class L10n {
   /// No description provided for @settingsProxyAuthAndroid.
   ///
   /// In en, this message translates to:
-  /// **'Required on Android. Other apps need the credentials below to use this proxy.'**
+  /// **'Required for the local HTTP/SOCKS proxy. Normal VPN traffic needs no password.'**
   String get settingsProxyAuthAndroid;
 
   /// No description provided for @settingsProxyAuthDesktop.
@@ -2194,7 +2194,7 @@ abstract class L10n {
   /// No description provided for @settingsProxyCredentialsBody.
   ///
   /// In en, this message translates to:
-  /// **'Use this username and password in trusted proxy clients. These credentials allow traffic through your proxy.'**
+  /// **'Enter these credentials in a trusted proxy client. The password is saved and stays the same after reconnecting. Any app with it can use your proxy.'**
   String get settingsProxyCredentialsBody;
 
   /// No description provided for @plainHttpWarning.
@@ -2220,6 +2220,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Password'**
   String get proxyPassword;
+
+  /// No description provided for @settingsSystemProxyAndroidBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Advertise the local HTTP proxy to apps. Normal VPN/TUN use does not need this option.'**
+  String get settingsSystemProxyAndroidBody;
+
+  /// No description provided for @settingsProxyCompatibilityAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Some apps may lose internet access with System HTTP proxy enabled because this proxy requires a password. If an app cannot authenticate, turn System HTTP proxy off and use the VPN/TUN connection.'**
+  String get settingsProxyCompatibilityAndroid;
+
+  /// No description provided for @settingsProxyCompatibilityDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'System proxy authentication is enabled. Browsers may ask for credentials; apps that cannot authenticate may lose internet access. Turn Local proxy authentication off to restore compatibility.'**
+  String get settingsProxyCompatibilityDesktop;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

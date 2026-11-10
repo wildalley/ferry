@@ -34,6 +34,10 @@ class SettingsPage extends StatelessWidget {
   Widget _build(BuildContext context) {
     final l10n = L10n.of(context);
     final settings = state.settings;
+    final advertisesProxy = Platform.isAndroid
+        ? settings.systemProxy
+        : settings.proxyMode == ProxyMode.systemProxy ||
+            (Platform.isWindows && settings.systemProxy);
 
     return PageFrame(
       title: l10n.settingsTitle,
@@ -70,6 +74,8 @@ class SettingsPage extends StatelessWidget {
                   : (value) => state
                       .applySettings(settings.copyWith(localProxyAuth: value)),
             ),
+            if (state.proxyAuthenticationEnabled && advertisesProxy)
+              ProxyCompatibilityNotice(android: Platform.isAndroid),
             if (state.proxyAuthenticationEnabled)
               SettingRow(
                 icon: Icons.key_outlined,
@@ -143,7 +149,9 @@ class SettingsPage extends StatelessWidget {
               SettingRow(
                 icon: Icons.shield_outlined,
                 title: l10n.settingsSystemProxy,
-                subtitle: l10n.settingsSystemProxyBody,
+                subtitle: Platform.isAndroid
+                    ? l10n.settingsSystemProxyAndroidBody
+                    : l10n.settingsSystemProxyBody,
                 value: settings.systemProxy,
                 onChanged: (value) =>
                     state.applySettings(settings.copyWith(systemProxy: value)),
@@ -498,6 +506,42 @@ class SettingsPage extends StatelessWidget {
                     children: highlightJson(config, palette),
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Kept next to the switches so a compatibility problem has a visible remedy.
+class ProxyCompatibilityNotice extends StatelessWidget {
+  const ProxyCompatibilityNotice({super.key, required this.android});
+
+  final bool android;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Semantics(
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ExcludeSemantics(
+              child: Icon(Icons.warning_amber_rounded,
+                  size: 20, color: context.palette.amber),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                android
+                    ? l10n.settingsProxyCompatibilityAndroid
+                    : l10n.settingsProxyCompatibilityDesktop,
+                style: TextStyle(color: context.palette.text, fontSize: 13),
               ),
             ),
           ],

@@ -353,12 +353,15 @@
   "storageRetry": "重试",
   "storageExit": "退出",
   "settingsProxyAuth": "本地代理鉴权",
-  "settingsProxyAuthAndroid": "Android 默认强制开启。其他应用使用此代理时需填写下方凭据。",
+  "settingsProxyAuthAndroid": "本地 HTTP/SOCKS 代理必须鉴权；普通 VPN 流量无需填写密码。",
   "settingsProxyAuthDesktop": "HTTP/SOCKS 客户端需填写凭据。部分使用系统代理的应用不支持鉴权。",
   "settingsProxyCredentials": "查看代理凭据",
-  "settingsProxyCredentialsBody": "请在可信代理客户端中填写以下用户名和密码。持有凭据的应用可使用你的代理。",
+  "settingsProxyCredentialsBody": "请在可信代理客户端中填写以下凭据。密码会保存，重连后保持不变；持有凭据的应用可使用你的代理。",
   "plainHttpWarning": "此订阅使用未加密的 HTTP，传输中的地址、令牌和内容可能被读取或篡改。",
   "insecureTlsWarning": "已跳过 TLS 证书验证",
   "proxyUsername": "用户名",
-  "proxyPassword": "密码"
+  "proxyPassword": "密码",
+  "settingsSystemProxyAndroidBody": "向应用提供本地 HTTP 代理；普通 VPN/TUN 使用无需开启。",
+  "settingsProxyCompatibilityAndroid": "系统 HTTP 代理已开启，使用它的应用需要提供密码。不支持鉴权的应用可能无法联网；此时请关闭“系统 HTTP 代理”，继续使用 VPN/TUN。",
+  "settingsProxyCompatibilityDesktop": "系统代理已启用鉴权。浏览器可能要求输入凭据，不支持鉴权的软件可能无法联网；关闭“本地代理鉴权”可恢复兼容模式。"
 }

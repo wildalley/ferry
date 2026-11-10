@@ -1240,7 +1240,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsProxyAuthAndroid =>
-      'Required on Android. Other apps need the credentials below to use this proxy.';
+      'Required for the local HTTP/SOCKS proxy. Normal VPN traffic needs no password.';
 
   @override
   String get settingsProxyAuthDesktop =>
@@ -1251,7 +1251,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsProxyCredentialsBody =>
-      'Use this username and password in trusted proxy clients. These credentials allow traffic through your proxy.';
+      'Enter these credentials in a trusted proxy client. The password is saved and stays the same after reconnecting. Any app with it can use your proxy.';
 
   @override
   String get plainHttpWarning =>
@@ -1265,4 +1265,16 @@ class L10nEn extends L10n {
 
   @override
   String get proxyPassword => 'Password';
+
+  @override
+  String get settingsSystemProxyAndroidBody =>
+      'Advertise the local HTTP proxy to apps. Normal VPN/TUN use does not need this option.';
+
+  @override
+  String get settingsProxyCompatibilityAndroid =>
+      'Some apps may lose internet access with System HTTP proxy enabled because this proxy requires a password. If an app cannot authenticate, turn System HTTP proxy off and use the VPN/TUN connection.';
+
+  @override
+  String get settingsProxyCompatibilityDesktop =>
+      'System proxy authentication is enabled. Browsers may ask for credentials; apps that cannot authenticate may lose internet access. Turn Local proxy authentication off to restore compatibility.';
 }
