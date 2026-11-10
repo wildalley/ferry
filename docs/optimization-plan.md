@@ -7,7 +7,7 @@
 
 | 优先级 | 工作 | 完成标准 |
 | --- | --- | --- |
-| P1 | 真实凭据库迁移 | Android Keystore、Windows 凭据库、Linux Secret Service 分别验证旧数据迁移、锁定/解锁、部分失败重试、密钥丢失、升级和备份/设备迁移行为 |
+| P1 | 真实凭据库迁移 | Android Keystore、Windows 凭据库、Linux Secret Service 分别验证旧数据迁移、锁定/解锁、部分失败重试、密钥丢失、升级和备份/设备迁移行为。已完成：原生 Android 14 模拟器上的全新安装、重启和 1500 节点旧数据迁移；0.4.3 起 Keystore 首次即失败时改用应用私有存储（v0.4.2 上曾有设备启动即停在恢复页，卸载重装后恢复，原因未能取证）。仍缺：厂商 ROM 实机、Windows 凭据库 |
 | P1 | Android 生命周期与协议 | 本地 HTTP/2、gRPC、WebSocket、Hysteria2、TUIC、DNS 回归已通过；仍须实机验证慢启动后立即停止、连续重载、VPN 撤销、服务重建及部分初始化失败，至少 100 轮连接循环，检查 QUIC/WireGuard/TUN/DNS 和 JNI 绑定 |
 | P1 | Windows 实机回归 | UAC 接管成功/拒绝/超时、第二实例激活、Job Object 清理、TUN 创建、核心异常退出和 WinINet 恢复；单元测试不能代替系统验收 |
 | P1 | 长时内存验证 | 固定负载和构建，分别记录 GUI/core 的 RSS、PSS、Private_Dirty、FD、线程数；可见/日志页/托盘场景运行 2–8 小时，必要时做 Dart heap diff 和 native 分配追踪 |

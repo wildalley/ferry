@@ -482,7 +482,10 @@ recovery instructions and a NixOS configuration example, and
 Nodes, subscriptions, and local API/proxy secrets are persisted through the
 platform credential store. Migration removes old preference values only after
 all vault writes have been read back and validated. An inaccessible vault stops
-startup without clearing data. Runtime memory and temporary engine configs still
+startup without clearing data, and the recovery screen shows the failure code
+(never a stored value). The one exception is an Android Keystore that fails
+before it ever held Ferry's data: that install keeps credentials in app-private,
+backup-excluded preferences instead, because users cannot repair an OEM Keystore. Runtime memory and temporary engine configs still
 contain credentials. Node credentials remain visible in the generated-config
 viewer after its warning; local API/proxy secrets are masked there.
 

@@ -1,4 +1,4 @@
-/// The motion primitives added for the Synapse V4 interaction pass.
+/// The interface's motion primitives.
 ///
 /// These three carry rules that are easy to break without noticing, because a
 /// broken one still renders the right pixels once it has settled: a counter that
