@@ -129,8 +129,7 @@ bool _sameValues(List<int> a, List<int> b) {
 
 /// Programmatic console backdrop: a faint grid under a radial vignette.
 ///
-/// Drawn rather than shipped as a bitmap — see the design note in
-/// `docs/design/synapse-v4.md` §3. Alphas are deliberately near the floor of
+/// Drawn rather than shipped as a bitmap; see `docs/design/README.md`. Alphas are deliberately near the floor of
 /// what renders: this should register as texture, not as a visible grid. The
 /// optional signal field belongs only on a live connection surface, keeping the
 /// rest of the app calm while still giving the dashboard the presence of the

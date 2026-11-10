@@ -49,7 +49,6 @@ void main() {
       final header = ByteData.sublistView(artwork.readAsBytesSync(), 16, 24);
       expect(header.getUint32(0), 512);
       expect(header.getUint32(4), 512);
-      expect(File('docs/design/icon/app-icon-master.png').existsSync(), isTrue);
     });
 
     test('the monochrome mark clears 3:1 against the background glow', () {

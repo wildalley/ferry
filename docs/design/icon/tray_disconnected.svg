@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Neutral S and hollow status dot. Transparent plate respects panel themes. -->
-<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
-  <path d="M70,36 C64,31 43,29 37,37 C30,50 71,51 71,64 C71,75 43,77 36,70"
-        transform="translate(54,54) scale(1.5) translate(-54,-54)"
-        stroke="#828B9C" stroke-width="10" stroke-linecap="round" fill="none"/>
-  <circle cx="90" cy="83" r="6" stroke="#828B9C" stroke-width="3" fill="none"/>
-</svg>

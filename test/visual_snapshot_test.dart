@@ -383,7 +383,6 @@ Future<void> _shot(
   await tester.runAsync(() async {
     for (final asset in [
       'assets/branding/app-icon.png',
-      'assets/branding/signal-flow.webp',
     ]) {
       await precacheImage(AssetImage(asset), context, onError: (error, stack) {
         throw error;

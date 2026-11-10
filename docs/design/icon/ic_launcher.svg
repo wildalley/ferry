@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!-- Packaging adapter for the generated master. Keep both files together;
-     Linux and legacy Android launchers receive rasterized, self-contained PNGs. -->
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-     width="108" height="108" viewBox="0 0 108 108">
-  <image xlink:href="app-icon-master.png" width="108" height="108"/>
-</svg>

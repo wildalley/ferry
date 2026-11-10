@@ -71,25 +71,14 @@ if wants deb || wants arch; then
     exit 1
   }
 
-  # The 渡 mark at each hicolor size, rendered from code by
-  # test/render_icons_test.dart. The old SVG path stays as a fallback for a
-  # checkout that predates those files.
+  # Current checked-in icons are rendered from paintBrandMark. Do not fall
+  # back to superseded artwork when a generated resource is missing.
   mkdir -p "$icons"
-  if [ -f docs/design/icon/linux/512.png ]; then
-    for size in 64 128 256 512; do
-      cp "docs/design/icon/linux/$size.png" "$icons/$size.png"
-    done
-  elif command -v rsvg-convert >/dev/null; then
-    for size in 64 128 256 512; do
-      rsvg-convert -w $size -h $size \
-        -o "$icons/$size.png" docs/design/icon/ic_launcher.svg
-    done
-  else
-    echo "rsvg-convert missing, falling back to the xxxhdpi launcher PNG" >&2
-    for size in 64 128 256 512; do
-      cp android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png "$icons/$size.png"
-    done
-  fi
+  for size in 64 128 256 512; do
+    icon="docs/design/icon/linux/$size.png"
+    [ -f "$icon" ] || { echo "missing $icon; run scripts/build-icons.sh" >&2; exit 1; }
+    cp "$icon" "$icons/$size.png"
+  done
 fi
 
 # --- Shared install tree ----------------------------------------------------
