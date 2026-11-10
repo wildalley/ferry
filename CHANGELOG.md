@@ -1,5 +1,27 @@
 # Changelog / 更新日志
 
+## 0.4.4 — 2026-11-10
+
+### 中文
+
+- **依赖升级**：二维码扫描 `mobile_scanner` 升级至 7.5.0，本地设置 `shared_preferences` 升级至 2.5.6。
+- **Android 构建工具链**：Gradle 9.9.0、Android Gradle Plugin 9.5.1。
+- **CI 与发布流程**：GitHub Actions 升级（checkout 7、setup-java 6、setup-go 7、upload-artifact 7、download-artifact 8）。
+- 功能和界面无变化。桌面托盘/窗口库（`tray_manager`、`window_manager`）的大版本升级涉及 API 变更，留待单独迁移；`androidx.core` 1.19 需要 Android API 37，暂缓。
+
+**升级说明**：可直接覆盖安装 0.4.3。
+
+### English
+
+- **Dependencies**: `mobile_scanner` 7.5.0 (QR scanning) and `shared_preferences` 2.5.6.
+- **Android toolchain**: Gradle 9.9.0 and Android Gradle Plugin 9.5.1.
+- **CI and release pipeline**: GitHub Actions upgraded (checkout 7, setup-java 6, setup-go 7, upload-artifact 7, download-artifact 8).
+- No feature or UI changes. The major upgrades of the desktop tray/window libraries (`tray_manager`, `window_manager`) change their APIs and are left for a separate migration; `androidx.core` 1.19 needs Android API 37 and is deferred.
+
+**Upgrading**: installs over 0.4.3.
+
+Downloads: Android arm64 APK, Linux amd64 deb, Arch Linux x86_64 package, Windows x64 ZIP.
+
 ## 0.4.3 — 2026-11-10
 
 ### 中文
