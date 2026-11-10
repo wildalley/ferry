@@ -16,7 +16,7 @@
 
 版本告警不是漏洞函数可达性结论。不得仅把扫描改成警告或移除检查来满足发布条件。
 历史未修补产物的告警快照见 [security-advisories-2026-11-10.json](security-advisories-2026-11-10.json)。
-当前补丁核心的 Windows+Pub 149 项、Android+Pub+Maven 278 项本地复扫均未返回公告；
+当前 1.14.4 补丁核心的 Windows+Pub 171 项、Android+Pub+Maven 314 项本地复扫均未返回公告；
 两平台普通分支与正式 tag 均阻断告警和扫描失败，后续依赖变更仍需持续扫描。
 
 ## 后续优化与兼容性
@@ -28,6 +28,8 @@
 | P2 | R8 正式启用 | 实验 APK 约 64.97 MiB，已有 JNI keep 规则；真机扫码、绑定和协议矩阵通过后再改默认值，目前保留 `FERRY_R8=1` 实验入口 |
 | P2 | 大连接量开销 | 隐藏时已停止构建连接明细，但仍需解码完整 JSON；比较 1k/10k 活跃连接时的 CPU、堆、消息频率，再决定降低采样或改协议 |
 | P2 | runner 资源与镜像 | 本机已完成 Gradle 进程树采样对比，采用 4 GiB heap、1 GiB metaspace、Kotlin 进程内编译及默认 workers；继续观测远端冷/热缓存，固定 Arch 镜像并建立定期更新流程 |
+| P1 | Linux 发行版实机验收 | 工具依赖、错误分类、授权复查、NixOS 包装器和模拟流程测试已完成；仍需在 GNOME/KDE/精简窗口管理器、NixOS、受限文件系统验证真实认证和 TUN |
+| P2 | 1.14 核心包体分析 | 新 APK 89.31 MiB，较 1.13 版本增加约 19 MiB，主要为 native；评估上游新增能力的链接开销，保持已支持协议和安全检查 |
 | P2 | Linux 权限隔离 | 当前检查真实路径、root 所有权和父目录权限，安装包不自动 setcap；文件 capability 仍对整个可执行文件生效，多用户隔离需受控 helper/服务 |
 | P2 | 规则集可信来源 | 现有长度/魔数和 HTTPS 校验不能代替签名；设计受信清单、签名/摘要校验和更新策略 |
 | P2 | Windows 共享 API 层 | 已接入有界 HTTP；仍有单独的控制 API/轮询实现。合并前验证轮询与 WebSocket 行为差异，避免仅为减少代码而改变功能 |
@@ -47,6 +49,8 @@ Android 后台串行化消除了主线程等待，但停止仍需等待正在执
 - 核心裁剪、Dart 符号分离、工具链/源码固定、签名/对齐检查、SBOM/OSV 与发布门槛。
 - 代理鉴权与系统代理组合提示、凭据持久性说明；实际 Maven 依赖清单导出和 CI 审计。
 - Gradle JVM 限额与进程树采样；2 workers 本机耗时回退，未设为默认。
-- 原生依赖安全升级、Go 1.27 HTTP/2 兼容、Hysteria2 低 RTT 窗口修复；Android/Windows 同源构建、补丁来源和 APK 摘要校验。见[核心补丁说明](../patches/sing-box/README.md)。
+- 内置核心升级至 1.14.4、Android 平台接口适配、原生依赖安全升级、Go 1.27 HTTP/2 兼容、Hysteria2 低 RTT 窗口修复；Android/Windows 同源构建、补丁来源和 APK 摘要校验。见[核心补丁说明](../patches/sing-box/README.md)。
+
+- Linux 授权工具依赖、具体恢复提示、授权复查、NixOS 声明式包装器发现和说明。
 
 OpenVPN、新桌面代理后端等属于独立功能评估，不作为本轮缺陷修复的未完成项。
