@@ -1,0 +1,8 @@
+# Native source patch digests and shell entry points must match on Windows.
+patches/** text eol=lf
+# Unified diff context lines deliberately start with a space before tabs/blanks.
+patches/**/*.patch -whitespace
+scripts/*.sh text eol=lf
+scripts/*.py text eol=lf
+scripts/*.json text eol=lf
+scripts/core-tests/*.go text eol=lf

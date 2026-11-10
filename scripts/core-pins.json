@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "goVersion": "1.27.3",
+  "core": {
+    "tag": "v1.13.19",
+    "commit": "b5ebaa1fc0f2b94256180b95468e73ef53caa27d",
+    "buildVersion": "1.13.19-ferry.2",
+    "patch": "patches/sing-box/security-2026-11-10.patch",
+    "patchSha256": "c82b65cb83b3966322df1f35303151b5d93f01e726a254e882929fea75d805d6"
+  },
+  "gomobileVersion": "b2c30f47825831593d6980af8191527490f9c968",
+  "modulePatches": [
+    {
+      "module": "github.com/sagernet/sing-quic",
+      "version": "v0.6.4-0.20260803041914-d83826c306d7",
+      "sum": "h1:D46kmyvKMNVFvL3KXdq3T4vy8r29xCMmSqNuQHJBybE=",
+      "directory": "ferry-patched/sing-quic",
+      "patch": "patches/sing-box/hysteria-window.patch",
+      "patchSha256": "b224c88281e63645ab451389c8538ad108e1c8135d9e6bc1096d7722926de90a"
+    }
+  ]
+}

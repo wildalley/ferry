@@ -27,14 +27,17 @@ android/app/libs/*.aar
 android/app/libs/*.aar.build-info
 android/app/libs/*.aar.build-info.json
 android/app/libs/*.aar.modules.json
+android/app/libs/*.aar.sources.json
 # gomobile emits this next to the aar; same deal, and it is only for IDE
 # navigation into the generated Java bindings.
 android/app/libs/*-sources.jar
 
-# Windows runtime binary is downloaded and checksum-pinned by CI rather than
+# Windows runtime binary is built from pinned patched sources by CI rather than
 # committed to the source tree.
 windows/runner/resources/*.exe
 windows/runner/resources/*.dll
+windows/runner/resources/*.exe.build-info.json
+windows/runner/resources/*.exe.sources.json
 
 # Packaging output: scripts/package.sh writes the deb, Arch package and APK here.
 dist/

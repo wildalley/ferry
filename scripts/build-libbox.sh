@@ -4,14 +4,14 @@
 # The .aar is generated and not committed. Its size depends on ABIs and build
 # tags. Rebuild whenever the pinned sources, toolchain, or flags change.
 #
-# Requirements: Go (CI pins 1.25.14), JDK 17, Android SDK with NDK, git.
+# Requirements: Go 1.27.3, Python 3, JDK 17, Android SDK with NDK, git.
 # Point JAVA_HOME / ANDROID_HOME at your own installs, or let the script probe
 # the usual locations.
 #
 # Usage:
 #   scripts/build-libbox.sh                 # android/arm64 (default)
 #   ABIS=android scripts/build-libbox.sh    # all ABIs (much slower, ~4x size)
-#   SINGBOX_TAG=v1.13.19 scripts/build-libbox.sh
+# Source pins and reviewed patches live in scripts/core-pins.json.
 set -euo pipefail
 
 SINGBOX_TAG="${SINGBOX_TAG:-v1.13.19}"
@@ -23,6 +23,7 @@ WITH_TAILSCALE="${WITH_TAILSCALE:-0}"
 ABIS="${ABIS:-android/arm64}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$REPO_ROOT/scripts/core-build-env.sh"
 WORK_DIR="${WORK_DIR:-${TMPDIR:-/tmp}/singbox-libbox-build}"
 OUT="${OUT:-$REPO_ROOT/android/app/libs/libbox.aar}"
 
@@ -89,17 +90,10 @@ echo "sing-box=$SINGBOX_TAG  abis=$ABIS"
 # ------------------------------------------------------------------ sources
 
 mkdir -p "$WORK_DIR"
-SRC="$WORK_DIR/sing-box"
-if [[ -d "$SRC/.git" ]]; then
-  git -C "$SRC" fetch --tags --depth 1 origin "$SINGBOX_TAG"
-  git -C "$SRC" checkout -q FETCH_HEAD
-else
-  git clone --depth 1 --branch "$SINGBOX_TAG" \
-    https://github.com/SagerNet/sing-box "$SRC"
-fi
-
-actual_commit="$(git -C "$SRC" rev-parse HEAD)"
-[[ "$actual_commit" == "$SINGBOX_COMMIT" ]] || die "sing-box source commit mismatch"
+SRC="$(mktemp -d "$WORK_DIR/core.XXXXXX")"
+trap 'rm -rf -- "$SRC"' EXIT
+prepare_core "$SRC"
+"$CORE_PYTHON" "$REPO_ROOT/scripts/test-core.py" "$SRC"
 
 echo "installing gomobile $GOMOBILE_VERSION (sing-box fork)"
 go install "github.com/sagernet/gomobile/cmd/gomobile@$GOMOBILE_VERSION"
@@ -122,8 +116,7 @@ go install "github.com/sagernet/gomobile/cmd/gobind@$GOMOBILE_VERSION"
 # The cost is the naive outbound protocol, which this app cannot express:
 # NodeProtocol (lib/models/node.dart) has no naive member, and nothing in lib/
 # references it. Add the tag back — and vendor Cronet — only if that changes.
-TAGS="with_gvisor,with_quic,with_wireguard,with_utls"
-TAGS="$TAGS,with_clash_api,badlinkname,tfogo_checklinkname0"
+TAGS="$CORE_TAGS"
 if [[ "$WITH_TAILSCALE" == 1 ]]; then
 TAGS="$TAGS,with_tailscale"
 TAGS="$TAGS,ts_omit_logtail,ts_omit_ssh,ts_omit_drive,ts_omit_taildrop"
@@ -131,11 +124,10 @@ TAGS="$TAGS,ts_omit_webclient,ts_omit_doctor,ts_omit_capture,ts_omit_kube"
 TAGS="$TAGS,ts_omit_aws,ts_omit_synology,ts_omit_bird"
 fi
 
-LDFLAGS="-X github.com/sagernet/sing-box/constant.Version=$SINGBOX_TAG"
-LDFLAGS="$LDFLAGS -X internal/godebug.defaultGODEBUG=multipathtcp=0"
-LDFLAGS="$LDFLAGS -s -w -buildid= -checklinkname=0"
+LDFLAGS="$CORE_LDFLAGS"
 
 mkdir -p "$(dirname "$OUT")"
+OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 cd "$SRC"
 
 echo "building libbox.aar — this takes several minutes"
@@ -156,6 +148,7 @@ echo
 go list -m -json all > "$OUT.modules.json"
 unzip -p "$OUT" jni/arm64-v8a/libbox.so > "$WORK_DIR/libbox-inspect.so"
 go version -m -json "$WORK_DIR/libbox-inspect.so" > "$OUT.build-info.json"
+record_core "$SRC" "$WORK_DIR/libbox-inspect.so" "$OUT.build-info.json" "$OUT.sources.json"
 printf 'sing-box=%s\ngomobile=%s\ntags=%s\n' "$SINGBOX_COMMIT" "$GOMOBILE_VERSION" "$TAGS" > "$OUT.build-info"
 echo "built $OUT"
 ls -la "$OUT"

@@ -5,6 +5,7 @@ Only public package names/versions are sent. A failed scan fails closed.
 This inventories dependency versions, not vulnerable-function reachability.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -34,18 +35,48 @@ def go_packages(text):
     while text[offset:].strip():
         offset += len(text[offset:]) - len(text[offset:].lstrip())
         module, offset = decoder.raw_decode(text, offset)
+        if module.get('Main'):
+            continue
         module = module.get("Replace", module)
-        if module.get("Version"):
-            packages.append(("Go", module["Path"], module["Version"]))
+        if module.get('Version') in (None, '', '(devel)'):
+            raise ValueError('Unversioned Go dependency; use build-info and provenance: ' + module['Path'])
+        packages.append(("Go", module["Path"], module["Version"]))
     return packages
 
 
-def linked_packages(text):
+def linked_packages(text, provenance=None):
     info = json.loads(text)
     packages = []
+    origins = {}
+    if provenance is not None:
+        if (provenance.get('schemaVersion') != 1 or
+                provenance.get('goBuildInfoSha256') != hashlib.sha256(text.encode()).hexdigest()):
+            raise ValueError('Native provenance does not match this build-info report')
+        for item in provenance['replacements']:
+            if item['module'] in origins:
+                raise ValueError('Duplicate patched module origin')
+            if not all(re.fullmatch(r'[0-9a-f]{64}', item[field])
+                       for field in ('patchSha256', 'treeSha256')):
+                raise ValueError('Missing patched source digests')
+            origins[item['module']] = item
+    used = set()
     for module in info["Deps"]:
-        module = module.get("Replace", module)
+        replacement = module.get('Replace')
+        if replacement and replacement.get('Version') in (None, '', '(devel)'):
+            origin = origins.get(module['Path'])
+            if (origin is None or origin['version'] != module['Version'] or
+                    origin['replacePath'] != replacement['Path']):
+                raise ValueError('Unverified local Go replacement: ' + module['Path'])
+            # Query the original module/version conservatively. A local patch
+            # must never erase its base module or waive its version advisories.
+            used.add(module['Path'])
+        elif replacement:
+            module = replacement
+        if module.get('Version') in (None, '', '(devel)'):
+            raise ValueError('Unversioned linked Go dependency: ' + module['Path'])
         packages.append(("Go", module["Path"], module["Version"]))
+    if used != set(origins):
+        raise ValueError('Native provenance contains a replacement absent from the binary')
     # The Go runtime itself is part of the native library too.
     runtime = re.match(r"go(\d+\.\d+\.\d+)", info["GoVersion"])
     if runtime:
@@ -120,6 +151,7 @@ def main():
     parser.add_argument("--lock", type=Path, default=Path("pubspec.lock"))
     parser.add_argument("--go-modules", type=Path)
     parser.add_argument("--go-build-info", type=Path)
+    parser.add_argument("--go-provenance", type=Path, help="Verified native source/patch manifest")
     parser.add_argument("--maven", type=Path, help="Resolved release Maven graph exported by Gradle")
     parser.add_argument("--core-version", help="Pinned sing-box source/release tag")
     parser.add_argument("--output", type=Path, default=Path("build/dependencies.cdx.json"))
@@ -131,13 +163,26 @@ def main():
     if args.go_modules:
         packages += go_packages(args.go_modules.read_text())
     if args.go_build_info:
-        packages += linked_packages(args.go_build_info.read_text())
+        provenance = json.loads(args.go_provenance.read_text()) if args.go_provenance else None
+        packages += linked_packages(args.go_build_info.read_text(), provenance)
+    elif args.go_provenance:
+        parser.error('--go-provenance requires --go-build-info')
     if args.maven:
         packages += maven_packages(args.maven.read_text())
     if args.core_version:
         packages.append(("Go", "github.com/sagernet/sing-box", args.core_version))
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(inventory(packages), indent=2) + "\n")
+    report = inventory(packages)
+    if args.go_provenance:
+        origins = {item['module']: item for item in provenance['replacements']}
+        for component in report['components']:
+            origin = origins.get(component['name'])
+            if origin and component['purl'].startswith('pkg:golang/'):
+                component['properties'] += [
+                    {'name': 'ferry:source-patch-sha256', 'value': origin['patchSha256']},
+                    {'name': 'ferry:patched-tree-sha256', 'value': origin['treeSha256']},
+                ]
+    args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(f"Inventoried {len(set(packages))} pinned dependencies: {args.output}")
     if args.scan:
         findings = scan(packages)
