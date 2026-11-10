@@ -1,0 +1,138 @@
+{
+  "findings": [
+    {
+      "ecosystem": "Go",
+      "name": "github.com/andybalholm/brotli",
+      "version": "v1.1.0",
+      "vulnerabilities": [
+        "GO-2026-6888"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "github.com/go-chi/chi/v5",
+      "version": "v5.2.5",
+      "vulnerabilities": [
+        "GHSA-3fxj-6jh8-hvhx",
+        "GHSA-j6qf-3m9c-vwj3",
+        "GO-2026-5774",
+        "GO-2026-5775",
+        "GO-2026-5777"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "github.com/klauspost/compress",
+      "version": "v1.18.0",
+      "vulnerabilities": [
+        "GHSA-259r-337f-4rfw",
+        "GO-2026-5841",
+        "GO-2026-6865"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "golang.org/x/crypto",
+      "version": "v0.48.0",
+      "vulnerabilities": [
+        "GHSA-45gg-vh54-h5m9",
+        "GHSA-5cgq-3rg8-m6cv",
+        "GHSA-78mq-xcr3-xm33",
+        "GHSA-89gr-r52h-f8rx",
+        "GHSA-9m57-25v3-79x9",
+        "GHSA-f5wc-c3c7-36mc",
+        "GHSA-jppx-rxg9-jmrx",
+        "GHSA-q4h4-gmj2-qvw2",
+        "GHSA-qpw4-5x99-6vjp",
+        "GHSA-rm3j-f69w-wqmq",
+        "GHSA-vgwf-h737-ff37",
+        "GHSA-w879-237q-wc7r",
+        "GHSA-x527-x647-q7gg",
+        "GO-2026-5005",
+        "GO-2026-5006",
+        "GO-2026-5013",
+        "GO-2026-5014",
+        "GO-2026-5015",
+        "GO-2026-5016",
+        "GO-2026-5017",
+        "GO-2026-5018",
+        "GO-2026-5019",
+        "GO-2026-5020",
+        "GO-2026-5021",
+        "GO-2026-5023",
+        "GO-2026-5033",
+        "GO-2026-5932",
+        "GO-2026-6303",
+        "GO-2026-6354",
+        "GO-2026-6355"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "golang.org/x/mod",
+      "version": "v0.33.0",
+      "vulnerabilities": [
+        "GO-2026-6179",
+        "GO-2026-6180"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "golang.org/x/net",
+      "version": "v0.50.0",
+      "vulnerabilities": [
+        "GHSA-5cv4-jp36-h3mw",
+        "GO-2026-4559",
+        "GO-2026-4918",
+        "GO-2026-5025",
+        "GO-2026-5026",
+        "GO-2026-5027",
+        "GO-2026-5028",
+        "GO-2026-5029",
+        "GO-2026-5030",
+        "GO-2026-5942",
+        "GO-2026-6603",
+        "GO-2026-6610",
+        "GO-2026-6611",
+        "GO-2026-6612",
+        "GO-2026-6617",
+        "GO-2026-6860",
+        "GO-2026-6866"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "golang.org/x/sys",
+      "version": "v0.41.0",
+      "vulnerabilities": [
+        "GO-2026-5024"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "golang.org/x/text",
+      "version": "v0.34.0",
+      "vulnerabilities": [
+        "GO-2026-5970",
+        "GO-2026-6629"
+      ]
+    },
+    {
+      "ecosystem": "Go",
+      "name": "google.golang.org/grpc",
+      "version": "v1.79.1",
+      "vulnerabilities": [
+        "GHSA-2v4p-qf9q-27wj",
+        "GHSA-hrxh-6v49-42gf",
+        "GHSA-p77j-4mvh-x3m3",
+        "GHSA-qc2q-p7wx-3px3",
+        "GHSA-vp52-pcj8-j9qc",
+        "GO-2026-4762",
+        "GO-2026-6061",
+        "GO-2026-6348",
+        "GO-2026-6441",
+        "GO-2026-6443"
+      ]
+    }
+  ]
+}

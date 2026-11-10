@@ -165,33 +165,37 @@ measured latency and favourites.
 
 ```text
 Flutter 3.47+
-Dart 3.3+
+Dart 3.8+
 ```
 
-For Android builds: JDK 17, Android SDK with NDK, and Go 1.24+ to build
-`libbox.aar`.
+For Android builds: JDK 17, Android SDK with NDK, and Go to build
+`libbox.aar`. CI pins Go 1.25.14 and NDK 28.2.13676358.
 
-For Linux builds, the tray needs appindicator headers on top of Flutter's usual
-desktop toolchain — `tray_manager`'s CMake stops with a fatal error when it
-cannot find them, so the bundle does not build without it:
+For Linux builds, install appindicator and libsecret headers on top of Flutter's
+usual desktop toolchain:
 
 ```bash
-sudo apt-get install libayatana-appindicator3-dev   # Debian, Ubuntu
-sudo pacman -S --needed libayatana-appindicator     # Arch
+sudo apt-get install libayatana-appindicator3-dev libsecret-1-dev   # Debian, Ubuntu
+sudo pacman -S --needed libayatana-appindicator libsecret           # Arch
 ```
+
+At runtime, credential storage needs an unlocked Secret Service, such as GNOME
+Keyring or a compatible KWallet service. If it is unavailable, startup offers a
+retry and preserves the data; it does not fall back to plaintext storage.
 
 ## Build
 
-`android/app/libs/libbox.aar` is not in the repository — it is a 23 MB binary
-built from sing-box source. Build it first:
+`android/app/libs/libbox.aar` is not in the repository. It is built from sing-box
+source and measured about 13.5 MiB in the current arm64 build. Build it first:
 
 ```bash
 ./scripts/build-libbox.sh
 ```
 
-The script pins sing-box to a release tag, uses sing-box's own gomobile fork and
-build-tag set, and writes the aar to `android/app/libs/`. It needs `ANDROID_HOME`
-and `ANDROID_NDK_HOME` set, or a standard SDK location it can discover.
+The script pins sing-box and its gomobile fork to exact commits and writes the
+aar to `android/app/libs/`. Tailscale is disabled by default because the node
+model does not support it; `WITH_TAILSCALE=1` restores it for comparison. It needs
+`ANDROID_HOME` and `ANDROID_NDK_HOME` set, or a standard SDK location it can discover.
 
 Then:
 
@@ -246,7 +250,7 @@ Both Linux packages install the same layout: the bundle under
 `/usr/lib/ferry/`, reached through a `/usr/bin/ferry` symlink,
 plus a desktop entry and hicolor icons. Neither needs root to build — the deb
 falls back to `ar`+`tar`, and `makepkg` refuses to run as root anyway. Both
-declare the appindicator runtime libraries as hard dependencies, because the
+declare the appindicator and libsecret runtime libraries as hard dependencies, because the
 binary links them and will not load without them. Both also declare that they
 replace the old `singbox-client` package, so an upgrade swaps it out rather than
 installing the two side by side.
@@ -257,18 +261,16 @@ installing the two side by side.
 
 | Job | Runner | Produces |
 | --- | --- | --- |
-| `verify` | `ubuntu-latest` | `flutter analyze`, `flutter test` |
-| `package` | `ubuntu-latest` | the deb and the arm64 APK |
+| `verify` | `ubuntu-24.04` | static analysis, Flutter/Python tests, locked Dart dependency scan |
+| `package` | `ubuntu-24.04` | the deb and the arm64 APK |
 | `windows` | `windows-latest` | the Windows x64 release bundle (`.zip`) |
 | `arch` | `archlinux:base-devel` container | the `.pkg.tar.zst` |
-| `release` | `ubuntu-latest` | on a `v*` tag, one GitHub Release with whatever built |
+| `release` | `ubuntu-24.04` | on a `v*` tag, one GitHub Release after all four prerequisite jobs succeed |
 
-`ubuntu-latest` supplies the JDK 17, Android SDK, and NDK that
-`scripts/build-libbox.sh` needs and a typical desktop checkout does not.
-`libbox.aar` is cached on `SINGBOX_TAG`, so only the first run pays the ~15
-minutes to build it. Both Linux jobs install the appindicator package their
-distribution names, since the tray is a build dependency rather than a runtime
-one.
+The Ubuntu job configures JDK 17 and the pinned NDK using the runner's Android
+SDK. The AAR cache key includes source commits, toolchain versions, and the build
+script. Both Linux jobs install their distribution's appindicator and libsecret
+development packages. Flutter downloads and the Gradle wrapper are checksum-verified.
 
 The Arch package gets its own job because `makepkg` — which is what writes
 `.PKGINFO`, `.MTREE` and `.BUILDINFO` — exists only on Arch, and because a deb
@@ -276,14 +278,19 @@ built there would link a glibc newer than Debian ships. Inside the container
 everything runs as an unprivileged user: neither `makepkg` nor `flutter` will
 run as root.
 
-Every build job uploads its own artifacts, and `release` runs even when one of
-them failed, so a broken artifact does not withhold the others.
+Successful build jobs upload their own artifacts. A release requires every
+prerequisite job to pass, including dependency scans and APK validation. Go
+advisories are reported on development builds and block version tags. Dependency
+reports are retained even when a scan fails; releases include checksums and
+build provenance. Android/Linux Dart symbols are retained separately.
 
-**Signing.** The APK is signed with the release key, restored from four
-repository secrets: `FERRY_KEYSTORE_BASE64` (the `.jks`, base64-encoded),
-`FERRY_KEYSTORE_PASSWORD`, `FERRY_KEY_ALIAS` and `FERRY_KEY_PASSWORD`. Without
-them the build falls back to the debug key; a `v*` tag then fails rather than
-publish an APK that cannot update existing installs. Locally, put the same four
+**Signing.** Only version tags restore the release key from four secrets in the
+protected `release` environment: `FERRY_KEYSTORE_BASE64` (the `.jks`, base64-encoded),
+`FERRY_KEYSTORE_PASSWORD`, `FERRY_KEY_ALIAS` and `FERRY_KEY_PASSWORD`. Maintainers
+must configure environment ref restrictions/approvals and move these secrets out
+of repository scope. Other CI builds use a debug key. Version tags fail if
+signing configuration is missing or the certificate differs from the pinned
+production signer. Locally, put the same four
 values in `android/key.properties` (gitignored) as `storeFile`, `storePassword`,
 `keyAlias` and `keyPassword`. Keep the keystore backed up: releases signed with
 any other key cannot update an installed copy.
@@ -295,7 +302,7 @@ flutter analyze
 flutter test
 ```
 
-638 tests pass and 19 are skipped: share-link parsing — including the uTLS
+As of 2026-11-10, 685 tests pass and 21 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
 placement, policy-group rendering, live switching and rule-sets, Clash YAML import (with
@@ -397,15 +404,15 @@ pkexec setcap cap_net_admin,cap_net_raw+ep /usr/bin/sing-box
 The capability lives on the binary, and the app spawns `sing-box` as its own
 child, so this is asked once rather than per connection: no privileged helper is
 installed and nothing elevates the app itself. A `sing-box` package upgrade
-replaces the file and strips the capability with it — on Arch this package ships
-a libalpm hook that re-applies the `setcap` whenever pacman installs or upgrades
-`sing-box`, so the prompt does not come back; the deb's `postinst` re-applies it
-when this package itself is installed or upgraded.
+replaces the file and strips the capability with it. The next TUN connection asks
+again; packages do not grant capabilities automatically during installation or
+upgrade. The grant applies to the executable, not exclusively to this GUI.
 
 Only a `sing-box` under a system prefix (`/usr`, `/opt`, `/bin`, `/sbin`) is
-elevated this way, because the path can come from `SINGBOX_BINARY` and running
-`setcap` as root against an arbitrary path would grant capabilities to a file of
-the caller's choosing. A binary elsewhere still runs — grant it by hand:
+eligible. The app resolves symlinks and checks that the file and every ancestor
+are root-owned and not writable by group or others; it also validates the
+privilege tools and passes the canonical path to `setcap`. A binary elsewhere
+still runs — grant it by hand:
 
 ```bash
 sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
@@ -463,10 +470,23 @@ the same `ProxyController` interface.
 
 ## Security
 
-Node credentials, subscription tokens, UUIDs, and passwords live in local
-storage and in the rendered config. They are redacted from logs and error
-messages, but the generated-config viewer shows them in full by design — it
-warns before displaying.
+Nodes, subscriptions, and local API/proxy secrets are persisted through the
+platform credential store. Migration removes old preference values only after
+all vault writes have been read back and validated. An inaccessible vault stops
+startup without clearing data. Runtime memory and temporary engine configs still
+contain credentials. Node credentials remain visible in the generated-config
+viewer after its warning; local API/proxy secrets are masked there.
+
+Android requires a random password for the local HTTP/SOCKS proxy. Desktop
+authentication is optional and off by default for system-proxy compatibility.
+Settings exposes credentials only on explicit request; external clients must
+support authentication when it is enabled. Android backup and device transfer
+exclude application credentials.
+
+The 2026-11-10 scan found advisories in nine linked Go modules; formal releases
+remain blocked until they are addressed. See the
+[implementation and verification record](docs/optimization-implementation-2026-11-10.md)
+for measured size/performance changes and outstanding device and memory checks.
 
 Never commit subscription URLs containing tokens, keystores, or generated
 runtime state.

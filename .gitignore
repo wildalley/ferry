@@ -21,9 +21,12 @@ local.properties
 *.keystore
 android/key.properties
 
-# Native sing-box binding: 22 MB, reproducible from source.
+# Native sing-box binding, reproducible from source.
 # Build it with scripts/build-libbox.sh; see README.
 android/app/libs/*.aar
+android/app/libs/*.aar.build-info
+android/app/libs/*.aar.build-info.json
+android/app/libs/*.aar.modules.json
 # gomobile emits this next to the aar; same deal, and it is only for IDE
 # navigation into the generated Java bindings.
 android/app/libs/*-sources.jar
@@ -35,6 +38,13 @@ windows/runner/resources/*.dll
 
 # Packaging output: scripts/package.sh writes the deb, Arch package and APK here.
 dist/
+
+# Local runtime state and Python bytecode are never source artifacts.
+/cache.db
+/cache.db-*
+/.ferry/
+__pycache__/
+*.py[cod]
 
 # Golden-test diff output. Written by flutter_test when a snapshot mismatches,
 # so it is a failure report, not a fixture — test/snapshots/ holds the fixtures.

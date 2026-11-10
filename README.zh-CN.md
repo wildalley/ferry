@@ -90,27 +90,29 @@ Linux 和 Windows 共用。
 
 ```text
 Flutter 3.47+
-Dart 3.3+
+Dart 3.8+
 ```
 
-构建 Android：需要 JDK 17、带 NDK 的 Android SDK，以及用于编译 `libbox.aar` 的 Go 1.24+。
+构建 Android：需要 JDK 17、带 NDK 的 Android SDK，以及用于编译 `libbox.aar` 的 Go。CI 固定 Go 1.25.14 和 NDK 28.2.13676358。
 
-构建 Linux：除了 Flutter 常规的桌面工具链（clang、cmake、ninja、GTK3），托盘还需要 appindicator 开发包——缺少时 `tray_manager` 的 CMake 会直接报错，整个程序都编不出来：
+构建 Linux：除了 Flutter 常规的桌面工具链（clang、cmake、ninja、GTK3），还需要 appindicator 和 libsecret 开发包：
 
 ```bash
-sudo apt-get install libayatana-appindicator3-dev   # Debian、Ubuntu
-sudo pacman -S --needed libayatana-appindicator     # Arch
+sudo apt-get install libayatana-appindicator3-dev libsecret-1-dev   # Debian、Ubuntu
+sudo pacman -S --needed libayatana-appindicator libsecret           # Arch
 ```
+
+运行时需要已解锁的 Secret Service，例如 GNOME Keyring 或兼容的 KWallet 服务。不可用时程序会保留数据并提供重试，不会退回明文存储。
 
 ## 构建
 
-`android/app/libs/libbox.aar` 不在仓库里——它是从 sing-box 源码编译出来的、约 23 MB 的二进制文件。先编译它：
+`android/app/libs/libbox.aar` 不在仓库里，需要从 sing-box 源码编译，当前 arm64 构建实测约 13.5 MiB。先编译它：
 
 ```bash
 ./scripts/build-libbox.sh
 ```
 
-脚本把 sing-box 固定在某个发布 tag，使用 sing-box 自己的 gomobile 分支和编译标签，把 aar 写到 `android/app/libs/`。需要设置 `ANDROID_HOME` 和 `ANDROID_NDK_HOME`，或者把 SDK 放在脚本能找到的标准位置。
+脚本把 sing-box 和它的 gomobile 分支固定到具体提交，把 aar 写到 `android/app/libs/`。节点模型不支持 Tailscale，因此默认关闭；可用 `WITH_TAILSCALE=1` 还原对照构建。需要设置 `ANDROID_HOME` 和 `ANDROID_NDK_HOME`，或者把 SDK 放在脚本能找到的标准位置。
 
 然后：
 
@@ -152,7 +154,7 @@ scripts/package.sh deb apk    # 或指定其中几个
 RENDER_ICONS=1 flutter test test/render_icons_test.dart
 ```
 
-两种 Linux 安装包的文件布局相同：程序放在 `/usr/lib/ferry/`，通过 `/usr/bin/ferry` 软链接启动，另带桌面启动项和各尺寸 hicolor 图标。构建都不需要 root——deb 可以退回用 `ar`+`tar`，`makepkg` 本来就拒绝以 root 运行。两者都把 appindicator 运行库列为硬依赖，因为程序链接了它们，缺了就加载不起来。两者也都声明替代旧的 `singbox-client` 包，升级时会把旧包换掉，而不是新旧并存。
+两种 Linux 安装包的文件布局相同：程序放在 `/usr/lib/ferry/`，通过 `/usr/bin/ferry` 软链接启动，另带桌面启动项和各尺寸 hicolor 图标。构建都不需要 root——deb 可以退回用 `ar`+`tar`，`makepkg` 本来就拒绝以 root 运行。两者都把 appindicator 和 libsecret 运行库列为硬依赖，因为程序链接了它们，缺了就加载不起来。两者也都声明替代旧的 `singbox-client` 包，升级时会把旧包换掉，而不是新旧并存。
 
 ## 持续集成
 
@@ -160,19 +162,19 @@ RENDER_ICONS=1 flutter test test/render_icons_test.dart
 
 | 任务 | 运行环境 | 产出 |
 | --- | --- | --- |
-| `verify` | `ubuntu-latest` | `flutter analyze`、`flutter test` |
-| `package` | `ubuntu-latest` | deb 和 arm64 APK |
+| `verify` | `ubuntu-24.04` | 静态分析、Flutter/Python 测试、锁定 Dart 依赖扫描 |
+| `package` | `ubuntu-24.04` | deb 和 arm64 APK |
 | `windows` | `windows-latest` | Windows x64 发布包（`.zip`） |
 | `arch` | `archlinux:base-devel` 容器 | `.pkg.tar.zst` |
-| `release` | `ubuntu-latest` | 推送 `v*` tag 时，把构建成功的产物发布到一个 GitHub Release |
+| `release` | `ubuntu-24.04` | 推送 `v*` tag 且四个前置任务全部成功后发布 GitHub Release |
 
-`ubuntu-latest` 自带 `scripts/build-libbox.sh` 需要、而普通桌面环境通常没有的 JDK 17、Android SDK 和 NDK。`libbox.aar` 按 `SINGBOX_TAG` 缓存，只有第一次运行需要花约 15 分钟编译。两个 Linux 任务都会安装各自发行版的 appindicator 包，因为托盘是构建依赖，而不只是运行依赖。
+Ubuntu 任务配置 JDK 17，并使用 runner 的 Android SDK 安装固定版本 NDK。AAR 缓存键包含源码提交、工具链版本和构建脚本。两个 Linux 任务都会安装各自发行版的 appindicator 和 libsecret 开发包。Flutter 下载和 Gradle wrapper 均校验摘要。
 
 Arch 包单独一个任务，因为写 `.PKGINFO`、`.MTREE` 和 `.BUILDINFO` 的 `makepkg` 只存在于 Arch 上；而且在 Arch 上打的 deb 会链接比 Debian 更新的 glibc。容器里的一切都以普通用户运行：`makepkg` 和 `flutter` 都拒绝以 root 运行。
 
-每个构建任务各自上传产物，即使其中一个失败，`release` 也会运行，一个坏掉的产物不会拖住其他产物的发布。
+构建成功的任务各自上传产物；正式发布要求全部前置任务通过，包括依赖扫描与 APK 校验。Go 告警在开发构建中记录，在版本 tag 上阻断发布。扫描失败仍保留已生成的依赖报告；发布附带摘要和构建来源证明，Android/Linux 的 Dart 调试符号单独保存。
 
-**签名**：APK 使用正式密钥签名，密钥从仓库的 4 个 secret 还原：`FERRY_KEYSTORE_BASE64`（`.jks` 文件的 base64）、`FERRY_KEYSTORE_PASSWORD`、`FERRY_KEY_ALIAS` 和 `FERRY_KEY_PASSWORD`。缺少它们时构建会退回 debug 密钥；如果是 `v*` tag，构建会直接失败，而不是发布一个无法覆盖升级已安装版本的 APK。本地构建时，把同样的 4 个值以 `storeFile`、`storePassword`、`keyAlias`、`keyPassword` 写进 `android/key.properties`（已被 git 忽略）。请务必备份密钥库：用其他密钥签名的版本无法升级已安装的应用。
+**签名**：只有版本 tag 从受保护的 `release` environment 还原 4 个 secret：`FERRY_KEYSTORE_BASE64`（`.jks` 文件的 base64）、`FERRY_KEYSTORE_PASSWORD`、`FERRY_KEY_ALIAS` 和 `FERRY_KEY_PASSWORD`。维护者须配置该环境的 refs 限制和审批，并将这些 secret 移出仓库级作用域。其他 CI 构建使用 debug 密钥；tag 缺少签名配置或证书与固定的正式签名不匹配时会失败。本地构建时，把同样的 4 个值以 `storeFile`、`storePassword`、`keyAlias`、`keyPassword` 写进 `android/key.properties`（已被 git 忽略）。请务必备份密钥库：用其他密钥签名的版本无法升级已安装的应用。
 
 ## 验证
 
@@ -181,7 +183,7 @@ flutter analyze
 flutter test
 ```
 
-638 个测试通过，19 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
+截至 2026-11-10，685 个测试通过、21 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
 
 视觉回归截图需要设置环境变量才会运行，因为它们依赖本机字体渲染，只在录制它们的机器上有意义：
 
@@ -235,9 +237,9 @@ Linux 需要 `PATH` 上有 1.12 或更新的 `sing-box`——生成的配置使�
 pkexec setcap cap_net_admin,cap_net_raw+ep /usr/bin/sing-box
 ```
 
-权限挂在程序文件上，而 `sing-box` 是应用自己启动的子进程，所以只需要授权一次，而不是每次连接都要：不安装任何特权辅助程序，应用本身也不提权。升级 `sing-box` 包会替换文件，权限也随之丢失——在 Arch 上，本包附带一个 libalpm 钩子，pacman 安装或升级 `sing-box` 时会自动重新执行 `setcap`，弹窗不会再出现；deb 的 `postinst` 会在本包安装或升级时重新授权。
+权限挂在程序文件上，而 `sing-box` 是应用自己启动的子进程，所以只需要授权一次，而不是每次连接都要：不安装任何特权辅助程序，应用本身也不提权。升级 `sing-box` 包会替换文件，权限也随之丢失，下次连接 TUN 时会重新申请。安装包不会在安装或升级时自动授予 capability；授权范围是整个可执行文件，并不只属于本 GUI。
 
-只有位于系统目录（`/usr`、`/opt`、`/bin`、`/sbin`）下的 `sing-box` 会走这种自动授权，因为路径可能来自 `SINGBOX_BINARY`，以 root 身份对任意路径执行 `setcap` 等于给调用者指定的文件授权。其他位置的程序依然可以运行，请手动授权：
+只有位于系统目录（`/usr`、`/opt`、`/bin`、`/sbin`）下的 `sing-box` 才能申请。程序会解析符号链接，并检查文件及每级父目录均为 root 所有、组和其他用户不可写；提权工具也会校验，传给 `setcap` 的是规范路径。其他位置的程序依然可以运行，请手动授权：
 
 ```bash
 sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
@@ -264,7 +266,11 @@ sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
 
 ## 安全
 
-节点凭据、订阅令牌、UUID 和密码保存在本地存储和生成的配置中。它们会从日志和错误信息中脱敏，但「生成的配置」查看器按设计会完整显示——显示前会给出提醒。
+节点、订阅以及本地 API/代理凭据通过平台凭据库持久化。迁移时全部写入并回读确认后才删除旧偏好设置中的数据；凭据库不可用时停止初始化并保留数据。运行内存和临时引擎配置仍会包含凭据。「生成的配置」查看器在提醒后显示节点凭据，本地 API/代理凭据则始终脱敏。
+
+Android 本地 HTTP/SOCKS 代理强制随机密码；桌面鉴权可选，默认关闭以兼容系统代理。设置中需主动操作才显示凭据，启用后外部客户端也必须支持鉴权。Android 备份和设备迁移排除应用凭据。
+
+2026-11-10 的扫描在 9 个已链接 Go 模块中发现版本漏洞告警，修复前正式发布保持阻断。体积和性能实测、尚需完成的设备及内存验收见[优化实施记录](docs/optimization-implementation-2026-11-10.md)。
 
 切勿提交包含令牌的订阅链接、签名密钥库或生成的运行时状态。
 
