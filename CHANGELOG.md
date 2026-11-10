@@ -1,5 +1,25 @@
 # Changelog / 更新日志
 
+## 0.4.3 — 2026-11-10
+
+### 中文
+
+- **修复 Android 启动即提示“无法打开安全存储”**：部分设备的系统 Keystore 无法使用，0.4.2 安装后会一直停在恢复页。现在若 Keystore 在首次使用时就失败（尚未保存过渡的数据），该安装会改用应用私有存储保存凭据：仅本应用可读，且已排除云备份和设备迁移，与 0.4.2 之前的保存方式一致。旧版本数据会完整迁移。
+- **仍会安全失败的情况**：凭据已存入 Keystore 后又无法读取，或旧数据本身损坏时，仍保留数据并显示恢复页，不会自动清空。桌面端行为不变。
+- **可诊断的恢复页**：恢复页显示失败原因（仅错误代码和系统消息，不含任何凭据），便于反馈设备问题。
+
+**升级说明**：可直接覆盖安装 0.4.2；在 0.4.2 上卡在恢复页的设备，升级后首次启动即可进入。
+
+### English
+
+- **Fix Android startup stuck on "Secure storage is unavailable"**: on devices whose system Keystore cannot be used, 0.4.2 never got past the recovery screen. When the Keystore fails before it has ever held Ferry's data, that install now keeps credentials in app-private storage instead — readable only by the app and excluded from cloud backup and device transfer, as before 0.4.2. Existing data is migrated intact.
+- **Still fails closed**: if the Keystore already holds the data and stops working, or legacy data is corrupt, the data is kept and the recovery screen is shown; nothing is erased. Desktop behaviour is unchanged.
+- **Diagnosable recovery screen**: it now shows the failure cause (error codes and platform messages only, never a credential) so device issues can be reported.
+
+**Upgrading**: installs over 0.4.2. Devices stuck on the recovery screen in 0.4.2 start normally after upgrading.
+
+Downloads: Android arm64 APK, Linux amd64 deb, Arch Linux x86_64 package, Windows x64 ZIP.
+
 ## 0.4.2 — 2026-11-10
 
 ### 中文
