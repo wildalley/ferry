@@ -31,6 +31,8 @@ val releaseSigning: Map<String, String>? = run {
 android {
     namespace = "com.wildalley.ferry"
     compileSdk = flutter.compileSdkVersion
+    // Keep AGP and gomobile on the same tested NDK (also pinned in CI).
+    ndkVersion = "28.2.13676358"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -84,8 +86,12 @@ android {
             // libbox's Java bindings are reached by name from Go through JNI, so
             // code shrinking risks stripping live classes. Resource shrinking must
             // be disabled alongside it (AGP rejects one without the other).
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // Opt-in experiment until the JNI/protocol matrix is checked on a
+            // device. The default release path stays reproducible without R8.
+            val shrink = System.getenv("FERRY_R8") == "1"
+            isMinifyEnabled = shrink
+            isShrinkResources = shrink
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 

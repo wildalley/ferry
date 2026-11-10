@@ -61,7 +61,7 @@ if wants deb || wants arch; then
   # that AOT output does not use. Clearing both costs seconds and is the only
   # thing standing between that file and a shipped package.
   rm -rf "$bundle" "$root/build/flutter_assets"
-  flutter build linux --release
+  flutter build linux --release --split-debug-info=build/symbols/linux
   [ -x "$bundle/$BINARY" ] || { echo "bundle missing: $bundle/$BINARY" >&2; exit 1; }
   # Belt and braces: a release bundle runs from lib/libapp.so and must carry no
   # snapshot. If that ever inverts, the packages are wrong and this should stop.
@@ -156,17 +156,8 @@ License: GPL-3.0-or-later
  can be found in /usr/share/common-licenses/GPL-3.
 COPYRIGHT
 
-  # TUN needs file capabilities on the engine. postinst can only cover the
-  # moment this package itself is installed or upgraded — an upgrade of
-  # sing-box strips them again and apt cannot delegate to this package, so
-  # the app still falls back to its own connect-time authorization there.
-  cat > "$debroot/DEBIAN/postinst" <<POSTINST
-#!/bin/sh
-if command -v setcap >/dev/null 2>&1 && command -v sing-box >/dev/null 2>&1; then
-  setcap cap_net_admin,cap_net_raw+ep "\$(command -v sing-box)" || true
-fi
-POSTINST
-  chmod 755 "$debroot/DEBIAN/postinst"
+  # Capabilities are requested explicitly on first TUN use. Installing a GUI
+  # must not silently grant network administration to a system-wide executable.
 
   # Installed-Size is what dpkg reports before unpacking; kibibytes.
   installed_size=$(du -ks "$debroot/usr" | cut -f1)
@@ -176,7 +167,7 @@ Version: $VERSION-$BUILD
 Section: net
 Priority: optional
 Architecture: amd64
-Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libayatana-appindicator3-1, libdbusmenu-glib4
+Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libayatana-appindicator3-1, libdbusmenu-glib4, libsecret-1-0
 Recommends: sing-box (>= 1.12)
 Replaces: singbox-client
 Conflicts: singbox-client
@@ -234,24 +225,6 @@ if wants arch; then
     install -Dm644 "$root/LICENSE" \
       "$archdir/root/usr/share/licenses/$PKG/LICENSE"
 
-    # A sing-box upgrade overwrites the binary and strips the file capabilities
-    # TUN mode needs — the failure the app reports as "TUN 未获授权". This hook
-    # re-applies them whenever pacman installs or upgrades the engine, so the
-    # fix outlives the system update that broke it.
-    install -d "$archdir/root/usr/share/libalpm/hooks"
-    cat > "$archdir/root/usr/share/libalpm/hooks/$PKG-restore-singbox-caps.hook" <<HOOK
-[Trigger]
-Operation = Install
-Operation = Upgrade
-Type = Path
-Target = usr/bin/sing-box
-
-[Action]
-Description = Restoring cap_net_admin,cap_net_raw on sing-box for TUN mode
-When = PostTransaction
-Exec = /usr/bin/setcap cap_net_admin,cap_net_raw+ep /usr/bin/sing-box
-HOOK
-
     # depends: what the bundle actually links against, mapped to packages.
     # gtk3 pulls in the pango/cairo/gdk-pixbuf/atk/harfbuzz/glib/epoxy stack,
     # so listing it covers every NEEDED entry but the five below.
@@ -274,7 +247,7 @@ pkgdesc='sing-box client'
 arch=('x86_64')
 url='$URL'
 license=('GPL-3.0-or-later')
-depends=('gtk3' 'gcc-libs' 'glibc' 'zlib' 'libayatana-appindicator'
+depends=('libsecret' 'gtk3' 'gcc-libs' 'glibc' 'zlib' 'libayatana-appindicator'
          'libdbusmenu-glib' 'sing-box>=1.12')
 # The package was called singbox-client before the rename; pacman swaps it
 # out on upgrade instead of installing the two side by side.
@@ -322,7 +295,7 @@ if wants apk; then
   else
     # arm64 only: the aar carries no other ABI, and a universal APK would ship
     # architectures without libbox.so and crash on launch.
-    flutter build apk --release --target-platform android-arm64
+    flutter build apk --release --target-platform android-arm64 --split-debug-info=build/symbols/android
     built=build/app/outputs/flutter-apk/app-release.apk
     apk=$out/${PKG}-${VERSION}-${BUILD}-arm64.apk
     cp "$built" "$apk"

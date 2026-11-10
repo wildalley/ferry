@@ -4,8 +4,8 @@ name: build
 # arm64 APK, and a Windows x64 bundle — on runners with the platform toolchains
 # a desktop checkout usually does not.
 #
-# The APK is signed with the release key from the FERRY_KEY* repository
-# secrets; a tag refuses to publish one signed with the debug key.
+# The APK is signed with FERRY_KEY* secrets in the protected release
+# environment; a tag refuses to publish one signed with the debug key.
 
 on:
   push:
@@ -18,16 +18,22 @@ permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   # Pinned rather than "stable": a floating SDK turns an unrelated upstream
   # release into a red build. pubspec asks for >=3.47.0.
   FLUTTER_VERSION: 3.47.2
+  FLUTTER_LINUX_SHA256: 447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185
   FLUTTER_SUPPRESS_ANALYTICS: 'true'
   # Must match the default in scripts/build-libbox.sh — it is also the cache key.
   SINGBOX_TAG: v1.13.19
+  SINGBOX_COMMIT: b5ebaa1fc0f2b94256180b95468e73ef53caa27d
+  GOMOBILE_VERSION: b2c30f47825831593d6980af8191527490f9c968
+  GO_VERSION: '1.25.14'
+  ANDROID_NDK_VERSION: '28.2.13676358'
+  GOEXPERIMENT: nojsonv2
   # Official Windows archive, pinned so a future upstream replacement cannot
   # silently change the binary shipped by this client.
   SINGBOX_WINDOWS_SHA256: e011a4def2f5e2b143ed54adb2b1a20a6be407806ab4442f3667f1dd817a2c8d
@@ -35,12 +41,15 @@ env:
 jobs:
   verify:
     name: analyze + test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Cache Flutter SDK
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/flutter
           key: flutter-${{ env.FLUTTER_VERSION }}-linux-x64-test
@@ -50,6 +59,7 @@ jobs:
           if [ ! -x "$HOME/flutter/bin/flutter" ]; then
             curl -fsSL -o /tmp/flutter.tar.xz \
               "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+            echo "$FLUTTER_LINUX_SHA256  /tmp/flutter.tar.xz" | sha256sum --check --strict
             tar -xJf /tmp/flutter.tar.xz -C "$HOME"
             rm -f /tmp/flutter.tar.xz
           fi
@@ -57,7 +67,18 @@ jobs:
           echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
 
       - run: flutter --version
-      - run: flutter pub get
+      - name: Test APK release guards
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - run: flutter pub get --enforce-lockfile
+      - name: Scan locked Dart dependencies
+        run: python3 scripts/dependency-audit.py --scan
+      - name: Retain Dart dependency reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-dart-${{ github.sha }}
+          path: build/dependencies*.json
+          if-no-files-found: warn
       - run: flutter analyze
       # VISUAL_SNAPSHOTS stays unset on purpose: those goldens were recorded on
       # a developer's font stack and mean nothing on a runner.
@@ -65,9 +86,32 @@ jobs:
 
   package:
     name: deb + APK
-    runs-on: ubuntu-latest
+    # Configure release environment branch/tag protections and move signing
+    # secrets there; non-release builds deliberately use the debug certificate.
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || 'build' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      # Same-repository PRs can access secrets too. Only protected version tags
+      # may restore the signing key; other artifacts use the debug key.
+      - name: Check release signing configuration
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FERRY_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.FERRY_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FERRY_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FERRY_KEY_PASSWORD }}
+        run: |
+          for variable in KEYSTORE_BASE64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!variable}" ]]; then
+              echo "::error::release signing configuration is incomplete: $variable"
+              exit 1
+            fi
+          done
 
       # clang/cmake/ninja/gtk: Flutter's Linux desktop toolchain. librsvg2-bin
       # gives scripts/package.sh rsvg-convert for the icon set.
@@ -81,40 +125,45 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             clang cmake ninja-build pkg-config \
-            libgtk-3-dev liblzma-dev librsvg2-bin \
+            libgtk-3-dev libsecret-1-dev liblzma-dev librsvg2-bin \
             libayatana-appindicator3-dev
 
       # JDK 17 exactly: scripts/build-libbox.sh rejects any other release,
       # because gomobile's generated Java targets it.
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: '17'
           cache: gradle
 
-      # ~22 MB and ~15 minutes to build, and it only changes when SINGBOX_TAG or
-      # the build flags do — hence the script hash in the key.
+      - name: Install pinned Android NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;$ANDROID_NDK_VERSION"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+
+      # Cache both the archive and its linked-dependency inventory, keyed by
+      # pinned sources, toolchains, and the script's feature flags.
       - name: Cache libbox.aar
         id: libbox
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
-          path: android/app/libs/libbox.aar
-          key: libbox-${{ env.SINGBOX_TAG }}-arm64-${{ hashFiles('scripts/build-libbox.sh') }}
+          path: |
+            android/app/libs/libbox.aar
+            android/app/libs/libbox.aar.build-info.json
+          key: libbox-${{ runner.os }}-${{ runner.arch }}-${{ env.SINGBOX_TAG }}-${{ env.SINGBOX_COMMIT }}-${{ env.GOMOBILE_VERSION }}-arm64-go${{ env.GO_VERSION }}-ndk${{ env.ANDROID_NDK_VERSION }}-${{ env.GOEXPERIMENT }}-${{ hashFiles('scripts/build-libbox.sh') }}
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.libbox.outputs.cache-hit != 'true'
         with:
-          go-version: '1.25'
+          go-version: ${{ env.GO_VERSION }}
           cache: false
 
-      # ANDROID_HOME and ANDROID_NDK_HOME come preset on the runner image, so the
-      # NDK version floats with it; pin ANDROID_NDK_HOME here if that ever bites.
       - name: Build libbox.aar
         if: steps.libbox.outputs.cache-hit != 'true'
         run: scripts/build-libbox.sh
 
       - name: Cache Flutter SDK
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/flutter
           key: flutter-${{ env.FLUTTER_VERSION }}-linux-x64-desktop
@@ -124,6 +173,7 @@ jobs:
           if [ ! -x "$HOME/flutter/bin/flutter" ]; then
             curl -fsSL -o /tmp/flutter.tar.xz \
               "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+            echo "$FLUTTER_LINUX_SHA256  /tmp/flutter.tar.xz" | sha256sum --check --strict
             tar -xJf /tmp/flutter.tar.xz -C "$HOME"
             rm -f /tmp/flutter.tar.xz
           fi
@@ -131,27 +181,51 @@ jobs:
           echo "$HOME/flutter/bin" >> "$GITHUB_PATH"
 
       - run: flutter --version
+      - run: flutter pub get --enforce-lockfile
 
-      # The release key lives in repository secrets, never in the tree. Pushes
-      # from forks and pull requests get no secrets, so there this is skipped and
-      # the APK falls back to the debug key — which is fine for a test build and
-      # is caught below for a tag.
+      # PRs and manual builds of other branches skip signing; their APKs use
+      # the debug key. Version tags must provide the release key above.
       - name: Restore the release key
         env:
           KEYSTORE_BASE64: ${{ secrets.FERRY_KEYSTORE_BASE64 }}
-        if: env.KEYSTORE_BASE64 != ''
+        if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v') && env.KEYSTORE_BASE64 != ''
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/ferry-release.jks"
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/ferry-release.jks"
           echo "FERRY_KEYSTORE=$RUNNER_TEMP/ferry-release.jks" >> "$GITHUB_ENV"
 
       # The Arch package is the arch job's business: makepkg does not exist here,
       # and a deb built on Arch would link a glibc newer than Debian ships.
       - name: Package
         env:
-          FERRY_KEYSTORE_PASSWORD: ${{ secrets.FERRY_KEYSTORE_PASSWORD }}
-          FERRY_KEY_ALIAS: ${{ secrets.FERRY_KEY_ALIAS }}
-          FERRY_KEY_PASSWORD: ${{ secrets.FERRY_KEY_PASSWORD }}
+          FERRY_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v') && secrets.FERRY_KEYSTORE_PASSWORD || '' }}
+          FERRY_KEY_ALIAS: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v') && secrets.FERRY_KEY_ALIAS || '' }}
+          FERRY_KEY_PASSWORD: ${{ github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v') && secrets.FERRY_KEY_PASSWORD || '' }}
         run: scripts/package.sh deb apk
+
+      - name: Inventory and scan shipped dependencies
+        run: |
+          audit_flags=()
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then audit_flags+=(--report-only); fi
+          python3 scripts/dependency-audit.py \
+            --go-build-info android/app/libs/libbox.aar.build-info.json --core-version "$SINGBOX_TAG" \
+            --output dist/dependencies.cdx.json --scan "${audit_flags[@]}"
+
+      - name: Retain Android dependency reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-android-${{ github.sha }}
+          path: dist/dependencies*.json
+          if-no-files-found: warn
+
+      - name: Retain Android and Linux Dart symbols
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: debug-symbols-deb-apk-${{ github.sha }}
+          path: build/symbols/
+          if-no-files-found: warn
 
       # A release APK signed with a throwaway debug key cannot update the one
       # users already have, so a tag refuses to ship one. Branch builds only
@@ -167,13 +241,9 @@ jobs:
             echo "::error::apksigner could not verify the APK"
             exit 1
           fi
-          echo "$certs" | grep -E 'certificate (DN|SHA-256)' || echo "$certs"
-          if echo "$certs" | grep -q 'CN=Android Debug'; then
-            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-              echo "::error::release APK is signed with the debug key — set the FERRY_KEY* secrets"
-              exit 1
-            fi
-            echo "::warning::APK is signed with the debug key"
+          echo "$certs"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            printf '%s\n' "$certs" | python3 scripts/check-apk-signer.py
           fi
 
       # package.sh skips an artifact rather than failing when a tool is missing,
@@ -187,7 +257,21 @@ jobs:
           have 'dist/*.apk'
           exit $fail
 
-      - uses: actions/upload-artifact@v4
+      - name: Check APK contents and report size
+        run: python3 scripts/check-apk.py dist/*.apk
+
+      - name: Check APK 16 KiB ZIP alignment
+        run: |
+          zipalign=$(ls "$ANDROID_HOME"/build-tools/*/zipalign | sort -V | tail -1)
+          for apk in dist/*.apk; do
+            "$zipalign" -c -P 16 4 "$apk"
+          done
+
+      - name: Remove the release key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/ferry-release.jks"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ferry-deb-apk-${{ github.sha }}
           path: dist/*
@@ -196,8 +280,11 @@ jobs:
   windows:
     name: Windows x64
     runs-on: windows-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Download sing-box runtime
         shell: pwsh
@@ -225,18 +312,42 @@ jobs:
             ForEach-Object { Copy-Item -Path $_.FullName -Destination $resources -Force }
           & (Join-Path $resources "sing-box.exe") version
 
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Scan the shipped Windows core
+        shell: bash
+        run: |
+          mkdir -p dist
+          go version -m -json windows/runner/resources/sing-box.exe > "$RUNNER_TEMP/windows-core.json"
+          audit_flags=()
+          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then audit_flags+=(--report-only); fi
+          python scripts/dependency-audit.py --go-build-info "$RUNNER_TEMP/windows-core.json" \
+            --core-version "$SINGBOX_TAG" --output dist/windows-dependencies.cdx.json \
+            --scan "${audit_flags[@]}"
+
+      - name: Retain Windows dependency reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-windows-${{ github.sha }}
+          path: dist/windows-dependencies*.json
+          if-no-files-found: warn
+
       # Windows runners already contain the Visual Studio C++ toolchain that
       # Flutter's Windows runner needs. The action pins the same Flutter SDK as
       # the Linux jobs and caches both the SDK and pub dependencies.
       - name: Install Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
           architecture: x64
           cache: true
 
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: flutter build windows --release
 
       - name: Package Windows bundle
@@ -247,15 +358,18 @@ jobs:
             -Path "build/windows/x64/runner/Release/*" `
             -DestinationPath "dist/ferry-windows-x64-${{ github.sha }}.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ferry-windows-${{ github.sha }}
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/windows-dependencies*.json
           if-no-files-found: error
 
   arch:
     name: pkg.tar.zst
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     # makepkg exists only on Arch, and it is what writes .PKGINFO, .MTREE and
     # .BUILDINFO; base-devel brings the fakeroot it packs with. The deb stays on
     # Ubuntu for the mirror-image reason — a deb built here would link a glibc
@@ -270,16 +384,18 @@ jobs:
         run: |
           pacman -Syu --needed --noconfirm \
             git curl unzip which xz clang cmake ninja pkgconf gtk3 librsvg \
-            libayatana-appindicator
+            libayatana-appindicator libsecret
 
       # A container runs as root, and neither makepkg nor flutter will.
       - name: Add an unprivileged build user
         run: useradd -m build
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Cache Flutter SDK
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: /home/build/flutter
           key: flutter-${{ env.FLUTTER_VERSION }}-arch-x64
@@ -292,20 +408,21 @@ jobs:
           if [ ! -x "$HOME/flutter/bin/flutter" ]; then
             curl -fsSL -o /tmp/flutter.tar.xz \
               "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz"
+            echo "$FLUTTER_LINUX_SHA256  /tmp/flutter.tar.xz" | sha256sum --check --strict
             tar -xJf /tmp/flutter.tar.xz -C "$HOME"
             rm -f /tmp/flutter.tar.xz
           fi
           export PATH="$HOME/flutter/bin:$PATH"
           git config --global --add safe.directory "$HOME/flutter"
           flutter --version
-          flutter pub get
+          flutter pub get --enforce-lockfile
           scripts/package.sh arch
           SH
           chmod 755 /tmp/package.sh
           # checkout and the cache restore both ran as root.
           chown -R build:build "$GITHUB_WORKSPACE" /home/build
           su build -c "cd '$GITHUB_WORKSPACE' && HOME=/home/build \
-            FLUTTER_VERSION='$FLUTTER_VERSION' FLUTTER_SUPPRESS_ANALYTICS=true \
+            FLUTTER_VERSION='$FLUTTER_VERSION' FLUTTER_LINUX_SHA256='$FLUTTER_LINUX_SHA256' FLUTTER_SUPPRESS_ANALYTICS=true \
             /tmp/package.sh"
 
       - name: Check the artifact exists
@@ -313,7 +430,7 @@ jobs:
           ls -l dist
           compgen -G 'dist/*.pkg.tar.zst' >/dev/null || { echo missing; exit 1; }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ferry-arch-${{ github.sha }}
           path: dist/*
@@ -321,21 +438,36 @@ jobs:
 
   release:
     name: release
-    needs: [package, windows, arch]
-    # !cancelled() rather than success(): one broken artifact should not withhold
-    # the others. Whatever uploaded gets attached, and the job says what came.
-    if: ${{ !cancelled() && startsWith(github.ref, 'refs/tags/v') }}
-    runs-on: ubuntu-latest
+    needs: [verify, package, windows, arch]
+    # A version is published only when every supported platform is ready.
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.package.result == 'success' && needs.windows.result == 'success' && needs.arch.result == 'success' && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: ferry-*-${{ github.sha }}
           merge-multiple: true
           path: dist
 
       # No checkout here, so gh has no repository to infer — hence --repo.
+      - name: Record artifact checksums
+        run: |
+          cd dist
+          shopt -s nullglob
+          files=(*.apk *.deb *.pkg.tar.zst *.zip *.json)
+          (( ${#files[@]} > 0 )) || { echo "nothing to release"; exit 1; }
+          sha256sum -- "${files[@]}" > SHA256SUMS
+
+      - name: Attest release provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: dist/*
+
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}

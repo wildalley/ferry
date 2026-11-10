@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Builds android/app/libs/libbox.aar, the sing-box core this app links against.
 #
-# The .aar is ~22 MB (62 MB of Go inside), so it is not committed. Run this once
-# per checkout, or whenever SINGBOX_TAG changes.
+# The .aar is generated and not committed. Its size depends on ABIs and build
+# tags. Rebuild whenever the pinned sources, toolchain, or flags change.
 #
-# Requirements: Go 1.24+, JDK 17, Android SDK with NDK, git.
+# Requirements: Go (CI pins 1.25.14), JDK 17, Android SDK with NDK, git.
 # Point JAVA_HOME / ANDROID_HOME at your own installs, or let the script probe
 # the usual locations.
 #
@@ -17,12 +17,14 @@ set -euo pipefail
 SINGBOX_TAG="${SINGBOX_TAG:-v1.13.19}"
 # sing-box pins its own gomobile fork; the upstream one produces different
 # bindings and will not compile against experimental/libbox.
-GOMOBILE_VERSION="${GOMOBILE_VERSION:-v0.1.12}"
+SINGBOX_COMMIT="${SINGBOX_COMMIT:-b5ebaa1fc0f2b94256180b95468e73ef53caa27d}"
+GOMOBILE_VERSION="${GOMOBILE_VERSION:-b2c30f47825831593d6980af8191527490f9c968}"
+WITH_TAILSCALE="${WITH_TAILSCALE:-0}"
 ABIS="${ABIS:-android/arm64}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="${WORK_DIR:-${TMPDIR:-/tmp}/singbox-libbox-build}"
-OUT="$REPO_ROOT/android/app/libs/libbox.aar"
+OUT="${OUT:-$REPO_ROOT/android/app/libs/libbox.aar}"
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -50,7 +52,7 @@ fi
 if [[ -z "${ANDROID_HOME:-}" ]]; then
   for candidate in \
     "${ANDROID_SDK_ROOT:-}" "$HOME/Android/Sdk" "$HOME/Library/Android/sdk" \
-    "${TMPDIR:-/tmp}/android-build/sdk"
+    /opt/android-sdk "${TMPDIR:-/tmp}/android-build/sdk"
   do
     [[ -n "$candidate" && -d "$candidate/platform-tools" ]] \
       && { export ANDROID_HOME="$candidate"; break; }
@@ -96,12 +98,17 @@ else
     https://github.com/SagerNet/sing-box "$SRC"
 fi
 
+actual_commit="$(git -C "$SRC" rev-parse HEAD)"
+[[ "$actual_commit" == "$SINGBOX_COMMIT" ]] || die "sing-box source commit mismatch"
+
 echo "installing gomobile $GOMOBILE_VERSION (sing-box fork)"
 go install "github.com/sagernet/gomobile/cmd/gomobile@$GOMOBILE_VERSION"
 go install "github.com/sagernet/gomobile/cmd/gobind@$GOMOBILE_VERSION"
 
 # --------------------------------------------------------------------- build
 
+# Tailscale is opt-in: NodeProtocol cannot express Tailscale endpoints.
+# WITH_TAILSCALE=1 restores the upstream feature set for comparison.
 # Build tags from sing-box's cmd/internal/build_libbox, minus
 # with_naive_outbound.
 #
@@ -116,10 +123,13 @@ go install "github.com/sagernet/gomobile/cmd/gobind@$GOMOBILE_VERSION"
 # NodeProtocol (lib/models/node.dart) has no naive member, and nothing in lib/
 # references it. Add the tag back — and vendor Cronet — only if that changes.
 TAGS="with_gvisor,with_quic,with_wireguard,with_utls"
-TAGS="$TAGS,with_clash_api,badlinkname,tfogo_checklinkname0,with_tailscale"
+TAGS="$TAGS,with_clash_api,badlinkname,tfogo_checklinkname0"
+if [[ "$WITH_TAILSCALE" == 1 ]]; then
+TAGS="$TAGS,with_tailscale"
 TAGS="$TAGS,ts_omit_logtail,ts_omit_ssh,ts_omit_drive,ts_omit_taildrop"
 TAGS="$TAGS,ts_omit_webclient,ts_omit_doctor,ts_omit_capture,ts_omit_kube"
 TAGS="$TAGS,ts_omit_aws,ts_omit_synology,ts_omit_bird"
+fi
 
 LDFLAGS="-X github.com/sagernet/sing-box/constant.Version=$SINGBOX_TAG"
 LDFLAGS="$LDFLAGS -X internal/godebug.defaultGODEBUG=multipathtcp=0"
@@ -142,6 +152,11 @@ gomobile bind -v \
   ./experimental/libbox
 
 echo
+# Retain the precise build inputs with the archive for reproducible A/B runs.
+go list -m -json all > "$OUT.modules.json"
+unzip -p "$OUT" jni/arm64-v8a/libbox.so > "$WORK_DIR/libbox-inspect.so"
+go version -m -json "$WORK_DIR/libbox-inspect.so" > "$OUT.build-info.json"
+printf 'sing-box=%s\ngomobile=%s\ntags=%s\n' "$SINGBOX_COMMIT" "$GOMOBILE_VERSION" "$TAGS" > "$OUT.build-info"
 echo "built $OUT"
 ls -la "$OUT"
 
