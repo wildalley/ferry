@@ -440,8 +440,8 @@ recovery instructions and a NixOS configuration example, and
   session; a Windows machine is still needed to verify adapter creation and
   route rollback end to end.
 - Linux has no privileged helper. TUN depends on a file capability on the
-  `sing-box` binary, granted through polkit and cleared by a package upgrade,
-  which brings the prompt back. A systemd or polkit-installed helper would
+  `sing-box` binary, granted through polkit and potentially cleared by a package
+  upgrade, which requires another capability check and authorization. A systemd or polkit-installed helper would
   survive that.
 - Only GNOME and KDE system-proxy backends are implemented. Elsewhere the mode
   starts the engine and says in the log page that it could not set the

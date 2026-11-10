@@ -8,7 +8,7 @@
 | 优先级 | 工作 | 完成标准 |
 | --- | --- | --- |
 | P0 | 生产签名隔离 | 配置 GitHub `release` environment 的允许 refs/审批，把 FERRY_KEY* 从仓库级迁入该环境；验证非发布构建无法取得生产密钥 |
-| P1 | 正式发布验收 | 补丁核心 `8981ed1` 的 verify、deb/APK、Windows、Arch 已全部成功，运行 `42768295287`；正式 tag 的生产证书、发布摘要与来源证明仍需受保护发布验收 |
+| P1 | 正式发布验收 | 1.14.4 核心提交 `142046a` 的 verify、deb/APK、Windows、Arch 已全部成功，运行 `42777929330`；正式 tag 的生产证书、发布摘要与来源证明仍需受保护发布验收 |
 | P1 | 真实凭据库迁移 | Android Keystore、Windows 凭据库、Linux Secret Service 分别验证旧数据迁移、锁定/解锁、部分失败重试、密钥丢失、升级和备份/设备迁移行为 |
 | P1 | Android 生命周期与协议 | 本地 HTTP/2、gRPC、WebSocket、Hysteria2、TUIC、DNS 回归已通过；仍须实机验证慢启动后立即停止、连续重载、VPN 撤销、服务重建及部分初始化失败，至少 100 轮连接循环，检查 QUIC/WireGuard/TUN/DNS 和 JNI 绑定 |
 | P1 | Windows 实机回归 | UAC 接管成功/拒绝/超时、第二实例激活、Job Object 清理、TUN 创建、核心异常退出和 WinINet 恢复；单元测试不能代替系统验收 |

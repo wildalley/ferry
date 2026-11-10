@@ -22,6 +22,10 @@
   AAR 20,662,044 字节，libbox.so 59,938,640 字节，包体增长保留为后续优化项。
 - Arch 包 `ferry-0.4.1-22-x86_64.pkg.tar.zst` 生成成功，增加 polkit/libcap 依赖。
   Linux 系统核心已为 1.14.4；系统包未被替换成内置补丁核心。
+- 提交 `142046a` 的远端流水线 **42777929330 全部成功**：analyze/test、deb/APK、Windows、Arch；
+  普通分支 release 按设计跳过。远端 Android/Windows 分别扫描 314/171 项，无告警，版本和补丁树摘要与本地一致。
+- 本机已通过包管理器升级到 **ferry 0.4.1-22**，29 个 bundle 文件逐一匹配、64 个安装文件无缺失；
+  系统 `sing-box 1.14.4-1` 保留原有 `cap_net_admin,cap_net_raw=ep`。未启动真实 TUN 或修改系统代理。
 
 ## CI 故障证据
 
