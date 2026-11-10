@@ -21,6 +21,8 @@ Linux 仍使用用户安装的核心，下面的内置核心修复不自动更�
   `h1:D46kmyvKMNVFvL3KXdq3T4vy8r29xCMmSqNuQHJBybE=`。
 - `hysteria-window.patch` SHA-256：
   `b224c88281e63645ab451389c8538ad108e1c8135d9e6bc1096d7722926de90a`。
+- 补丁后源码树 SHA-256：`7d4927ecfc61db5766a889f19f3b86f17a84f9450d72e462a2d297ba58e45257`。
+  应用补丁时禁用 autocrlf，摘要以区分大小写的相对 POSIX 文件名排序，两平台必须匹配同一预期值。
 - Go **1.27.3**、`GOEXPERIMENT=nojsonv2`，JDK 17、NDK 28.2.13676358；
   gomobile 提交 `b2c30f47825831593d6980af8191527490f9c968`。
 

@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -69,3 +70,23 @@ class SourceProvenanceTests(unittest.TestCase):
     def test_pinned_patch_digests(self):
         for item in [core.PINS['core'], *core.PINS['modulePatches']]:
             core.checked_patch(item)
+
+    def test_patch_ignores_windows_checkout_newline_setting(self):
+        repository = self.source / 'checkout'
+        repository.mkdir()
+        subprocess.run(['git', 'init', '-q', str(repository)], check=True)
+        subprocess.run(['git', '-C', str(repository), 'config', 'core.autocrlf', 'true'], check=True)
+        (repository / 'input.txt').write_bytes(b'old\n')
+        patch = self.source / 'input.patch'
+        patch.write_bytes(b'--- a/input.txt\n+++ b/input.txt\n@@ -1 +1 @@\n-old\n+new\n')
+        core.apply_checked_patch(repository, {'patch': str(patch), 'patchSha256': core.digest(patch)})
+        self.assertEqual((repository / 'input.txt').read_bytes(), b'new\n')
+
+    def test_tree_digest_uses_case_sensitive_relative_names(self):
+        (self.module / 'Z.go').write_bytes(b'upper')
+        (self.module / 'a.go').write_bytes(b'lower')
+        expected = hashlib.sha256()
+        for name in ('Z.go', 'a.go', 'source.go'):
+            expected.update(name.encode() + b'\0')
+            expected.update(bytes.fromhex(core.digest(self.module / name)))
+        self.assertEqual(core.tree_digest(self.module), expected.hexdigest())

@@ -23,7 +23,9 @@ def digest(path):
 
 def tree_digest(root):
     result = hashlib.sha256()
-    for path in sorted(root.rglob('*')):
+    # Path ordering is case-insensitive on Windows. Hash the same relative,
+    # case-sensitive POSIX names on every host instead.
+    for path in sorted(root.rglob('*'), key=lambda p: p.relative_to(root).as_posix()):
         if path.is_symlink():
             raise ValueError(f'Unexpected symlink in patched module: {path}')
         if path.is_file():
@@ -43,6 +45,15 @@ def checked_patch(item):
     if digest(path) != item['patchSha256']:
         raise ValueError(f'Patch digest mismatch: {item["patch"]}')
     return path
+
+
+def apply_checked_patch(source, item, directory=None):
+    patch = checked_patch(item)
+    command = ['git', '-c', 'core.autocrlf=false', 'apply']
+    if directory:
+        command.append('--directory=' + directory)
+    run(*command, '--check', str(patch), cwd=source)
+    run(*command, str(patch), cwd=source)
 
 
 def prepare(source, cache=None):
@@ -66,9 +77,7 @@ def prepare(source, cache=None):
             '--branch', core['tag'], 'https://github.com/SagerNet/sing-box', str(source))
     if run('git', 'rev-parse', 'HEAD', cwd=source, capture=True) != core['commit']:
         raise ValueError('Core source commit mismatch')
-    patch = checked_patch(core)
-    run('git', 'apply', '--check', str(patch), cwd=source)
-    run('git', 'apply', str(patch), cwd=source)
+    apply_checked_patch(source, core)
     modules = []
     for item in PINS['modulePatches']:
         module = json.loads(run('go', 'mod', 'download', '-json',
@@ -80,12 +89,12 @@ def prepare(source, cache=None):
         target.chmod(0o755)
         for path in target.rglob('*'):
             path.chmod(0o755 if path.is_dir() else 0o644)
-        patch = checked_patch(item)
-        run('git', 'apply', '--check', '--directory=' + item['directory'], str(patch), cwd=source)
-        run('git', 'apply', '--directory=' + item['directory'], str(patch), cwd=source)
+        apply_checked_patch(source, item, item['directory'])
+        if tree_digest(target) != item['treeSha256']:
+            raise ValueError(f'Patched source tree mismatch: {item["module"]}')
         replacement = './' + item['directory']
         run('go', 'mod', 'edit', '-replace=' + item['module'] + '=' + replacement, cwd=source)
-        modules.append({**item, 'treeSha256': tree_digest(target)})
+        modules.append(dict(item))
     manifest = {'schemaVersion': 1, 'goVersion': version, 'core': core, 'modules': modules}
     (source / 'ferry-sources.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'Prepared {core["buildVersion"]}: {source}')

@@ -20,7 +20,15 @@ deb/APK 12 分 39 秒、Windows 4 分 22 秒、Arch 2 分；分支推送的 rele
 首次固定输入后的 AAR 构建及新增扫描也在该任务内。正式 tag 的生产签名及发布步骤尚未执行。
 
 后续提交 `4471ee4` 的运行 `42757334709` 也已全部成功，包含实际 Maven 审计和 Gradle 资源调整。
-本轮补丁核心的远端结果待推送后验收，不能用上述旧产物结果代替。
+补丁核心提交 `8981ed1` 的运行 `42768295287` 已全部成功：verify 1 分 31 秒、
+deb/APK 8 分 31 秒、Windows 5 分 25 秒、Arch 2 分 02 秒；release 正常跳过。
+下载远端安全报告复核：Android 278 项、Windows 149 项，均无 OSV 告警，
+实际版本均为 `1.13.19-ferry.2` / Go `1.27.3-X:nojsonv2`。
+
+复核发现该轮 Windows/Android 的补丁源码树摘要不同；按 Windows 路径排序、
+将被修补的 brutal.go 转为 CRLF 后，可精确重现 Windows 摘要，确认是换行与排序差异。
+后续统一 Git apply 的 LF 行为和大小写敏感排序，在 pins 中固定源码树摘要并强制校验。
+模拟 autocrlf=true 的源码准备及新增守卫测试通过；发布记录与构建信息两平台均随产物保留。
 
 ## 已落地
 
@@ -87,7 +95,7 @@ Android 与 Windows 构建现统一使用 Go 1.27.3、同一组固定源码和�
 新构建 Android arm64 AAR、完整 APK 与 Windows amd64 EXE 成功；AAR 的 Java/JNI 接口与旧版
 逐字节一致。实际链接依赖复扫未返回已知公告：**Android+Pub+Maven 278 项、Windows+Pub 149 项**。
 保留 Gradle 中已剥离符号的 libbox 原始字节，APK 核心摘要与审计来源清单严格一致；
-签名、ELF LOAD 和 ZIP 16 KiB 对齐检查通过。26 项 Python 守卫测试通过。
+签名、ELF LOAD 和 ZIP 16 KiB 对齐检查通过。28 项 Python 守卫测试通过。
 
 这是版本扫描和回环协议回归，没有完成全部漏洞函数可达性分析。WireGuard 实际传输、
 Android 生命周期/真实协议、Windows UAC/TUN、长时内存、受保护正式发布验收继续保留。
@@ -164,7 +172,7 @@ python3 -B ../scripts/profile-build.py --interval 0.5 --output ../build/profiles
 ## 验收与仍需执行
 
 - Flutter：静态分析无问题；续轮全量 694 项测试通过、21 项按原有条件跳过；新增安全界面布局和凭据主动展示测试通过。
-- Python：26 项通过；actionlint v1.7.7 和 shell 语法检查通过。
+- Python：28 项通过；actionlint v1.7.7 和 shell 语法检查通过。
 - Android arm64 release、Linux release 构建成功；APK 原生库、ELF LOAD 与 ZIP 16 KiB 对齐、签名有效性通过。
 - 本地验收没有安装应用、切换真实 VPN 或发布版本。根目录遗留 cache.db 已移出工作区，Python 字节码已清理并加入忽略规则。
 - 未进行真实 Android Keystore/Windows 凭据库/Linux Secret Service 的多设备迁移验收。仅编译和模拟存储测试不能替代这些验证。

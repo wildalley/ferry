@@ -16,7 +16,8 @@
       "sum": "h1:D46kmyvKMNVFvL3KXdq3T4vy8r29xCMmSqNuQHJBybE=",
       "directory": "ferry-patched/sing-quic",
       "patch": "patches/sing-box/hysteria-window.patch",
-      "patchSha256": "b224c88281e63645ab451389c8538ad108e1c8135d9e6bc1096d7722926de90a"
+      "patchSha256": "b224c88281e63645ab451389c8538ad108e1c8135d9e6bc1096d7722926de90a",
+      "treeSha256": "7d4927ecfc61db5766a889f19f3b86f17a84f9450d72e462a2d297ba58e45257"
     }
   ]
 }

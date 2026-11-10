@@ -210,6 +210,7 @@ jobs:
             --maven build/app/reports/release-runtime-dependencies.json \
             --output dist/dependencies.cdx.json --scan
           cp android/app/libs/libbox.aar.sources.json dist/android-core.sources.json
+          cp android/app/libs/libbox.aar.build-info.json dist/android-core.build-info.json
 
       - name: Retain Android dependency reports
         if: always()
