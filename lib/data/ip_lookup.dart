@@ -17,6 +17,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'bounded_http.dart';
 import 'local_proxy.dart';
 
 /// The address the outside world sees, and where it places it.
@@ -91,11 +92,13 @@ class IpLookup {
   Future<ExitAddress?> fetch({
     required bool viaLocalProxy,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     routeHttp(
       _httpClient,
       viaLocalProxy: viaLocalProxy,
       localProxyPort: localProxyPort,
+      localProxySecret: localProxySecret,
     );
     for (final service in services) {
       try {
@@ -109,18 +112,15 @@ class IpLookup {
   }
 
   Future<ExitAddress?> _fetchOne(IpEchoService service) async {
-    final request =
-        await _httpClient.getUrl(Uri.parse(service.url)).timeout(timeout);
-    // A node switch replaces the selector's route, but a pooled HTTP proxy
-    // connection can otherwise keep carrying this request through the previous
-    // outbound. Do not let the exit-IP diagnostic reuse that connection.
-    request.persistentConnection = false;
-    // Some echo services hand a browser an HTML page unless asked otherwise.
-    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-    final response = await request.close().timeout(timeout);
-    final body = await response.transform(utf8.decoder).join().timeout(timeout);
-    if (response.statusCode != HttpStatus.ok) return null;
-    return parseEcho(body);
+    final bytes = await getBoundedBytes(
+      _httpClient,
+      Uri.parse(service.url),
+      timeout: timeout,
+      maxBytes: 64 * 1024,
+      // Some echo services otherwise hand a browser an HTML page.
+      headers: {HttpHeaders.acceptHeader: 'application/json'},
+    );
+    return parseEcho(utf8.decode(bytes), codeKey: service.codeKey);
   }
 
   void dispose() => _httpClient.close(force: true);

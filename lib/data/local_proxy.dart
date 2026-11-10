@@ -43,8 +43,23 @@ void routeHttp(
   HttpClient client, {
   required bool viaLocalProxy,
   int? localProxyPort,
-}) =>
-    client.findProxy = (_) => localProxyDirective(
-          viaLocalProxy: viaLocalProxy,
-          localProxyPort: localProxyPort,
-        );
+  String? localProxySecret,
+}) {
+  final port = localProxyPort ?? ConfigBuilder.defaultLocalProxyPort;
+  client.findProxy = (_) => localProxyDirective(
+        viaLocalProxy: viaLocalProxy,
+        localProxyPort: localProxyPort,
+      );
+  client.authenticateProxy = (host, challengePort, scheme, realm) async {
+    if (!viaLocalProxy ||
+        localProxySecret == null ||
+        host != '127.0.0.1' ||
+        challengePort != port ||
+        scheme.toLowerCase() != 'basic') {
+      return false;
+    }
+    client.addProxyCredentials(host, port, realm ?? '',
+        HttpClientBasicCredentials('ferry', localProxySecret));
+    return true;
+  };
+}

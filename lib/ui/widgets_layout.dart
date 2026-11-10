@@ -235,7 +235,7 @@ class SectionLabel extends StatelessWidget {
               style: labelStyle?.copyWith(letterSpacing: 1.2),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -271,7 +271,7 @@ class PanelTitle extends StatelessWidget {
             ),
           ),
         ),
-        if (trailing != null) trailing!,
+        ?trailing,
       ],
     );
   }
@@ -359,7 +359,7 @@ class PageFrame extends StatelessWidget {
                 ],
               ),
             ),
-            if (trailing != null) trailing!,
+            ?trailing,
           ],
         ),
         // Air instead of a rule: the panels below carry their own edges, and

@@ -53,8 +53,10 @@ class LinuxPrivileges {
     Iterable<String>? trustedRoots,
     Iterable<String>? searchPaths,
     bool Function(String path)? exists,
+    Future<String?> Function(String path)? securePath,
   })  : _run = runner ?? _runProcess,
         _exists = exists ?? _fileExists,
+        _securePath = securePath ?? resolveSecurePath,
         _trustedRoots = List.unmodifiable(trustedRoots ?? defaultTrustedRoots),
         _searchPaths = List.unmodifiable(searchPaths ?? defaultSearchPaths);
 
@@ -90,6 +92,7 @@ class LinuxPrivileges {
   ];
 
   final CommandRunner _run;
+  final Future<String?> Function(String) _securePath;
 
   /// Whether a tool is installed. Injectable so the argv can be asserted on a
   /// host that has no `pkexec` — a CI container, for one.
@@ -119,10 +122,18 @@ class LinuxPrivileges {
   /// Asks polkit to set [tunCapabilities] on [binary].
   Future<TunAuthorization> grantTunCapabilities(String binary) async {
     if (!mayElevate(binary)) return TunAuthorization.unavailable;
-    final argv = elevationCommand(binary);
+    final canonical = await _securePath(binary);
+    if (canonical == null || !mayElevate(canonical)) {
+      return TunAuthorization.unavailable;
+    }
+    final argv = elevationCommand(canonical);
     if (argv == null) return TunAuthorization.unavailable;
+    // Check tools too: a writable /usr/local or a symlink is not a trust root.
+    final pkexec = await _securePath(argv[0]);
+    final setcap = await _securePath(argv[1]);
+    if (pkexec == null || setcap == null) return TunAuthorization.unavailable;
     try {
-      final result = await _run(argv.first, argv.sublist(1));
+      final result = await _run(pkexec, [setcap, ...argv.sublist(2)]);
       return outcomeOf(result.exitCode);
     } on Object {
       return TunAuthorization.unavailable;
@@ -145,9 +156,46 @@ class LinuxPrivileges {
   /// Absolute, named `sing-box`, and inside [defaultTrustedRoots]. See that
   /// constant for why the last condition is not paranoia.
   bool mayElevate(String binary) {
-    if (!binary.startsWith('/') || binary.contains('/../')) return false;
+    if (!binary.startsWith('/') ||
+        binary.split('/').contains('..') ||
+        binary.split('/').contains('.')) {
+      return false;
+    }
     if (binary.split('/').last != 'sing-box') return false;
     return _trustedRoots.any(binary.startsWith);
+  }
+
+  /// Resolve before elevation, then require root ownership and no group/other
+  /// write permission for the file and every ancestor. The canonical path is
+  /// passed to setcap, so swapping a user-owned symlink cannot redirect it.
+  static Future<String?> resolveSecurePath(String path) async {
+    try {
+      final canonical = await File(path).resolveSymbolicLinks();
+      if (await FileSystemEntity.type(canonical) != FileSystemEntityType.file) {
+        return null;
+      }
+      final paths = <String>[canonical];
+      var parent = File(canonical).parent;
+      while (true) {
+        paths.add(parent.path);
+        if (parent.path == '/') break;
+        parent = parent.parent;
+      }
+      final stat =
+          await Process.run('/usr/bin/stat', ['-Lc', '%u:%a', '--', ...paths]);
+      if (stat.exitCode != 0) return null;
+      final lines = '${stat.stdout}'.trim().split('\n');
+      if (lines.length != paths.length) return null;
+      for (final line in lines) {
+        final fields = line.split(':');
+        if (fields.length != 2 || fields[0] != '0') return null;
+        final mode = int.tryParse(fields[1], radix: 8);
+        if (mode == null || mode & 0x12 != 0) return null; // 0022 octal
+      }
+      return canonical;
+    } on Object {
+      return null;
+    }
   }
 
   /// Reads a `getcap` line.

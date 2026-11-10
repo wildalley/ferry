@@ -23,6 +23,7 @@ import 'dart:typed_data';
 
 import '../models/policy_group.dart';
 import '../version.dart';
+import 'bounded_http.dart';
 import 'local_proxy.dart';
 import 'rule_sets.dart';
 
@@ -65,6 +66,7 @@ class RuleSetUpdater {
     Directory dir, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     // Set per call: whether the tunnel is up decides the path, and the same
     // updater outlives several connects.
@@ -72,6 +74,7 @@ class RuleSetUpdater {
       _httpClient,
       viaLocalProxy: viaLocalProxy,
       localProxyPort: localProxyPort,
+      localProxySecret: localProxySecret,
     );
     await dir.create(recursive: true);
 
@@ -103,11 +106,13 @@ class RuleSetUpdater {
     RuleSetSource source, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     routeHttp(
       _httpClient,
       viaLocalProxy: viaLocalProxy,
       localProxyPort: localProxyPort,
+      localProxySecret: localProxySecret,
     );
     await dir.create(recursive: true);
     await _download(
@@ -158,23 +163,19 @@ class RuleSetUpdater {
   }
 
   Future<Uint8List> _get(Uri url) async {
-    final request = await _httpClient.getUrl(url).timeout(_timeout);
-    request.headers.set(HttpHeaders.userAgentHeader, _userAgent);
-    final response = await request.close().timeout(_timeout);
-    if (response.statusCode != HttpStatus.ok) {
-      // Drain, or the connection is held until the client is closed.
-      await response.drain<void>();
-      throw RuleSetUpdateException('HTTP ${response.statusCode}');
+    try {
+      return await getBoundedBytes(
+        _httpClient,
+        url,
+        timeout: _timeout,
+        maxBytes: _maxBytes,
+        headers: {HttpHeaders.userAgentHeader: _userAgent},
+      );
+    } on HttpException catch (error) {
+      throw RuleSetUpdateException(error.message);
+    } on FormatException catch (error) {
+      throw RuleSetUpdateException(error.message);
     }
-
-    final builder = BytesBuilder(copy: false);
-    await response.forEach((chunk) {
-      if (builder.length + chunk.length > _maxBytes) {
-        throw RuleSetUpdateException('response too large');
-      }
-      builder.add(chunk);
-    }).timeout(_timeout);
-    return builder.takeBytes();
   }
 
   void dispose() => _httpClient.close(force: true);

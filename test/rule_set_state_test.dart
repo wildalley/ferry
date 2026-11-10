@@ -43,6 +43,7 @@ class _FakeUpdater extends RuleSetUpdater {
     Directory dir, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) {
     calls.add((dir: dir.path, viaLocalProxy: viaLocalProxy));
     if (hang) {

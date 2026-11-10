@@ -298,7 +298,7 @@ String _connectedDetail(L10n l10n, ProxyState proxy) {
   final uptime = proxy.since == null
       ? null
       : formatUptime(clockNow().difference(proxy.since!));
-  return [coverage, if (uptime != null) uptime].join(' · ');
+  return [coverage, ?uptime].join(' · ');
 }
 
 String _latencyText(L10n l10n, int? latency) => switch (latency) {

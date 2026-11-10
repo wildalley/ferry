@@ -9,11 +9,13 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'data/rule_sets.dart';
 import 'data/storage.dart';
+import 'data/secret_store.dart';
 import 'platform/desktop_shell.dart';
 import 'platform/legacy_migration.dart';
 import 'platform/single_instance.dart';
 import 'platform/proxy_controller.dart';
 import 'state/app_state.dart';
+import 'ui/storage_recovery.dart';
 
 export 'app.dart';
 
@@ -52,7 +54,14 @@ Future<void> main(List<String> args) async {
   // Before runApp, and before the user can reach the close button: the window
   // has to be told not to quit on its own first. No-op off the desktop.
   await DesktopShell.ensureWindowReady();
-  final storage = await Storage.open();
+  late final Storage storage;
+  try {
+    storage = await Storage.open();
+  } on SecureStorageUnavailable {
+    final recovered = Completer<Storage>();
+    runApp(StorageRecovery(onReady: recovered.complete));
+    storage = await recovered.future;
+  }
   // Before the first config is rendered: with the rule-sets on disk the engine
   // starts without reaching the network, which is the difference between
   // connecting and not on a filtered or offline link.

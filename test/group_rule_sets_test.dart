@@ -33,6 +33,7 @@ class _FakeUpdater extends RuleSetUpdater {
     RuleSetSource source, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     fetched.add(source.entry);
     if (failing.contains(source.entry)) {

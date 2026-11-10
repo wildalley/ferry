@@ -12,16 +12,19 @@ extension _AppStateConfig on AppState {
   /// from the clipboard and from there into a bug report, and the token has no
   /// diagnostic value beyond being present.
   String _previewConfig() =>
-      ConfigBuilder.encode(_buildConfig(clashSecret: _maskedSecret));
+      ConfigBuilder.encode(_buildConfig(maskSecrets: true));
 
-  Map<String, dynamic> _buildConfig({String? clashSecret}) =>
+  Map<String, dynamic> _buildConfig({bool maskSecrets = false}) =>
       ConfigBuilder.build(
         nodes: _nodes,
         selectedNodeId: selectedNode?.id,
         settings: _settings,
-        clashSecret: clashSecret ?? _clashSecret,
+        clashSecret: maskSecrets ? _maskedSecret : _clashSecret,
         clashApiPort: _clashApiPort,
         localProxyPort: _localProxyPort,
+        localProxySecret: maskSecrets && proxyAuthenticationEnabled
+            ? _maskedSecret
+            : _localProxySecret,
         customRules: _customRules,
         policyGroups: _policyGroups,
         groupRuleSets: _groupRuleSetTags(),
@@ -343,6 +346,7 @@ extension _AppStateGroupRuleSets on AppState {
           source,
           viaLocalProxy: isConnected,
           localProxyPort: _localProxyPort,
+          localProxySecret: _localProxySecret,
         );
         landed = true;
       } on Object {
@@ -369,7 +373,7 @@ extension _AppStateGroupRuleSets on AppState {
     final sources = <String, RuleSetSource>{
       for (final group in _policyGroups)
         for (final entry in group.ruleSets)
-          if (RuleSetSource.parse(entry) case final source?) entry: source,
+          entry: ?RuleSetSource.parse(entry),
     };
     if (sources.isEmpty) return;
     await _downloadRuleSets(sources.values.toList(), report: false);

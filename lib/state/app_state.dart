@@ -6,7 +6,6 @@ library;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
@@ -84,12 +83,8 @@ class AppState extends ChangeNotifier {
     _dismissedUpdate = _storage.readDismissedUpdate();
     _proxyState = _controller.currentState;
 
-    // Read synchronously so the very first `_buildConfig()` already carries it;
-    // a first run generates one and persists it in the background, which the
-    // in-memory prefs cache makes readable again immediately.
-    final storedSecret = _storage.readClashSecret();
-    _clashSecret = storedSecret ?? _newClashSecret();
-    if (storedSecret == null) _storage.writeClashSecret(_clashSecret);
+    // Storage.open verifies persisted credentials before the first config.
+    _clashSecret = _storage.readClashSecret();
 
     _stateSub = _controller.states.listen(_onProxyState);
     _trafficSub = _controller.traffic.listen((value) {
@@ -166,6 +161,16 @@ class AppState extends ChangeNotifier {
   /// Bearer token for the config's Clash API listener. Never surfaced in the UI,
   /// a notice, or a log line.
   late String _clashSecret;
+
+  bool get proxyAuthenticationEnabled =>
+      Platform.isAndroid || _settings.localProxyAuth;
+
+  String? get _localProxySecret =>
+      proxyAuthenticationEnabled ? _storage.readProxySecret() : null;
+
+  /// Only revealed by an explicit action in Settings; never in diagnostics.
+  String get localProxyPassword => _storage.readProxySecret();
+  int get localProxyPort => _localProxyPort;
 
   /// The loopback ports the running config listens on.
   ///

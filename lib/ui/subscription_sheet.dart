@@ -159,6 +159,10 @@ class _SubscriptionSheetState extends State<_SubscriptionSheet> {
                 style: monoStyle(size: 12, color: palette.text),
                 decoration: InputDecoration(
                   hintText: 'https://example.com/sub',
+                  helperText: _url.text.trim().startsWith('http://')
+                      ? l10n.plainHttpWarning
+                      : null,
+                  helperMaxLines: 5,
                   errorText: _showProblem && !_urlValid
                       ? l10n.subscriptionUrlInvalid
                       : null,

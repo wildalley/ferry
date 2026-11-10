@@ -32,6 +32,7 @@ class _FakeImporter extends Importer {
     Subscription subscription, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     viaLocalProxyCalls.add(viaLocalProxy);
     if (error != null) throw error!;
@@ -103,7 +104,7 @@ void main() {
 
     await harness.state.refreshSubscription('s1');
     // The same preferences, read the way the next launch reads them.
-    final reloaded = Storage(await SharedPreferences.getInstance());
+    final reloaded = await Storage.open();
 
     expect(reloaded.readSubscriptions().single.lastFailure,
         SubscriptionFailure.unreachable);
@@ -203,7 +204,7 @@ void main() {
       expect(harness.state.nodes.single.name, 'Tokyo');
 
       // Survives a reload.
-      final reloaded = Storage(await SharedPreferences.getInstance());
+      final reloaded = await Storage.open();
       expect(reloaded.readSubscriptions().single.userAgent, 'clash.meta');
     });
 

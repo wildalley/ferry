@@ -12,7 +12,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ferry/data/config_builder.dart';
 import 'package:ferry/data/storage.dart';
 import 'package:ferry/main.dart';
@@ -51,7 +50,7 @@ void main() {
       // Same preferences, a second AppState over them. The constructor is what
       // reads storage, so building one is the restart.
       final reopened = AppState(
-        storage: Storage(await SharedPreferences.getInstance()),
+        storage: await Storage.open(),
         controller: FakeProxyController(),
       );
       addTearDown(reopened.dispose);

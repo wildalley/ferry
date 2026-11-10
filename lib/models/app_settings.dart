@@ -119,6 +119,7 @@ class AppSettings {
     this.fakeIp = false,
     this.tunStack = TunStack.mixed,
     this.systemProxy = false,
+    this.localProxyAuth = false,
     this.logLevel = LogLevel.info,
     this.themeMode = AppThemeMode.system,
     this.language = AppLanguage.system,
@@ -149,6 +150,9 @@ class AppSettings {
 
   /// Exposes an HTTP proxy on the TUN inbound for apps that ignore the VPN.
   final bool systemProxy;
+
+  /// Android always authenticates; desktop users can opt in.
+  final bool localProxyAuth;
   final LogLevel logLevel;
 
   /// Presentation only; neither affects the rendered sing-box config.
@@ -191,6 +195,7 @@ class AppSettings {
       fakeIp == other.fakeIp &&
       tunStack == other.tunStack &&
       systemProxy == other.systemProxy &&
+      localProxyAuth == other.localProxyAuth &&
       logLevel == other.logLevel &&
       perAppProxyEnabled == other.perAppProxyEnabled &&
       _sameStrings(perAppProxyBypass, other.perAppProxyBypass);
@@ -270,6 +275,7 @@ class AppSettings {
     bool? fakeIp,
     TunStack? tunStack,
     bool? systemProxy,
+    bool? localProxyAuth,
     LogLevel? logLevel,
     AppThemeMode? themeMode,
     AppLanguage? language,
@@ -290,6 +296,7 @@ class AppSettings {
       fakeIp: fakeIp ?? this.fakeIp,
       tunStack: tunStack ?? this.tunStack,
       systemProxy: systemProxy ?? this.systemProxy,
+      localProxyAuth: localProxyAuth ?? this.localProxyAuth,
       logLevel: logLevel ?? this.logLevel,
       themeMode: themeMode ?? this.themeMode,
       language: language ?? this.language,
@@ -312,6 +319,7 @@ class AppSettings {
         'fake_ip': fakeIp,
         'tun_stack': tunStack.tag,
         'system_proxy': systemProxy,
+        'local_proxy_auth': localProxyAuth,
         'log_level': logLevel.name,
         'theme_mode': themeMode.name,
         'close_to_tray': closeToTray,
@@ -334,6 +342,7 @@ class AppSettings {
         fakeIp: json['fake_ip'] as bool? ?? false,
         tunStack: TunStack.fromTag(json['tun_stack'] as String?),
         systemProxy: json['system_proxy'] as bool? ?? false,
+        localProxyAuth: json['local_proxy_auth'] as bool? ?? false,
         logLevel: LogLevel.fromName(json['log_level'] as String?),
         themeMode: AppThemeMode.fromName(json['theme_mode'] as String?),
         // Absent in settings written before the tray existed, and the default

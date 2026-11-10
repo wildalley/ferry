@@ -32,6 +32,7 @@ class _FakeImporter extends Importer {
     Subscription subscription, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     refreshed.add(subscription.id);
     if (error != null) throw error!;

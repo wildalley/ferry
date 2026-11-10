@@ -22,6 +22,7 @@ extension _AppStateUpdate on AppState {
       final release = await _updateChecker.latest(
         viaLocalProxy: isConnected,
         localProxyPort: _localProxyPort,
+        localProxySecret: _localProxySecret,
       );
       await _storage.writeUpdateCheckedAt(DateTime.now());
       final current = parseAppVersion(appVersion) ?? const [0, 0, 0];

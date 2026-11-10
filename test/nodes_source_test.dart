@@ -252,7 +252,7 @@ void main() {
       await testing;
       expect(find.text('Tokyo'), findsNothing);
       expect(state.nodes.single.latencyMs, 42);
-      final stored = Storage(await SharedPreferences.getInstance());
+      final stored = await Storage.open();
       expect(stored.readCollapsedSources(), contains('s1'),
           reason: 'the final fold must persist after queued work completes');
     });
@@ -397,7 +397,7 @@ void main() {
 
       // A second run over the same store, the way the next app start reads it.
       final reloaded = AppState(
-        storage: Storage(await SharedPreferences.getInstance()),
+        storage: await Storage.open(),
         controller: FakeProxyController(),
       );
       addTearDown(reloaded.dispose);
@@ -542,7 +542,7 @@ void main() {
 
       await state.removeSubscription('s2');
 
-      final stored = Storage(await SharedPreferences.getInstance());
+      final stored = await Storage.open();
       expect(stored.readCollapsedSources(), isNot(contains('s2')),
           reason: 'ids are never reused, so a kept one is dead weight');
     });

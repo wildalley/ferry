@@ -29,6 +29,7 @@ extension _AppStateImport on AppState {
         subscriptionId: subscription.id,
         viaLocalProxy: isConnected,
         localProxyPort: _localProxyPort,
+        localProxySecret: _localProxySecret,
       );
       await _absorb(subscription, result);
     } on Object catch (error) {
@@ -127,6 +128,7 @@ extension _AppStateImport on AppState {
         // because the app itself is excluded from the VPN.
         viaLocalProxy: isConnected,
         localProxyPort: _localProxyPort,
+        localProxySecret: _localProxySecret,
       );
       // Carry latency and favourites across the refresh.
       final previous = {

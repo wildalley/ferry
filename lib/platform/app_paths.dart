@@ -1,16 +1,8 @@
 /// Filesystem locations owned by the app.
 ///
-/// The Android answer comes over one `MethodChannel` call rather than a
-/// `path_provider` dependency: that package's current Android implementation
-/// pulls in JNI bindings and build hooks, which is a lot of build surface for a
-/// string the host already holds. Asking the host directly also guarantees the
-/// answer is the same directory libbox was set up with
-/// (`SetupOptions.basePath`), so app files and engine state stay in one place.
-///
-/// The Windows runner answers on the same channel. Linux answers nothing, so
-/// the path is derived here instead, from the XDG base directory spec. Same
-/// reasoning as above, one step further: the rule is short enough to write out,
-/// and doing so keeps the dependency out.
+/// Android and Windows expose their data directory over the host channel so
+/// rendered configs and engine state use the same private location. Linux uses
+/// the XDG base-directory convention.
 library;
 
 import 'dart:io';

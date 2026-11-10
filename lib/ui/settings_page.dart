@@ -58,6 +58,51 @@ class SettingsPage extends StatelessWidget {
         SettingGroup(
           title: l10n.settingsProxy,
           rows: [
+            SettingRow(
+              icon: Icons.lock_outline,
+              title: l10n.settingsProxyAuth,
+              subtitle: Platform.isAndroid
+                  ? l10n.settingsProxyAuthAndroid
+                  : l10n.settingsProxyAuthDesktop,
+              value: state.proxyAuthenticationEnabled,
+              onChanged: Platform.isAndroid
+                  ? null
+                  : (value) => state
+                      .applySettings(settings.copyWith(localProxyAuth: value)),
+            ),
+            if (state.proxyAuthenticationEnabled)
+              SettingRow(
+                icon: Icons.key_outlined,
+                title: l10n.settingsProxyCredentials,
+                subtitle: '127.0.0.1:${state.localProxyPort}',
+                onTap: () => showDialog<void>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: Text(l10n.settingsProxyCredentials),
+                    content: SingleChildScrollView(
+                        child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l10n.settingsProxyCredentialsBody),
+                        const SizedBox(height: 16),
+                        Text(l10n.proxyUsername),
+                        const SelectableText('ferry'),
+                        const SizedBox(height: 8),
+                        Text(l10n.proxyPassword),
+                        SelectableText(state.localProxyPassword),
+                      ],
+                    )),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                            MaterialLocalizations.of(context).closeButtonLabel),
+                      )
+                    ],
+                  ),
+                ),
+              ),
             // Android's tun arrives with the VpnService dialog, so there is no
             // choice to offer there. Only the desktop, where a tun needs a
             // capability the app has to be granted, has a second mode worth
@@ -626,7 +671,7 @@ class _PerAppProxySheetState extends State<_PerAppProxySheet> {
                       Gap.md,
                     ),
                     itemCount: apps.length,
-                    separatorBuilder: (_, __) => const Divider(indent: 52),
+                    separatorBuilder: (_, _) => const Divider(indent: 52),
                     itemBuilder: (context, index) {
                       final app = apps[index];
                       return CheckboxListTile(

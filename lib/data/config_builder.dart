@@ -92,6 +92,7 @@ class ConfigBuilder {
     required String? selectedNodeId,
     required AppSettings settings,
     required String clashSecret,
+    String? localProxySecret,
     int clashApiPort = defaultClashApiPort,
     int localProxyPort = defaultLocalProxyPort,
     List<CustomRule> customRules = const [],
@@ -110,6 +111,12 @@ class ConfigBuilder {
     // elsewhere, and rendering them on Linux would put a key in the config that
     // nothing there can act on.
     final isAndroid = android ?? Platform.isAndroid;
+    final authenticated = isAndroid || settings.localProxyAuth;
+    if (authenticated &&
+        (localProxySecret == null || localProxySecret.isEmpty)) {
+      throw const FormatException(
+          'Local proxy authentication requires a secret');
+    }
     // Older state versions could retain the same endpoint more than once when
     // a subscription contained duplicate entries. De-dupe here as a final
     // boundary guard so a stale state file can never make sing-box reject the
@@ -215,6 +222,7 @@ class ConfigBuilder {
         settings,
         alwaysTun: alwaysTun,
         localProxyPort: localProxyPort,
+        localProxySecret: authenticated ? localProxySecret : null,
         // The switch gates the list rather than clearing it: turning the feature
         // off must not lose the user's selection, so the packages stay in
         // settings and simply stop being rendered.
@@ -341,6 +349,7 @@ class ConfigBuilder {
     AppSettings settings, {
     required bool alwaysTun,
     required int localProxyPort,
+    String? localProxySecret,
     required List<String> excludePackages,
   }) {
     final tun = alwaysTun || settings.proxyMode == ProxyMode.tun;
@@ -396,6 +405,10 @@ class ConfigBuilder {
         'tag': 'mixed-in',
         'listen': '127.0.0.1',
         'listen_port': localProxyPort,
+        if (localProxySecret != null)
+          'users': [
+            {'username': 'ferry', 'password': localProxySecret}
+          ],
       },
     ];
   }

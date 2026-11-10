@@ -1,10 +1,10 @@
 /// Local persistence for nodes, subscriptions, settings, and selection.
 ///
-/// Uses `shared_preferences` with JSON payloads. Node credentials live in this
-/// store, so nothing here may be written to logs.
+/// Preferences hold presentation settings; credentials live in the OS vault.
 library;
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,11 +14,15 @@ import '../models/node.dart';
 import '../models/policy_group.dart';
 import '../models/node_sort.dart';
 import '../models/subscription.dart';
+import 'secret_store.dart';
 
 class Storage {
-  Storage(this._prefs);
+  Storage._(this._prefs, this._secrets);
 
   final SharedPreferences _prefs;
+  final SecretStore _secrets;
+  final _secretCache = <String, String>{};
+  Future<void> _writeTail = Future<void>.value();
 
   static const _kNodes = 'nodes.v1';
   static const _kSubscriptions = 'subscriptions.v1';
@@ -26,17 +30,101 @@ class Storage {
   static const _kSelectedNode = 'selected_node.v1';
   static const _kCollapsedSources = 'collapsed_sources.v1';
   static const _kClashSecret = 'clash_secret.v1';
+  static const _kProxySecret = 'proxy_secret.v1';
+  static const _kVaultInitialized = 'vault_initialized.v1';
   static const _kNodeSort = 'node_sort.v1';
   static const _kCustomRules = 'custom_rules.v1';
   static const _kPolicyGroups = 'policy_groups.v1';
   static const _kUpdateCheckedAt = 'update_checked_at.v1';
   static const _kUpdateDismissed = 'update_dismissed.v1';
 
-  static Future<Storage> open() async =>
-      Storage(await SharedPreferences.getInstance());
+  static Future<Storage> open({SecretStore? secrets}) async {
+    final storage = Storage._(
+      await SharedPreferences.getInstance(),
+      secrets ?? const PlatformSecretStore(),
+    );
+    await storage._migrateSecrets();
+    return storage;
+  }
+
+  Future<void> _migrateSecrets() async {
+    const keys = [_kNodes, _kSubscriptions, _kClashSecret, _kProxySecret];
+    try {
+      // Complete and verify EVERY write before removing any legacy value.
+      // A crash halfway through is resumable: the vault is authoritative for
+      // keys already copied, and untouched legacy keys are still available.
+      for (final key in keys) {
+        var value = await _secrets.read(key);
+        if (value == null) {
+          if (_prefs.getBool(_kVaultInitialized) == true) {
+            throw const SecureStorageUnavailable();
+          }
+          value = _prefs.getString(key) ??
+              (key == _kNodes || key == _kSubscriptions ? '[]' : _newSecret());
+          _validateSecret(key, value);
+          await _secrets.write(key, value);
+        }
+        _validateSecret(key, value);
+        if (await _secrets.read(key) != value) {
+          throw const SecureStorageUnavailable();
+        }
+        _secretCache[key] = value;
+      }
+      if (!await _prefs.setBool(_kVaultInitialized, true)) {
+        throw const SecureStorageUnavailable();
+      }
+      for (final key in keys) {
+        if (_prefs.containsKey(key) && !await _prefs.remove(key)) {
+          throw const SecureStorageUnavailable();
+        }
+      }
+    } on Object {
+      throw const SecureStorageUnavailable();
+    }
+  }
+
+  static void _validateSecret(String key, String value) {
+    if (key == _kNodes || key == _kSubscriptions) {
+      final decoded = jsonDecode(value);
+      if (decoded is! List) throw const SecureStorageUnavailable();
+      for (final item in decoded) {
+        final data = Map<String, dynamic>.from(item as Map);
+        if (key == _kNodes) {
+          ProxyNode.fromJson(data);
+        } else {
+          Subscription.fromJson(data);
+        }
+      }
+    } else if (value.isEmpty) {
+      throw const SecureStorageUnavailable();
+    }
+  }
+
+  static String _newSecret() {
+    final random = Random.secure();
+    return base64UrlEncode(List.generate(32, (_) => random.nextInt(256)))
+        .replaceAll('=', '');
+  }
+
+  Future<void> _writeSecret(String key, String value) {
+    final operation = _writeTail.then((_) async {
+      try {
+        await _secrets.write(key, value);
+        if (await _secrets.read(key) != value) {
+          throw const SecureStorageUnavailable();
+        }
+        _secretCache[key] = value;
+      } on Object {
+        throw const SecureStorageUnavailable();
+      }
+    });
+    // A failed write must not prevent retrying after the keyring is unlocked.
+    _writeTail = operation.catchError((Object _) {});
+    return operation;
+  }
 
   List<ProxyNode> readNodes() {
-    final raw = _prefs.getString(_kNodes);
+    final raw = _secretCache[_kNodes];
     if (raw == null || raw.isEmpty) return const [];
     try {
       final list = jsonDecode(raw) as List;
@@ -49,7 +137,7 @@ class Storage {
     }
   }
 
-  Future<void> writeNodes(List<ProxyNode> nodes) => _prefs.setString(
+  Future<void> writeNodes(List<ProxyNode> nodes) => _writeSecret(
         _kNodes,
         jsonEncode(nodes.map((node) => node.toJson()).toList()),
       );
@@ -105,7 +193,7 @@ class Storage {
       );
 
   List<Subscription> readSubscriptions() {
-    final raw = _prefs.getString(_kSubscriptions);
+    final raw = _secretCache[_kSubscriptions];
     if (raw == null || raw.isEmpty) return const [];
     try {
       final list = jsonDecode(raw) as List;
@@ -118,7 +206,7 @@ class Storage {
   }
 
   Future<void> writeSubscriptions(List<Subscription> subscriptions) =>
-      _prefs.setString(
+      _writeSecret(
         _kSubscriptions,
         jsonEncode(subscriptions.map((item) => item.toJson()).toList()),
       );
@@ -189,8 +277,10 @@ class Storage {
   /// anything outside the app keeps working, and so a reload mid-session cannot
   /// change it out from under a live listener. Generated once, then never shown
   /// or logged — this is a credential like any node's password.
-  String? readClashSecret() => _prefs.getString(_kClashSecret);
+  String readClashSecret() => _secretCache[_kClashSecret]!;
+
+  String readProxySecret() => _secretCache[_kProxySecret]!;
 
   Future<void> writeClashSecret(String secret) =>
-      _prefs.setString(_kClashSecret, secret);
+      _writeSecret(_kClashSecret, secret);
 }

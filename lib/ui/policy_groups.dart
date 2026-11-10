@@ -415,7 +415,7 @@ class _NodePicker extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) trailing,
+                ?trailing,
                 const SizedBox(width: Gap.sm),
                 Icon(
                   selected

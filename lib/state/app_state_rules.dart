@@ -42,6 +42,7 @@ extension _AppStateRules on AppState {
         directory,
         viaLocalProxy: isConnected,
         localProxyPort: _localProxyPort,
+        localProxySecret: _localProxySecret,
       );
       if (!silent) _notice = const AppNotice(NoticeKind.ruleSetsUpdated);
       // Not awaited: this runs inside the operation queue, and the refresh

@@ -47,6 +47,7 @@ void main() {
   LinuxPrivileges privileges({Iterable<String>? trustedRoots}) =>
       LinuxPrivileges(
         runner: runner.call,
+        securePath: (path) async => path,
         trustedRoots: trustedRoots,
         exists: (path) => !runner.missing.contains(path),
       );
@@ -78,7 +79,8 @@ void main() {
       // A tun needs both. Reading this as granted would skip the prompt and let
       // the engine fail on its own, which is the failure the prompt replaces.
       expect(
-        LinuxPrivileges.capabilitiesPresent('/usr/bin/sing-box cap_net_admin=ep'),
+        LinuxPrivileges.capabilitiesPresent(
+            '/usr/bin/sing-box cap_net_admin=ep'),
         isFalse,
       );
     });
@@ -121,8 +123,12 @@ void main() {
       expect(await privileges().hasTunCapabilities(trusted), isNull);
 
       runner.exitCode = (_) => 0;
-      runner.missing = {'/usr/sbin/getcap', '/usr/bin/getcap', '/sbin/getcap',
-        '/bin/getcap'};
+      runner.missing = {
+        '/usr/sbin/getcap',
+        '/usr/bin/getcap',
+        '/sbin/getcap',
+        '/bin/getcap'
+      };
       expect(await privileges().hasTunCapabilities(trusted), isNull);
     });
   });
@@ -163,14 +169,33 @@ void main() {
     });
 
     test('an untrusted path is refused without running anything', () async {
-      final outcome =
-          await privileges().grantTunCapabilities('/tmp/sing-box');
+      final outcome = await privileges().grantTunCapabilities('/tmp/sing-box');
 
       expect(outcome, TunAuthorization.unavailable);
       expect(runner.calls, isEmpty,
           reason: 'nothing may reach pkexec before the path is vetted');
     });
   });
+
+  test('an unsafe canonical target never reaches pkexec', () async {
+    final subject = LinuxPrivileges(
+        runner: runner.call,
+        exists: (_) => true,
+        securePath: (_) async => '/tmp/sing-box');
+    expect(await subject.grantTunCapabilities(trusted),
+        TunAuthorization.unavailable);
+    expect(runner.calls, isEmpty);
+  });
+
+  test('real validation rejects user-owned files and their symlinks', () async {
+    final dir = await Directory.systemTemp.createTemp('ferry-owner-');
+    addTearDown(() => dir.delete(recursive: true));
+    final binary = File('${dir.path}/sing-box');
+    await binary.writeAsString('test');
+    final link = await Link('${dir.path}/alias').create(binary.path);
+    expect(await LinuxPrivileges.resolveSecurePath(binary.path), isNull);
+    expect(await LinuxPrivileges.resolveSecurePath(link.path), isNull);
+  }, skip: !Platform.isLinux);
 
   group('the grant', () {
     test('is pkexec, setcap, the capability set, and the binary', () async {
@@ -216,8 +241,12 @@ void main() {
     });
 
     test('a missing pkexec is reported rather than thrown', () async {
-      runner.missing = {'/usr/bin/pkexec', '/usr/sbin/pkexec', '/bin/pkexec',
-        '/sbin/pkexec'};
+      runner.missing = {
+        '/usr/bin/pkexec',
+        '/usr/sbin/pkexec',
+        '/bin/pkexec',
+        '/sbin/pkexec'
+      };
 
       expect(
         await privileges().grantTunCapabilities(trusted),

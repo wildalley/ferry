@@ -52,6 +52,14 @@ class _ImportSheetState extends State<_ImportSheet> {
   var _submitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    _contentController.addListener(_contentChanged);
+  }
+
+  void _contentChanged() => setState(() {});
+
+  @override
   void dispose() {
     _contentController.dispose();
     _nameController.dispose();
@@ -147,6 +155,11 @@ class _ImportSheetState extends State<_ImportSheet> {
               enableSuggestions: false,
               style: monoStyle(size: 12, color: palette.text),
               decoration: InputDecoration(
+                helperText: _kind == _ImportKind.paste &&
+                        _contentController.text.trimLeft().startsWith('http://')
+                    ? l10n.plainHttpWarning
+                    : null,
+                helperMaxLines: 5,
                 // Example URLs and paths, not prose: left untranslated.
                 hintText: switch (_kind) {
                   _ImportKind.paste => 'https://example.com/sub\nor vless://…',

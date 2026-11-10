@@ -45,6 +45,7 @@ Map<String, dynamic> _build({
   required AppSettings settings,
   String? ruleSetDir,
   String clashSecret = 'test-secret',
+  String? localProxySecret,
   bool? tunOnly,
   bool? android,
 }) =>
@@ -53,6 +54,7 @@ Map<String, dynamic> _build({
       selectedNodeId: selectedNodeId,
       settings: settings,
       clashSecret: clashSecret,
+      localProxySecret: localProxySecret,
       ruleSetDir: ruleSetDir,
       // Pinned false by default: the real value is Platform.isAndroid, and a
       // test that renders differently per host is a test that proves nothing.
@@ -568,6 +570,7 @@ void main() {
         ),
         tunOnly: true,
         android: true,
+        localProxySecret: 'test-proxy-secret',
       );
 
       final tun = (config['inbounds'] as List).first as Map;

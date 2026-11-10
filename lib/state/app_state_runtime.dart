@@ -12,19 +12,6 @@ String _short(Object error) {
 /// A fresh rule with an id, shared by nodes, subscriptions, and custom rules.
 String _newId() => DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 
-/// A fresh Clash API token: 128 bits from the platform CSPRNG, hex.
-///
-/// [Random.secure], not [Random]: the whole point of the token is that a
-/// co-resident app cannot arrive at it, and the default generator is seeded
-/// from a clock every app on the device can read.
-String _newClashSecret() {
-  final random = Random.secure();
-  return List.generate(
-    16,
-    (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-  ).join();
-}
-
 /// Turns an import or refresh error into the notice for it.
 ///
 /// An [ImportException] carries a [SubscriptionFailure], which the UI
@@ -77,7 +64,7 @@ extension _AppStateRuntime on AppState {
     });
     _operationTail = result.then<void>(
       (_) => _finishBusy(busy),
-      onError: (Object _, StackTrace __) => _finishBusy(busy),
+      onError: (Object _, StackTrace _) => _finishBusy(busy),
     );
     return result;
   }
@@ -171,6 +158,7 @@ extension _AppStateRuntime on AppState {
           final address = await _ipLookup.fetch(
             viaLocalProxy: isConnected,
             localProxyPort: _localProxyPort,
+            localProxySecret: _localProxySecret,
           );
           // A failed lookup clears the reading rather than leaving the last one
           // on screen: a stale address beside a tunnel that has since moved is

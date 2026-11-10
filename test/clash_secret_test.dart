@@ -12,6 +12,7 @@ library;
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ferry/data/storage.dart';
 import 'package:ferry/state/app_state.dart';
@@ -55,10 +56,10 @@ void main() {
 
     final secret = await _startedSecret(harness.state, harness.controller);
 
-    // 128 bits, hex. Asserted as a shape rather than a value: the point is that
+    // 256 bits, base64url. Asserted as a shape rather than a value: the point is that
     // a co-resident app cannot guess it, and a short or non-random token would
     // satisfy "is not empty" while failing at that.
-    expect(secret, matches(RegExp(r'^[0-9a-f]{32}$')));
+    expect(secret, matches(RegExp(r'^[A-Za-z0-9_-]{43}$')));
   });
 
   test('the same install keeps the same secret', () async {
@@ -81,6 +82,7 @@ void main() {
     final one = await _startedSecret(first.state, first.controller);
 
     SharedPreferences.setMockInitialValues({});
+    FlutterSecureStorage.setMockInitialValues({});
     final second = await _build(await Storage.open());
     final two = await _startedSecret(second.state, second.controller);
 

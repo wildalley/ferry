@@ -10,6 +10,8 @@
 /// nothing.
 library;
 
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ferry/data/ip_lookup.dart';
@@ -55,6 +57,7 @@ class FakeIpLookup extends IpLookup {
   Future<ExitAddress?> fetch({
     required bool viaLocalProxy,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     calls.add(viaLocalProxy);
     ports.add(localProxyPort);
@@ -67,6 +70,27 @@ class FakeIpLookup extends IpLookup {
 }
 
 void main() {
+  test('an oversized echo response falls back to the next service', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      request.response.write(request.uri.path == '/large'
+          ? 'x' * (65 * 1024)
+          : '{"ip":"203.0.113.7","region":"sg"}');
+      await request.response.close();
+    });
+    final base = 'http://127.0.0.1:${server.port}';
+    final lookup = IpLookup(services: [
+      IpEchoService('$base/large', codeKey: 'region'),
+      IpEchoService('$base/valid', codeKey: 'region'),
+    ]);
+    addTearDown(lookup.dispose);
+
+    final address = await lookup.fetch(viaLocalProxy: false);
+    expect(address?.ip, '203.0.113.7');
+    expect(address?.countryCode, 'SG');
+  });
+
   group('parseEcho', () {
     test('reads the primary service', () {
       // api.ip.sb/geoip, trimmed to the fields that are used.
@@ -133,7 +157,8 @@ void main() {
     });
 
     test('ignores a blank country rather than showing an empty badge', () {
-      final address = IpLookup.parseEcho('{"ip":"192.0.2.1","country_code":" "}');
+      final address =
+          IpLookup.parseEcho('{"ip":"192.0.2.1","country_code":" "}');
 
       expect(address?.countryCode, isNull);
     });
@@ -154,7 +179,8 @@ void main() {
       await pumpEventQueue();
 
       expect(lookup.calls, isNotEmpty, reason: 'connecting did not look it up');
-      expect(lookup.calls.last, isTrue, reason: 'not routed through the tunnel');
+      expect(lookup.calls.last, isTrue,
+          reason: 'not routed through the tunnel');
       expect(state.exitAddress?.ip, '203.0.113.7');
     });
 

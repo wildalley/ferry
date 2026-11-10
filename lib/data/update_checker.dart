@@ -10,8 +10,8 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'bounded_http.dart';
 import 'local_proxy.dart';
 
 /// A published release, as much of it as the prompt needs.
@@ -60,7 +60,7 @@ class UpdateChecker {
   UpdateChecker({
     this.repository = 'wildalley/ferry',
     HttpClient? httpClient,
-  }) : _httpClient = httpClient ?? HttpClient();
+  }) : _httpClient = httpClient ?? (HttpClient()..connectionTimeout = _timeout);
 
   /// `owner/name` on GitHub.
   final String repository;
@@ -79,41 +79,52 @@ class UpdateChecker {
   Future<AppRelease> latest({
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     routeHttp(
       _httpClient,
       viaLocalProxy: viaLocalProxy,
       localProxyPort: localProxyPort,
+      localProxySecret: localProxySecret,
     );
     final uri =
         Uri.parse('https://api.github.com/repos/$repository/releases/latest');
-    final request = await _httpClient.getUrl(uri).timeout(_timeout);
-    request.headers
-      ..set(HttpHeaders.acceptHeader, 'application/vnd.github+json')
-      ..set(HttpHeaders.userAgentHeader, 'singbox-client-update-check');
-    final response = await request.close().timeout(_timeout);
-    if (response.statusCode != HttpStatus.ok) {
-      await response.drain<void>();
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
-    }
-    final builder = BytesBuilder(copy: false);
-    await response.forEach((chunk) {
-      if (builder.length + chunk.length > _maxBytes) {
-        throw const FormatException('release response too large');
-      }
-      builder.add(chunk);
-    }).timeout(_timeout);
-    return parseRelease(utf8.decode(builder.takeBytes()));
+    final bytes = await getBoundedBytes(
+      _httpClient,
+      uri,
+      timeout: _timeout,
+      maxBytes: _maxBytes,
+      headers: {
+        HttpHeaders.acceptHeader: 'application/vnd.github+json',
+        HttpHeaders.userAgentHeader: 'singbox-client-update-check',
+      },
+    );
+    return parseRelease(utf8.decode(bytes), repository: repository);
   }
 
   /// Reads the fields the prompt needs out of a `releases/latest` body.
-  static AppRelease parseRelease(String body) {
+  static AppRelease parseRelease(
+    String body, {
+    String repository = 'wildalley/ferry',
+  }) {
     final decoded = jsonDecode(body);
     if (decoded is! Map) throw const FormatException('not a release');
     final tag = decoded['tag_name']?.toString() ?? '';
     final version = parseAppVersion(tag);
     final url = decoded['html_url']?.toString() ?? '';
-    if (version == null || !url.startsWith('https://')) {
+    final uri = Uri.tryParse(url);
+    final expectedPath = '/$repository/releases/tag/$tag';
+    if (version == null ||
+        uri == null ||
+        uri.scheme != 'https' ||
+        uri.host != 'github.com' ||
+        uri.userInfo.isNotEmpty ||
+        uri.port != 443 ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        uri.path != expectedPath ||
+        tag.contains('/') ||
+        !RegExp(r'^v?\d+\.\d+\.\d+(?:\+\d+)?$').hasMatch(tag)) {
       throw const FormatException('release without a version or page');
     }
     final notes = decoded['body']?.toString().trim();

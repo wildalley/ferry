@@ -1218,4 +1218,51 @@ class L10nEn extends L10n {
   @override
   String get subscriptionUserAgentHelp =>
       'Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription.';
+
+  @override
+  String get storageUnavailable => 'Secure storage is unavailable';
+
+  @override
+  String get storageRecoveryBody =>
+      'Your saved data has been retained. Unlock the system keyring (Secret Service on Linux), then try again. If the device encryption key was lost, restore the original device or re-import your subscriptions after reinstalling. Ferry will not erase or overwrite the existing vault.';
+
+  @override
+  String get storageOpening => 'Opening…';
+
+  @override
+  String get storageRetry => 'Try again';
+
+  @override
+  String get storageExit => 'Exit';
+
+  @override
+  String get settingsProxyAuth => 'Local proxy authentication';
+
+  @override
+  String get settingsProxyAuthAndroid =>
+      'Required on Android. Other apps need the credentials below to use this proxy.';
+
+  @override
+  String get settingsProxyAuthDesktop =>
+      'Require credentials for HTTP/SOCKS clients. Some apps using the system proxy cannot authenticate.';
+
+  @override
+  String get settingsProxyCredentials => 'Show proxy credentials';
+
+  @override
+  String get settingsProxyCredentialsBody =>
+      'Use this username and password in trusted proxy clients. These credentials allow traffic through your proxy.';
+
+  @override
+  String get plainHttpWarning =>
+      'This subscription uses unencrypted HTTP. Its address, token and content can be read or modified in transit.';
+
+  @override
+  String get insecureTlsWarning => 'TLS certificate verification is disabled';
+
+  @override
+  String get proxyUsername => 'Username';
+
+  @override
+  String get proxyPassword => 'Password';
 }

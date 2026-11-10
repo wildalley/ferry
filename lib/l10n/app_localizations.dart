@@ -63,7 +63,7 @@ import 'app_localizations_zh.dart';
 /// property.
 abstract class L10n {
   L10n(String locale)
-      : localeName = intl.Intl.canonicalizedLocale(locale.toString());
+    : localeName = intl.Intl.canonicalizedLocale(locale.toString());
 
   final String localeName;
 
@@ -85,16 +85,16 @@ abstract class L10n {
   /// of delegates is preferred or required.
   static const List<LocalizationsDelegate<dynamic>> localizationsDelegates =
       <LocalizationsDelegate<dynamic>>[
-    delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-  ];
+        delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ];
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
-    Locale('zh')
+    Locale('zh'),
   ];
 
   /// No description provided for @appTitle.
@@ -2136,6 +2136,90 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription.'**
   String get subscriptionUserAgentHelp;
+
+  /// No description provided for @storageUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure storage is unavailable'**
+  String get storageUnavailable;
+
+  /// No description provided for @storageRecoveryBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your saved data has been retained. Unlock the system keyring (Secret Service on Linux), then try again. If the device encryption key was lost, restore the original device or re-import your subscriptions after reinstalling. Ferry will not erase or overwrite the existing vault.'**
+  String get storageRecoveryBody;
+
+  /// No description provided for @storageOpening.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening…'**
+  String get storageOpening;
+
+  /// No description provided for @storageRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get storageRetry;
+
+  /// No description provided for @storageExit.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit'**
+  String get storageExit;
+
+  /// No description provided for @settingsProxyAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Local proxy authentication'**
+  String get settingsProxyAuth;
+
+  /// No description provided for @settingsProxyAuthAndroid.
+  ///
+  /// In en, this message translates to:
+  /// **'Required on Android. Other apps need the credentials below to use this proxy.'**
+  String get settingsProxyAuthAndroid;
+
+  /// No description provided for @settingsProxyAuthDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Require credentials for HTTP/SOCKS clients. Some apps using the system proxy cannot authenticate.'**
+  String get settingsProxyAuthDesktop;
+
+  /// No description provided for @settingsProxyCredentials.
+  ///
+  /// In en, this message translates to:
+  /// **'Show proxy credentials'**
+  String get settingsProxyCredentials;
+
+  /// No description provided for @settingsProxyCredentialsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this username and password in trusted proxy clients. These credentials allow traffic through your proxy.'**
+  String get settingsProxyCredentialsBody;
+
+  /// No description provided for @plainHttpWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This subscription uses unencrypted HTTP. Its address, token and content can be read or modified in transit.'**
+  String get plainHttpWarning;
+
+  /// No description provided for @insecureTlsWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'TLS certificate verification is disabled'**
+  String get insecureTlsWarning;
+
+  /// No description provided for @proxyUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get proxyUsername;
+
+  /// No description provided for @proxyPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get proxyPassword;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
@@ -2164,8 +2248,9 @@ L10n lookupL10n(Locale locale) {
   }
 
   throw FlutterError(
-      'L10n.delegate failed to load unsupported locale "$locale". This is likely '
-      'an issue with the localizations generation tool. Please file an issue '
-      'on GitHub with a reproducible sample app and the gen-l10n configuration '
-      'that was used.');
+    'L10n.delegate failed to load unsupported locale "$locale". This is likely '
+    'an issue with the localizations generation tool. Please file an issue '
+    'on GitHub with a reproducible sample app and the gen-l10n configuration '
+    'that was used.',
+  );
 }

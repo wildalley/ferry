@@ -789,6 +789,16 @@ class _NodeRow extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (node.raw['tls'] is Map &&
+                          (node.raw['tls'] as Map)['insecure'] == true) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(
+                            message: l10n.insecureTlsWarning,
+                            child: Icon(Icons.gpp_bad_outlined,
+                                size: 16,
+                                color: palette.amber,
+                                semanticLabel: l10n.insecureTlsWarning)),
+                      ],
                       if (compact && node.favorite) ...[
                         const SizedBox(width: 4),
                         Icon(Icons.star_rounded,
@@ -1295,7 +1305,7 @@ class _ChainSheetState extends State<_ChainSheet> {
                     padding: const EdgeInsets.fromLTRB(
                         Gap.xl, Gap.sm, Gap.xl, Gap.xl),
                     itemCount: candidates.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: Gap.sm),
+                    separatorBuilder: (_, _) => const SizedBox(height: Gap.sm),
                     itemBuilder: (context, index) {
                       final candidate = candidates[index];
                       final selected = _detourNodeId == candidate.id;

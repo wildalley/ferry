@@ -1130,4 +1130,49 @@ class L10nZh extends L10n {
   @override
   String get subscriptionUserAgentHelp =>
       '订阅服务端会按它决定返回的格式。留空使用默认值。修改链接或 User-Agent 后保存会立即更新订阅。';
+
+  @override
+  String get storageUnavailable => '无法打开安全存储';
+
+  @override
+  String get storageRecoveryBody =>
+      '已保留原有数据。请解锁系统密钥库（Linux 需运行 Secret Service），然后重试。若设备加密密钥已丢失，请恢复原设备，或重新安装后重新导入订阅。渡不会自动清空或覆盖现有密钥库。';
+
+  @override
+  String get storageOpening => '正在打开…';
+
+  @override
+  String get storageRetry => '重试';
+
+  @override
+  String get storageExit => '退出';
+
+  @override
+  String get settingsProxyAuth => '本地代理鉴权';
+
+  @override
+  String get settingsProxyAuthAndroid => 'Android 默认强制开启。其他应用使用此代理时需填写下方凭据。';
+
+  @override
+  String get settingsProxyAuthDesktop =>
+      'HTTP/SOCKS 客户端需填写凭据。部分使用系统代理的应用不支持鉴权。';
+
+  @override
+  String get settingsProxyCredentials => '查看代理凭据';
+
+  @override
+  String get settingsProxyCredentialsBody =>
+      '请在可信代理客户端中填写以下用户名和密码。持有凭据的应用可使用你的代理。';
+
+  @override
+  String get plainHttpWarning => '此订阅使用未加密的 HTTP，传输中的地址、令牌和内容可能被读取或篡改。';
+
+  @override
+  String get insecureTlsWarning => '已跳过 TLS 证书验证';
+
+  @override
+  String get proxyUsername => '用户名';
+
+  @override
+  String get proxyPassword => '密码';
 }

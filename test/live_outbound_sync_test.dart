@@ -54,6 +54,7 @@ class _FakeImporter extends Importer {
     Subscription subscription, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async =>
       (
         subscription: subscription.copyWith(

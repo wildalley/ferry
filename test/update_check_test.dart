@@ -29,6 +29,7 @@ class FakeChecker extends UpdateChecker {
   Future<AppRelease> latest({
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     calls++;
     if (fails || release == null) throw const SocketException('offline');
@@ -58,6 +59,21 @@ Future<({AppState state, Storage storage})> harness(FakeChecker checker,
 }
 
 void main() {
+  test('release pages must match the exact repository and tag', () {
+    for (final url in [
+      'https://github.com.evil.invalid/wildalley/ferry/releases/tag/v1.0.0',
+      'https://github.com/other/ferry/releases/tag/v1.0.0',
+      'https://github.com/wildalley/ferry/releases/tag/v9.0.0',
+      'https://user@github.com/wildalley/ferry/releases/tag/v1.0.0',
+      'https://github.com/wildalley/ferry/releases/tag/v1.0.0?next=evil',
+    ]) {
+      expect(
+          () => UpdateChecker.parseRelease(
+              '{"tag_name":"v1.0.0","html_url":"$url"}'),
+          throwsFormatException);
+    }
+  });
+
   group('versions', () {
     test('tags and build suffixes parse to three numbers', () {
       expect(parseAppVersion('v0.3.1'), [0, 3, 1]);

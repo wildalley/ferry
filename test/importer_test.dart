@@ -8,6 +8,38 @@ import 'package:ferry/models/node.dart';
 import 'package:ferry/models/subscription.dart';
 
 void main() {
+  test('large payload parses off-isolate with the same nodes', () async {
+    final importer = Importer();
+    final payload = jsonEncode({
+      'outbounds': List.generate(
+          1000,
+          (i) => {
+                'type': 'trojan',
+                'tag': 'Node $i',
+                'server': 'node$i.example.invalid',
+                'server_port': 443,
+                'password': 'p',
+              })
+    });
+    final result = await importer.importText(payload);
+    expect(result.nodes.length, 1000);
+    expect(result.nodes.last.name, 'Node 999');
+    importer.dispose();
+  });
+
+  test('file size is rejected before unbounded decoding', () async {
+    final dir = await Directory.systemTemp.createTemp('ferry-import-limit-');
+    addTearDown(() => dir.delete(recursive: true));
+    final file = File('${dir.path}/huge.json');
+    final output = await file.open(mode: FileMode.write);
+    await output.truncate(4 * 1024 * 1024 + 1);
+    await output.close();
+    final importer = Importer();
+    addTearDown(importer.dispose);
+    await expectLater(
+        importer.importFile(file.path), throwsA(isA<ImportException>()));
+  });
+
   late Importer importer;
 
   setUp(() => importer = Importer());
@@ -367,7 +399,8 @@ void main() {
           ConfigBuilder.defaultLocalProxyPort,
         );
       } on SocketException {
-        markTestSkipped('port ${ConfigBuilder.defaultLocalProxyPort} is in use');
+        markTestSkipped(
+            'port ${ConfigBuilder.defaultLocalProxyPort} is in use');
         return;
       }
       addTearDown(() => inbound.close());

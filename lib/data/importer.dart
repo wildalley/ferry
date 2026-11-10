@@ -6,10 +6,13 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 
 import '../models/node.dart';
 import '../models/subscription.dart';
 import '../version.dart';
+import 'bounded_http.dart';
 import 'clash_parser.dart';
 import 'local_proxy.dart';
 import 'share_link_parser.dart';
@@ -56,10 +59,6 @@ class ImportResult {
   final int? totalBytes;
 }
 
-class _ResponseTooLarge implements Exception {
-  const _ResponseTooLarge();
-}
-
 class Importer {
   Importer({HttpClient? httpClient}) : _sharedClient = httpClient;
 
@@ -91,20 +90,15 @@ class Importer {
     String? subscriptionId,
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
+    _checkInputSize(text);
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
       throw ImportException(
         'Nothing to import',
         failure: SubscriptionFailure.badSource,
       );
-    }
-
-    if (_looksLikeJson(trimmed)) {
-      return importSingBoxConfig(trimmed, subscriptionId: subscriptionId);
-    }
-    if (ClashParser.looksLikeClash(trimmed)) {
-      return importClashConfig(trimmed, subscriptionId: subscriptionId);
     }
 
     // A bare http(s) URL is a subscription, not an http:// proxy share link:
@@ -115,10 +109,11 @@ class Importer {
         subscriptionId: subscriptionId,
         viaLocalProxy: viaLocalProxy,
         localProxyPort: localProxyPort,
+        localProxySecret: localProxySecret,
       );
     }
 
-    return importShareLinks(trimmed, subscriptionId: subscriptionId);
+    return _parsePayload(trimmed, subscriptionId);
   }
 
   /// Parses one or many share links, transparently unwrapping a base64 blob.
@@ -217,7 +212,13 @@ class Importer {
         failure: SubscriptionFailure.badSource,
       );
     }
-    final content = await file.readAsString();
+    if (await file.length() > _maxResponseBytes) _tooLarge();
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in file.openRead()) {
+      if (chunk.length > _maxResponseBytes - bytes.length) _tooLarge();
+      bytes.add(chunk);
+    }
+    final content = utf8.decode(bytes.takeBytes());
     return importText(content, subscriptionId: subscriptionId);
   }
 
@@ -239,6 +240,7 @@ class Importer {
     String? subscriptionId,
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
     String? userAgent,
   }) async {
     final Uri uri;
@@ -267,6 +269,7 @@ class Importer {
           subscriptionId: subscriptionId,
           viaLocalProxy: throughTunnel,
           localProxyPort: localProxyPort,
+          localProxySecret: localProxySecret,
           userAgent: userAgent,
         );
       } on ImportException catch (error) {
@@ -288,6 +291,7 @@ class Importer {
     String? subscriptionId,
     required bool viaLocalProxy,
     int? localProxyPort,
+    String? localProxySecret,
     String? userAgent,
   }) async {
     if (_disposed) {
@@ -305,6 +309,7 @@ class Importer {
             subscriptionId: subscriptionId,
             viaLocalProxy: viaLocalProxy,
             localProxyPort: localProxyPort,
+            localProxySecret: localProxySecret,
             userAgent: userAgent,
           ),
         );
@@ -317,6 +322,7 @@ class Importer {
         subscriptionId: subscriptionId,
         viaLocalProxy: viaLocalProxy,
         localProxyPort: localProxyPort,
+        localProxySecret: localProxySecret,
         userAgent: userAgent,
         closeClient: true,
       );
@@ -355,7 +361,7 @@ class Importer {
     final result = previous.then((_) => operation());
     _sharedClientTail = result.then<void>(
       (_) {},
-      onError: (Object _, StackTrace __) {},
+      onError: (Object _, StackTrace _) {},
     );
     return result;
   }
@@ -366,6 +372,7 @@ class Importer {
     String? subscriptionId,
     required bool viaLocalProxy,
     int? localProxyPort,
+    String? localProxySecret,
     String? userAgent,
     bool closeClient = false,
   }) async {
@@ -375,38 +382,31 @@ class Importer {
         client,
         viaLocalProxy: viaLocalProxy,
         localProxyPort: localProxyPort,
+        localProxySecret: localProxySecret,
       );
 
       late HttpClientResponse response;
       String body;
       try {
-        final deadline = DateTime.now().add(_timeout);
-        Duration remaining() {
-          final value = deadline.difference(DateTime.now());
-          if (value <= Duration.zero) {
-            throw TimeoutException('subscription fetch timed out');
-          }
-          return value;
-        }
-
-        final request = await client.getUrl(uri).timeout(remaining());
-        request.headers.set(
-          HttpHeaders.userAgentHeader,
-          switch (userAgent?.trim()) {
-            final String value when value.isNotEmpty => value,
-            _ => defaultUserAgent,
+        body = utf8.decode(await getBoundedBytes(
+          client,
+          uri,
+          timeout: _timeout,
+          maxBytes: _maxResponseBytes,
+          headers: {
+            HttpHeaders.userAgentHeader: switch (userAgent?.trim()) {
+              final String value when value.isNotEmpty => value,
+              _ => defaultUserAgent,
+            }
           },
-        );
-        response = await request.close().timeout(remaining());
-        if (response.contentLength > _maxResponseBytes) {
-          throw const _ResponseTooLarge();
-        }
-        body = await _readResponse(response).timeout(remaining());
-      } on _ResponseTooLarge {
-        throw ImportException(
-          'Subscription response exceeds ${_maxResponseBytes ~/ (1024 * 1024)} MiB',
-          failure: SubscriptionFailure.responseTooLarge,
-        );
+          onResponse: (value) => response = value,
+        ));
+      } on HttpBodyTooLarge {
+        _tooLarge();
+      } on HttpStatusException catch (error) {
+        throw ImportException('Subscription returned HTTP ${error.statusCode}',
+            failure: SubscriptionFailure.httpStatus,
+            statusCode: error.statusCode);
       } on TimeoutException catch (error) {
         throw ImportException(
           'Subscription fetch timed out: ${_redact(error)}',
@@ -425,20 +425,7 @@ class Importer {
         );
       }
 
-      if (response.statusCode != HttpStatus.ok) {
-        throw ImportException(
-          'Subscription returned HTTP ${response.statusCode}',
-          failure: SubscriptionFailure.httpStatus,
-          statusCode: response.statusCode,
-        );
-      }
-
-      final trimmedBody = body.trim();
-      final base = _looksLikeJson(trimmedBody)
-          ? importSingBoxConfig(body, subscriptionId: subscriptionId)
-          : ClashParser.looksLikeClash(trimmedBody)
-              ? importClashConfig(body, subscriptionId: subscriptionId)
-              : importShareLinks(body, subscriptionId: subscriptionId);
+      final base = await _parsePayload(body, subscriptionId);
 
       final info =
           _parseUserInfo(response.headers.value('subscription-userinfo'));
@@ -459,15 +446,34 @@ class Importer {
     }
   }
 
-  static Future<String> _readResponse(HttpClientResponse response) async {
-    final bytes = <int>[];
-    await for (final chunk in response) {
-      bytes.addAll(chunk);
-      if (bytes.length > _maxResponseBytes) {
-        throw const _ResponseTooLarge();
-      }
+  static Never _tooLarge() => throw ImportException('Import exceeds 4 MiB',
+      failure: SubscriptionFailure.responseTooLarge);
+
+  static void _checkInputSize(String text) {
+    if (text.length > _maxResponseBytes ||
+        utf8.encode(text).length > _maxResponseBytes) {
+      _tooLarge();
     }
-    return utf8.decode(bytes);
+  }
+
+  static Future<ImportResult> _parsePayload(String text, String? id) {
+    // A static closure captures only the payload, never HttpClient or the UI.
+    if (text.length >= 64 * 1024) {
+      return Isolate.run(() => _parsePayloadSync(text, id));
+    }
+    return Future.value(_parsePayloadSync(text, id));
+  }
+
+  static ImportResult _parsePayloadSync(String text, String? id) {
+    final parser = Importer();
+    final trimmed = text.trim();
+    if (_looksLikeJson(trimmed)) {
+      return parser.importSingBoxConfig(trimmed, subscriptionId: id);
+    }
+    if (ClashParser.looksLikeClash(trimmed)) {
+      return parser.importClashConfig(trimmed, subscriptionId: id);
+    }
+    return parser.importShareLinks(trimmed, subscriptionId: id);
   }
 
   /// Re-fetches [subscription] and returns the refreshed nodes and metadata.
@@ -475,6 +481,7 @@ class Importer {
     Subscription subscription, {
     bool viaLocalProxy = false,
     int? localProxyPort,
+    String? localProxySecret,
   }) async {
     final url = subscription.url;
     if (url == null || url.isEmpty) {
@@ -488,6 +495,7 @@ class Importer {
       subscriptionId: subscription.id,
       viaLocalProxy: viaLocalProxy,
       localProxyPort: localProxyPort,
+      localProxySecret: localProxySecret,
       userAgent: subscription.userAgent,
     );
     return (

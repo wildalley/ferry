@@ -710,5 +710,19 @@
   "subscriptionUrl": "Subscription URL",
   "subscriptionUrlInvalid": "Enter an http or https URL",
   "subscriptionUserAgent": "User-Agent",
-  "subscriptionUserAgentHelp": "Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription."
+  "subscriptionUserAgentHelp": "Panels choose the format by this. Leave empty for the default. Saving a new URL or User-Agent updates the subscription.",
+  "storageUnavailable": "Secure storage is unavailable",
+  "storageRecoveryBody": "Your saved data has been retained. Unlock the system keyring (Secret Service on Linux), then try again. If the device encryption key was lost, restore the original device or re-import your subscriptions after reinstalling. Ferry will not erase or overwrite the existing vault.",
+  "storageOpening": "Opening…",
+  "storageRetry": "Try again",
+  "storageExit": "Exit",
+  "settingsProxyAuth": "Local proxy authentication",
+  "settingsProxyAuthAndroid": "Required on Android. Other apps need the credentials below to use this proxy.",
+  "settingsProxyAuthDesktop": "Require credentials for HTTP/SOCKS clients. Some apps using the system proxy cannot authenticate.",
+  "settingsProxyCredentials": "Show proxy credentials",
+  "settingsProxyCredentialsBody": "Use this username and password in trusted proxy clients. These credentials allow traffic through your proxy.",
+  "plainHttpWarning": "This subscription uses unencrypted HTTP. Its address, token and content can be read or modified in transit.",
+  "insecureTlsWarning": "TLS certificate verification is disabled",
+  "proxyUsername": "Username",
+  "proxyPassword": "Password"
 }
