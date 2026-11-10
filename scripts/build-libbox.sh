@@ -14,11 +14,11 @@
 # Source pins and reviewed patches live in scripts/core-pins.json.
 set -euo pipefail
 
-SINGBOX_TAG="${SINGBOX_TAG:-v1.13.19}"
+SINGBOX_TAG="${SINGBOX_TAG:-v1.14.4}"
 # sing-box pins its own gomobile fork; the upstream one produces different
 # bindings and will not compile against experimental/libbox.
-SINGBOX_COMMIT="${SINGBOX_COMMIT:-b5ebaa1fc0f2b94256180b95468e73ef53caa27d}"
-GOMOBILE_VERSION="${GOMOBILE_VERSION:-b2c30f47825831593d6980af8191527490f9c968}"
+SINGBOX_COMMIT="${SINGBOX_COMMIT:-c005f35300ce76427dc285481ec5695f5b179cd2}"
+GOMOBILE_VERSION="${GOMOBILE_VERSION:-9f03b8f25789099c5c8abef4a02085da783ba923}"
 WITH_TAILSCALE="${WITH_TAILSCALE:-0}"
 ABIS="${ABIS:-android/arm64}"
 

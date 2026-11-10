@@ -58,7 +58,9 @@ class BoxPlatform(private val service: SingBoxVpnService) : PlatformInterface {
                 builder.addRoute("::", 0)
             }
 
-            runCatching { builder.addDnsServer(options.dnsServerAddress.value) }
+            // 1.14 can provide more than one DNS server. Do not silently start
+            // a tunnel with no DNS if the platform rejects an address.
+            options.dnsServerAddress.toList().forEach { builder.addDnsServer(it) }
         }
 
         // Per-app routing. Our own package must stay outside the tunnel or the
@@ -105,8 +107,6 @@ class BoxPlatform(private val service: SingBoxVpnService) : PlatformInterface {
         service.protect(fd)
     }
 
-    override fun useProcFS(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-
     override fun findConnectionOwner(
         ipProtocol: Int,
         sourceAddress: String,
@@ -114,14 +114,18 @@ class BoxPlatform(private val service: SingBoxVpnService) : PlatformInterface {
         destinationAddress: String,
         destinationPort: Int,
     ): io.nekohasekai.libbox.ConnectionOwner {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            error("connection owner lookup requires Android 10+")
+        // 1.14 moved the pre-Android-10 procfs fallback into this public API.
+        val uid = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            io.nekohasekai.libbox.Libbox.findConnectionOwner(
+                ipProtocol, sourceAddress, sourcePort, destinationAddress, destinationPort,
+            ).userId
+        } else {
+            connectivity.getConnectionOwnerUid(
+                ipProtocol,
+                InetSocketAddress(sourceAddress, sourcePort),
+                InetSocketAddress(destinationAddress, destinationPort),
+            )
         }
-        val uid = connectivity.getConnectionOwnerUid(
-            ipProtocol,
-            InetSocketAddress(sourceAddress, sourcePort),
-            InetSocketAddress(destinationAddress, destinationPort),
-        )
         if (uid == android.os.Process.INVALID_UID) error("connection owner not found")
 
         val owner = io.nekohasekai.libbox.ConnectionOwner()
@@ -150,6 +154,7 @@ class BoxPlatform(private val service: SingBoxVpnService) : PlatformInterface {
             item.mtu = runCatching { java.mtu }.getOrDefault(1500)
             item.addresses = StringArrayIterator(cidrAddresses(java))
             item.dnsServer = StringArrayIterator(emptyList())
+            item.gateway = StringArrayIterator(emptyList())
             item.flags = buildFlags(java)
             item.type = interfaceType(name, capabilities)
             item.metered = capabilities?.hasCapability(
@@ -284,9 +289,34 @@ class BoxPlatform(private val service: SingBoxVpnService) : PlatformInterface {
 
     override fun clearDNSCache() = Unit
 
-    override fun systemCertificates(): StringIterator = StringArrayIterator(emptyList())
-
     override fun sendNotification(notification: Notification) = Unit
+
+    override fun cancelNotification(identifier: String, typeID: Int) = Unit
+
+    // Android does not expose a neighbor table to unprivileged VPN apps.
+    override fun startNeighborMonitor(listener: io.nekohasekai.libbox.NeighborUpdateListener) {
+        throw UnsupportedOperationException("Neighbor monitoring is unavailable on Android")
+    }
+    override fun closeNeighborMonitor(listener: io.nekohasekai.libbox.NeighborUpdateListener) = Unit
+    override fun registerMyInterface(name: String) = Unit
+
+    override fun usePlatformShell(): Boolean = false
+    override fun checkPlatformShell() { unsupportedPlatformFeature() }
+    override fun openShellSession(
+        user: io.nekohasekai.libbox.PlatformUser?, command: String,
+        environ: StringIterator?, term: String, rows: Int, cols: Int,
+    ): io.nekohasekai.libbox.ShellSession = unsupportedPlatformFeature()
+    override fun lookupUser(username: String): io.nekohasekai.libbox.PlatformUser =
+        unsupportedPlatformFeature()
+    override fun lookupSFTPServer(): String = unsupportedPlatformFeature()
+    override fun readSystemSSHHostKey(): String = unsupportedPlatformFeature()
+    override fun tailscaleHostname(): String = ""
+    override fun usePlatformBridge(): Boolean = false
+    override fun createBridge(options: io.nekohasekai.libbox.BridgeOptions?):
+        io.nekohasekai.libbox.BridgeSession = unsupportedPlatformFeature()
+
+    private fun unsupportedPlatformFeature(): Nothing =
+        throw UnsupportedOperationException("Shell and bridge services are unavailable")
 
     private companion object {
         const val SESSION_NAME = "渡"

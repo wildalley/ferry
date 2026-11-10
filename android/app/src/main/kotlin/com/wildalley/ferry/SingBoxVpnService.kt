@@ -150,7 +150,7 @@ class SingBoxVpnService : VpnService() {
                     logMaxLines = 300
                 }
             )
-            Libbox.setMemoryLimit(true)
+            Libbox.configureFerryMemory()
             libboxReady = true
         }
     }
@@ -419,6 +419,13 @@ class SingBoxVpnService : VpnService() {
 
         override fun setSystemProxyEnabled(enabled: Boolean) = Unit
 
+        override fun triggerNativeCrash() {
+            throw UnsupportedOperationException("Native crash injection is disabled")
+        }
+
+        override fun connectSSHAgent(): Int =
+            throw UnsupportedOperationException("SSH agent forwarding is unavailable")
+
         override fun writeDebugMessage(message: String) {
             Log.d(TAG, message)
         }
@@ -508,6 +515,9 @@ class SingBoxVpnService : VpnService() {
         }
 
         override fun writeConnectionEvents(events: ConnectionEvents) = Unit
+
+        // This client subscribes to groups, not the optional flat outbound list.
+        override fun writeOutbounds(message: io.nekohasekai.libbox.OutboundGroupItemIterator) = Unit
     }
 
     companion object {

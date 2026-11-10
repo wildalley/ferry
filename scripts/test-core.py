@@ -27,7 +27,8 @@ def main():
     manifest = json.loads((source / 'ferry-sources.json').read_text())
     env = {**os.environ, 'GOEXPERIMENT': 'nojsonv2', 'GOWORK': 'off',
            'DOCKER_HOST': 'unix://' + str(source / 'no-docker.sock')}
-    options = ['-count=1', '-timeout=5m', '-tags=' + TAGS, '-ldflags=-checklinkname=0']
+    # Network namespace creation is privileged and outside this loopback suite.
+    options = ['-skip=^TestUnshareNamespace$', '-count=1', '-timeout=5m', '-tags=' + TAGS, '-ldflags=-checklinkname=0']
     regression = source / 'ferry-regression'
     regression.mkdir(exist_ok=True)
     for path in (Path(__file__).resolve().parent / 'core-tests').glob('*.go'):

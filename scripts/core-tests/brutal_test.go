@@ -18,7 +18,7 @@ func (r fixedRTT) SmoothedRTT() time.Duration { return r.rtt }
 func TestBrutalLowRTTProgress(t *testing.T) {
 	for _, rtt := range []time.Duration{time.Nanosecond, time.Microsecond, 10 * time.Microsecond} {
 		for _, size := range []congestion.ByteCount{1252, 1400} {
-			sender := brutal.NewBrutalSender(100*1000*1000/8, false, nil)
+			sender := brutal.NewBrutalSender(100*1000*1000/8, 1252, false, nil)
 			sender.SetRTTStatsProvider(fixedRTT{rtt: rtt})
 			sender.SetMaxDatagramSize(size)
 			if sender.GetCongestionWindow() < size {
@@ -37,7 +37,7 @@ func TestBrutalLowRTTProgress(t *testing.T) {
 }
 
 func TestBrutalNormalRTTKeepsBandwidthWindow(t *testing.T) {
-	sender := brutal.NewBrutalSender(100*1000*1000/8, false, nil)
+	sender := brutal.NewBrutalSender(100*1000*1000/8, 1252, false, nil)
 	sender.SetRTTStatsProvider(fixedRTT{rtt: 20 * time.Millisecond})
 	if got := sender.GetCongestionWindow(); got != 500000 {
 		t.Fatalf("normal RTT bandwidth window changed: %d", got)

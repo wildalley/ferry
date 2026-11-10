@@ -86,8 +86,9 @@ func TestDNSLoopbackTransports(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Cleanup(func() { client.Close() })
-			if err := client.Start(adapter.StartStateStart); err != nil {
+			scope := adapter.NewScope(context.Background(), log.NewNOPFactory().Logger())
+			t.Cleanup(func() { scope.Close() })
+			if err := client.Start(adapter.StartStateStart, scope); err != nil {
 				t.Fatal(err)
 			}
 			// Query after both Reset and a timeout to catch stale connection or
