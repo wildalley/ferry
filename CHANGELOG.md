@@ -1,5 +1,36 @@
 # Changelog / 更新日志
 
+## 0.4.2 — 2026-11-10
+
+### 中文
+
+- **内核升级**：Android 和 Windows 使用 sing-box 1.14.4，保留依赖安全升级及 Hysteria2 低延迟窗口修复；适配新版 Android DNS、平台回调和资源释放接口。
+- **Linux TUN 授权**：补齐 Debian/Ubuntu、Arch 的授权工具依赖，分别提示取消、缺工具、认证失败和权限复查失败。支持 NixOS 声明式 capability 包装器，发行版说明见 Linux TUN 指南。
+- **凭据保护**：节点、订阅和本地代理/API 凭据迁入平台凭据库；迁移须写入并回读成功后才清除旧数据，Android 备份排除凭据。密钥库不可用时保留数据并提示恢复。
+- **本地代理鉴权**：Android 默认启用随机凭据；桌面默认关闭以兼容系统代理，可在设置中启用。开启鉴权后，连接本地 HTTP/SOCKS 端口的外部应用需要支持代理认证；普通 TUN 流量不受此项影响。
+- **稳定性与性能**：串行处理核心操作并过滤过期回调，限制 HTTP/日志缓冲和并发轮询；后台暂停展示动画，大订阅解析移至后台，保留已支持协议。
+- **构建与发布**：固定核心及工具链，校验 APK 签名和 16 KiB 对齐；所有平台通过后才发布，附带 SHA256SUMS、依赖清单和构建来源证明，依赖扫描告警或失败会阻断发布。
+- **清理**：移除旧品牌设计稿、废弃背景素材及组件，统一图标生成入口，更新双语说明和待办。
+
+**升级说明**：Android 正式 APK 沿用既有发布证书，可覆盖升级 0.3.1 及之后的正式签名版本。请在 Linux 上安装 sing-box ≥ 1.12，推荐使用发行版提供的当前稳定版；Windows 包内附带核心。首次升级涉及凭据迁移，桌面凭据库需要可用且已解锁。
+
+**已知边界**：1.14 核心使 APK 比前版增大约 19 MiB（发布候选约 89 MiB）；各发行版真实授权、Android/Windows 实机协议和长时内存验收仍有待完成，不将回归测试结果等同于全部设备稳定性验证。
+
+### English
+
+- **Core**: Android and Windows now use sing-box 1.14.4 with security dependency upgrades and the Hysteria2 low-RTT window fix. Android bindings follow the new DNS, platform callback and resource lifecycle interfaces.
+- **Linux TUN**: package authorization tools, distinguish cancellation and authentication/preflight failures, and verify capabilities after granting them. Support declarative NixOS wrappers with distribution-specific setup guidance.
+- **Credentials**: migrate node, subscription and local proxy/API credentials to platform secure storage, verify writes before deleting old values, and exclude credentials from Android backup. Unavailable stores preserve data and offer recovery.
+- **Proxy authentication**: random credentials are required on Android; desktop authentication remains optional and off by default. External HTTP/SOCKS clients must support authentication when enabled. Normal TUN traffic does not use this proxy login.
+- **Reliability and performance**: serialize core operations, reject stale callbacks, bound HTTP/log buffering and polling, pause presentation work in the background, and parse large subscriptions off the UI isolate.
+- **Builds and cleanup**: pin native sources/toolchains, enforce signature/alignment and dependency checks, publish only after every platform passes, and include checksums, inventories and provenance. Remove obsolete design assets and unused artwork code.
+
+**Upgrading**: the official Android APK retains the existing signing certificate and can update official releases from 0.3.1 onward. Linux requires a separately installed sing-box ≥ 1.12; Windows includes its core. Desktop credential storage must be available and unlocked for migration.
+
+**Known limits**: the new core adds about 19 MiB to the APK (the release candidate is about 89 MiB). Broader device, distribution authorization and long-running memory validation remains outstanding.
+
+Downloads: Android arm64 APK, Linux amd64 deb, Arch Linux x86_64 package, Windows x64 ZIP.
+
 ## 0.4.1
 
 ### 中文

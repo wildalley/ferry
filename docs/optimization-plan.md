@@ -3,11 +3,10 @@
 更新：2026-11-10。本文只保留当前剩余工作；本轮改动、性能/体积基线及验证结果见
 [优化实施记录](optimization-implementation-2026-11-10.md)，历史设计与已完成计划可从 Git 历史查看。
 
-## 发布前必须处理
+## 发布与设备验收
 
 | 优先级 | 工作 | 完成标准 |
 | --- | --- | --- |
-| P0 | 生产签名隔离 | 配置 GitHub `release` environment 的允许 refs/审批，把 FERRY_KEY* 从仓库级迁入该环境；验证非发布构建无法取得生产密钥 |
 | P1 | 正式发布验收 | 1.14.4 核心提交 `142046a` 的 verify、deb/APK、Windows、Arch 已全部成功，运行 `42777929330`；正式 tag 的生产证书、发布摘要与来源证明仍需受保护发布验收 |
 | P1 | 真实凭据库迁移 | Android Keystore、Windows 凭据库、Linux Secret Service 分别验证旧数据迁移、锁定/解锁、部分失败重试、密钥丢失、升级和备份/设备迁移行为 |
 | P1 | Android 生命周期与协议 | 本地 HTTP/2、gRPC、WebSocket、Hysteria2、TUIC、DNS 回归已通过；仍须实机验证慢启动后立即停止、连续重载、VPN 撤销、服务重建及部分初始化失败，至少 100 轮连接循环，检查 QUIC/WireGuard/TUN/DNS 和 JNI 绑定 |
@@ -47,6 +46,7 @@ Android 后台串行化消除了主线程等待，但停止仍需等待正在执
 - 有界 HTTP/取消、Linux 轮询去重、隐藏窗口明细降负载、订阅后台解析和 QR 解码前预算。
 - 凭据库迁移、随机代理密码、Android 备份排除、更新链接限制、Linux 提权路径校验。
 - 核心裁剪、Dart 符号分离、工具链/源码固定、签名/对齐检查、SBOM/OSV 与发布门槛。
+- 正式签名配置已迁入仅允许 `v*` 标签的 `release` 环境，仓库级重复配置已删除；标签/版本/更新日志一致性校验已加入。
 - 代理鉴权与系统代理组合提示、凭据持久性说明；实际 Maven 依赖清单导出和 CI 审计。
 - Gradle JVM 限额与进程树采样；2 workers 本机耗时回退，未设为默认。
 - 内置核心升级至 1.14.4、Android 平台接口适配、原生依赖安全升级、Go 1.27 HTTP/2 兼容、Hysteria2 低 RTT 窗口修复；Android/Windows 同源构建、补丁来源和 APK 摘要校验。见[核心补丁说明](../patches/sing-box/README.md)。

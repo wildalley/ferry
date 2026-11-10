@@ -10,12 +10,18 @@
 - **Linux** 托管一个系统里已安装的 `sing-box`，通过它的 Clash API 控制。原因是 `libbox.aar` 只能用于 Android，而桌面上的 TUN 需要一项进程内库无法自己获取的权限。
 - **Windows** 用同样的方式托管随安装包附带的 `sing-box.exe`。系统代理模式通过 WinINet 暴露本地的 mixed 代理；TUN 模式使用 sing-box 内置的 Wintun 支持，并通过 UAC 提权。
 
+## 当前版本
+
+**v0.4.2** 将 Android/Windows 内核升级至 **1.14.4-ferry.1**，补齐凭据保护、
+Linux TUN 授权并清理旧素材。升级说明和兼容性边界见 [更新日志](CHANGELOG.md#042--2026-11-10)。
+Linux 继续使用系统安装的内核。
+
 ## 功能
 
 **代理运行时（Android）**
 
 - 前台 `VpnService` 管理 VPN 生命周期，带通知栏和停止按钮
-- 通过 `CommandServer` / `CommandClient` 驱动 sing-box v1.13
+- 通过 `CommandServer` / `CommandClient` 驱动 sing-box 1.14.4
 - 界面实时显示状态、流量计数，以及有上限、可清空的日志
 - 通过 `selector` 出站在运行中切换节点，不需要重启隧道
 - `urltest` 组可作为一个出口选项，由内核自己挑选最快的节点
@@ -183,7 +189,7 @@ flutter analyze
 flutter test
 ```
 
-截至 2026-11-10，715 个测试通过、21 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
+截至 2026-11-10，713 个测试通过、21 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
 
 视觉回归截图需要设置环境变量才会运行，因为它们依赖本机字体渲染，只在录制它们的机器上有意义：
 

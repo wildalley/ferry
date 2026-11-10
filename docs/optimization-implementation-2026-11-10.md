@@ -6,7 +6,7 @@
 
 ## 本次升级至 1.14.4
 
-当前内置核心改为 **1.14.4-ferry.1**，应用构建号 **0.4.1+22**。下文 1.13.19 的测量和
+内核升级阶段使用 **1.14.4-ferry.1**，本地验证构建号 **0.4.1+22**；正式发布版本更新为 **0.4.2+23**。下文 1.13.19 的测量和
 流水线编号是升级前的历史记录，不代表本次结果。
 
 - Android/Windows 统一上游 v1.14.4 固定提交，gomobile 更新至 v0.1.13 对应提交；
@@ -26,6 +26,16 @@
   普通分支 release 按设计跳过。远端 Android/Windows 分别扫描 314/171 项，无告警，版本和补丁树摘要与本地一致。
 - 本机已通过包管理器升级到 **ferry 0.4.1-22**，29 个 bundle 文件逐一匹配、64 个安装文件无缺失；
   系统 `sing-box 1.14.4-1` 保留原有 `cap_net_admin,cap_net_raw=ep`。未启动真实 TUN 或修改系统代理。
+
+## v0.4.2 发布整理
+
+- 更新双语 README 与 CHANGELOG；发布说明直接取匹配版本的更新日志，标签与 pubspec 版本不一致时阻断。
+- 删除 23 个已被现行 Ferry 品牌取代的设计稿、素材及旧测试，合计约 5.1 MiB；
+  删除未被界面调用的 SignalArtwork 组件。保留现行图标、视觉基准、许可和诊断记录。
+- `scripts/build-icons.sh` 统一调用代码图标生成器，移除旧 SVG/raster master 路径；
+  打包必须具备四个已生成的 Linux 图标尺寸，不再静默退回旧品牌。
+- 应用版本与界面常量统一为 `0.4.2`，Android 构建号 23；沿用既有正式签名，未创建新密钥。
+- 一次性迁移流程仅输出 release 环境公钥加密的密文，迁移完成后删除该流程和临时产物。
 
 ## CI 故障证据
 
@@ -87,7 +97,7 @@ Linux 需要正在运行且已解锁的 Secret Service，发行包已补 libsecr
 - Linux Flutter 3.47.2 下载增加官方 SHA-256；Gradle 9.3.1 wrapper 增加发行包摘要。
 - sing-box v1.13.19 固定提交 `b5ebaa1fc0f2b94256180b95468e73ef53caa27d`；gomobile 固定提交 `b2c30f47825831593d6980af8191527490f9c968`，缓存包含这些构建输入和脚本。
 - 发布要求 verify、deb/APK、Windows、Arch 全部成功，取消部分平台发布。
-- 正式 tag 使用 `release` environment；其他构建不恢复发布签名。**仓库维护者仍须配置 environment 的受信任 refs/审批规则，并将 FERRY_KEY* 从 repository secrets 迁入该环境**，YAML 引用本身不创建保护规则。
+- 正式 tag 使用 `release` environment；其他构建不恢复发布签名。2026-11-10 已创建仅允许 `v*` 标签的 `release` 环境，将四项 FERRY_KEY* 配置加密迁入并删除仓库级副本；普通分支使用不含签名配置的 `build` 环境。管理员仍能修改仓库及保护规则，这不是对管理员的隔离。
 - 已从现有 v0.4.1 公开发行 APK 核实发布证书 SHA-256：`2e414a31434c01f6ad7cd0ed80dcdca3f9de9c3983644a150f5110ea6c7ebbcc`。签名验证成功后才匹配证书，兼容新旧 apksigner 展示格式，换钥需显式审查。
 - 输出 CycloneDX 包清单、OSV 告警、发布 SHA256SUMS，并在正式发布前生成 GitHub 构建来源证明。Android 和 Windows 分别从原生二进制的 Go build info 提取实际链接模块；不会把所有 go.mod 构建工具依赖都当成已打包内容。
 - Dart 锁定依赖扫描失败会阻断 verify。Go 告警在普通分支与正式 tag **均阻断构建**，失败时保留报告。网络或扫描失败不会被当成“无漏洞”。

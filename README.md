@@ -16,13 +16,20 @@ capability no in-process library can grant itself. Windows supervises a bundled
 proxy through WinINet; TUN mode uses sing-box's embedded Wintun support and UAC
 elevation.
 
+## Current release
+
+**v0.4.2** upgrades the Android/Windows core to **1.14.4-ferry.1**, improves
+credential protection and Linux TUN authorization, and removes obsolete assets.
+See [upgrade notes and compatibility limits](CHANGELOG.md#042--2026-11-10).
+Linux continues to use the system-installed core.
+
 ## Features
 
 **Proxy runtime (Android)**
 
 - Foreground `VpnService` owning the VPN lifecycle, with a notification and a
   stop action
-- sing-box v1.13 driven through `CommandServer` / `CommandClient`
+- sing-box 1.14.4 driven through `CommandServer` / `CommandClient`
 - Live status, traffic counters, and a bounded, clearable log stream in the UI
 - Runtime node switching via the `selector` outbound, without restarting the
   tunnel
@@ -309,7 +316,7 @@ flutter analyze
 flutter test
 ```
 
-As of 2026-11-10, 715 tests pass and 21 are skipped: share-link parsing — including the uTLS
+As of 2026-11-10, 713 tests pass and 21 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
 placement, policy-group rendering, live switching and rule-sets, Clash YAML import (with
