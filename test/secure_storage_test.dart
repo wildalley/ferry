@@ -75,6 +75,61 @@ void main() {
     expect((await SharedPreferences.getInstance()).getString('nodes.v1'), '{broken');
   });
 
+  group('Android device fallback', () {
+    SecretStore device(SharedPreferences prefs) => DeviceSecretStore(prefs);
+
+    test('a keystore that fails on first use falls back and keeps legacy data',
+        () async {
+      final broken = _Vault()..failKey = 'nodes.v1';
+      final storage =
+          await Storage.open(secrets: broken, deviceFallback: device);
+      expect(storage.readClashSecret(), 'legacy-token');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('secret_backend.v1'), 'device');
+      for (final key in legacy.keys) {
+        expect(prefs.containsKey(key), isFalse);
+      }
+      // The choice sticks even once the keystore recovers: the data is there.
+      final reopened =
+          await Storage.open(secrets: _Vault(), deviceFallback: device);
+      expect(reopened.readClashSecret(), 'legacy-token');
+      expect(reopened.readProxySecret(), storage.readProxySecret());
+    });
+
+    test('a vault that already held the data is never swapped out', () async {
+      await Storage.open(secrets: _Vault(), deviceFallback: device);
+      await expectLater(
+          Storage.open(secrets: _Vault(), deviceFallback: device),
+          throwsA(isA<SecureStorageUnavailable>()
+              .having((e) => e.detail, 'detail', 'vault-missing')));
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('secret_backend.v1'), isFalse);
+    });
+
+    test('corrupt legacy data is not mistaken for a broken keystore',
+        () async {
+      SharedPreferences.setMockInitialValues(
+          {...legacy, 'nodes.v1': '{broken'});
+      await expectLater(
+          Storage.open(secrets: _Vault(), deviceFallback: device),
+          throwsA(isA<SecureStorageUnavailable>()
+              .having((e) => e.detail, 'detail', 'invalid-data')));
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('nodes.v1'), '{broken');
+      expect(prefs.containsKey('secret_backend.v1'), isFalse);
+    });
+  });
+
+  test('a failure reports its cause without any stored value', () async {
+    final vault = _Vault()..failKey = 'clash_secret.v1';
+    await expectLater(
+        Storage.open(secrets: vault),
+        throwsA(isA<SecureStorageUnavailable>()
+            .having((e) => e.detail, 'detail', 'StateError')
+            .having((e) => e.toString(), 'text',
+                isNot(contains('legacy-token')))));
+  });
+
   test('a failed write keeps cached data and does not poison later writes',
       () async {
     final vault = _Vault();
