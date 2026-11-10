@@ -48,7 +48,9 @@ class MainActivity : FlutterActivity() {
                                 override fun onEvent(event: Map<String, Any?>) {
                                     // libbox emits from its own threads; the
                                     // channel requires the main thread.
-                                    runOnUiThread { eventSink?.success(event) }
+                                    runOnUiThread {
+                                        if (event["session"] == BoxEvents.session) eventSink?.success(event)
+                                    }
                                 }
                             }
                         )
@@ -104,15 +106,8 @@ class MainActivity : FlutterActivity() {
                     // has already stopped, so this is intentionally a no-op.
                     result.success(null)
                 } else {
-                    try {
-                        service.clearLogs()
-                        result.success(null)
-                    } catch (error: Throwable) {
-                        result.error(
-                            "clear_logs_failed",
-                            error.message ?: "Could not clear logs",
-                            null,
-                        )
+                    service.clearLogs { error ->
+                        completeCommand(result, "clear_logs_failed", error)
                     }
                 }
             }
@@ -127,8 +122,9 @@ class MainActivity : FlutterActivity() {
                 if (service == null) {
                     result.error("not_running", "The tunnel is not running", null)
                 } else {
-                    service.reload(config)
-                    result.success(null)
+                    service.reload(config) { error ->
+                        completeCommand(result, "reload_failed", error)
+                    }
                 }
             }
 
@@ -144,15 +140,8 @@ class MainActivity : FlutterActivity() {
                 if (service == null) {
                     result.error("not_running", "The tunnel is not running", null)
                 } else {
-                    try {
-                        service.selectOutbound(group, tag)
-                        result.success(null)
-                    } catch (error: Throwable) {
-                        result.error(
-                            "select_outbound_failed",
-                            error.message ?: "Could not switch outbound",
-                            null,
-                        )
+                    service.selectOutbound(group, tag) { error ->
+                        completeCommand(result, "select_outbound_failed", error)
                     }
                 }
             }
@@ -166,11 +155,8 @@ class MainActivity : FlutterActivity() {
                 if (service == null) {
                     result.error("not_running", "The tunnel is not running", null)
                 } else {
-                    try {
-                        service.urlTest(PROXY_GROUP)
-                        result.success(null)
-                    } catch (error: Throwable) {
-                        result.error("url_test_failed", error.message ?: "urlTest failed", null)
+                    service.urlTest(PROXY_GROUP) { error ->
+                        completeCommand(result, "url_test_failed", error)
                     }
                 }
             }
@@ -214,6 +200,11 @@ class MainActivity : FlutterActivity() {
 
             else -> result.notImplemented()
         }
+    }
+
+    private fun completeCommand(result: MethodChannel.Result, code: String, error: Throwable?) {
+        if (error == null) result.success(null)
+        else result.error(code, "Proxy engine operation failed or was cancelled", null)
     }
 
     private fun requestVpnPermission(result: MethodChannel.Result) {

@@ -7,6 +7,7 @@
 library;
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -42,7 +43,21 @@ Future<String?> pickQrImage(BuildContext context) async {
     ],
   );
   if (file == null) return null;
-  final text = await decodeQrImage(await file.readAsBytes());
+  String? text;
+  try {
+    if (await file.length() <= maxQrImageBytes) {
+      final bytes = BytesBuilder(copy: false);
+      await for (final chunk in file.openRead()) {
+        if (chunk.length > maxQrImageBytes - bytes.length) {
+          throw const FormatException('Image too large');
+        }
+        bytes.add(chunk);
+      }
+      text = await decodeQrImage(bytes.takeBytes());
+    }
+  } on Object {
+    // File permission/read failures and oversized files use the same UI path.
+  }
   if (text == null) {
     messenger?.showSnackBar(SnackBar(content: Text(l10n.qrNotFound)));
   }

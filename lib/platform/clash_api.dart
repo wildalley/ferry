@@ -20,6 +20,7 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -44,6 +45,7 @@ class ClashApiClient {
     this.host = '127.0.0.1',
     this.requestTimeout = const Duration(seconds: 8),
     this.webSocketTimeout = const Duration(seconds: 8),
+    this.maxResponseBytes = 8 * 1024 * 1024,
     http.Client? client,
     ClashSocketConnector? connector,
   })  : _client = client ?? http.Client(),
@@ -59,6 +61,9 @@ class ClashApiClient {
 
   /// Bounds WebSocket connection and close operations during engine churn.
   final Duration webSocketTimeout;
+  final int maxResponseBytes;
+  final _pendingRequests = <Completer<void>>{};
+  bool _disposed = false;
 
   final http.Client _client;
   final bool _ownsClient;
@@ -143,13 +148,11 @@ class ClashApiClient {
   /// Points [group] at [member]. Throws on refusal, so the caller can report a
   /// failed switch instead of showing one that did not happen.
   Future<void> select(String group, String member) async {
-    final response = await _client
-        .put(
-          _uri('/proxies/${Uri.encodeComponent(group)}'),
-          headers: {..._headers, 'Content-Type': 'application/json'},
-          body: jsonEncode({'name': member}),
-        )
-        .timeout(requestTimeout);
+    final response = await _request(
+      'PUT',
+      _uri('/proxies/${Uri.encodeComponent(group)}'),
+      body: jsonEncode({'name': member}),
+    );
     if (response.statusCode ~/ 100 != 2) {
       throw ClashApiException(
         'select $member: HTTP ${response.statusCode}',
@@ -232,25 +235,50 @@ class ClashApiClient {
   /// a full snapshot goes out whenever any of them moves.
   ///
   /// Cancelling the subscription closes all three sockets.
-  Stream<ProxyTraffic> traffic() {
+  Stream<ProxyTraffic> traffic({bool Function()? includeConnectionDetails}) {
     var up = 0, down = 0, upTotal = 0, downTotal = 0, count = 0, memory = 0;
     var list = const <ProxyConnection>[];
     late StreamController<ProxyTraffic> controller;
     final sockets = <ClashSocket>[];
+    final subscriptions = <StreamSubscription<Object?>>[];
     var cancelled = false;
 
-    void push() => controller.add(ProxyTraffic(
-          uplink: up,
-          downlink: down,
-          uplinkTotal: upTotal,
-          downlinkTotal: downTotal,
-          // The Clash API counts connections without a direction; the UI's two
-          // slots come from libbox. Reporting the same number in both would
-          // read as twice the connections, so only inbound is filled.
-          connectionsIn: count,
-          memory: memory,
-          connectionList: list,
-        ));
+    void push() {
+      if (cancelled) return;
+      controller.add(ProxyTraffic(
+        uplink: up,
+        downlink: down,
+        uplinkTotal: upTotal,
+        downlinkTotal: downTotal,
+        // The Clash API counts connections without a direction; the UI's two
+        // slots come from libbox. Reporting the same number in both would
+        // read as twice the connections, so only inbound is filled.
+        connectionsIn: count,
+        memory: memory,
+        connectionList: list,
+      ));
+    }
+
+    Future<void> closeSocket(ClashSocket socket) async {
+      try {
+        await socket.close().timeout(webSocketTimeout);
+      } on Object {
+        // The engine may already be gone or refuse the close handshake.
+      }
+    }
+
+    Future<ClashSocket> connect(String path) {
+      var abandoned = false;
+      // Future.timeout does not cancel the handshake. Reclaim a socket that
+      // arrives after its caller has timed out, including after cancellation.
+      return _connect(_uri(path), _headers).then((socket) {
+        if (abandoned) unawaited(closeSocket(socket));
+        return socket;
+      }).timeout(webSocketTimeout, onTimeout: () {
+        abandoned = true;
+        throw TimeoutException('control WebSocket timed out');
+      });
+    }
 
     Future<void> open() async {
       for (final (path, handler)
@@ -269,7 +297,9 @@ class ClashApiClient {
             downTotal = _int(frame['downloadTotal']);
             final connections = frame['connections'];
             count = connections is List ? connections.length : 0;
-            list = parseConnections(connections);
+            list = (includeConnectionDetails?.call() ?? true)
+                ? parseConnections(connections)
+                : const [];
             // Present on sing-box, absent on some Clash implementations; the
             // /memory socket below is the primary source either way.
             final inline = _int(frame['memory']);
@@ -279,19 +309,18 @@ class ClashApiClient {
         ('/memory', (frame) => memory = _int(frame['inuse'])),
       ]) {
         if (cancelled) break;
-        final socket =
-            await _connect(_uri(path), _headers).timeout(webSocketTimeout);
+        final socket = await connect(path);
         if (cancelled) {
-          try {
-            await socket.close().timeout(webSocketTimeout);
-          } on Object {
-            // The socket may already be gone.
-          }
+          await closeSocket(socket);
           break;
         }
         sockets.add(socket);
-        socket.frames.listen(
+        subscriptions.add(socket.frames.listen(
           (frame) {
+            if (cancelled ||
+                (frame is String && frame.length > maxResponseBytes)) {
+              return;
+            }
             final decoded = _decode(frame);
             if (decoded == null) return;
             handler(decoded);
@@ -301,25 +330,27 @@ class ClashApiClient {
           // the engine closing /memory still leaves rates worth showing.
           onError: (Object _) {},
           cancelOnError: false,
-        );
+        ));
       }
     }
 
     Future<void> shut() async {
       cancelled = true;
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      subscriptions.clear();
       for (final socket in sockets) {
-        try {
-          await socket.close().timeout(webSocketTimeout);
-        } on Object {
-          // Already gone.
-        }
+        await closeSocket(socket);
       }
       sockets.clear();
     }
 
     controller = StreamController<ProxyTraffic>(
       onListen: () => open().onError((error, _) {
-        if (!controller.isClosed) controller.addError(error ?? 'socket failed');
+        if (!cancelled && !controller.isClosed) {
+          controller.addError(error ?? 'socket failed');
+        }
       }),
       onCancel: shut,
     );
@@ -332,9 +363,8 @@ class ClashApiClient {
     Duration? timeout,
   }) async {
     try {
-      final response = await _client
-          .get(_uri(path, query), headers: _headers)
-          .timeout(timeout ?? requestTimeout);
+      final response =
+          await _request('GET', _uri(path, query), timeout: timeout);
       if (response.statusCode ~/ 100 != 2) return null;
       final decoded = jsonDecode(response.body);
       return decoded is Map ? Map<String, Object?>.from(decoded) : null;
@@ -346,8 +376,71 @@ class ClashApiClient {
     }
   }
 
+  Future<http.Response> _request(
+    String method,
+    Uri uri, {
+    String? body,
+    Duration? timeout,
+  }) async {
+    if (_disposed) throw StateError('Clash client is disposed');
+    final abort = Completer<void>();
+    _pendingRequests.add(abort);
+    final watch = Stopwatch()..start();
+    final budget = timeout ?? requestTimeout;
+    Duration remaining() {
+      final duration = budget - watch.elapsed;
+      if (duration <= Duration.zero) {
+        throw TimeoutException('Control HTTP timed out');
+      }
+      return duration;
+    }
+
+    final request =
+        http.AbortableRequest(method, uri, abortTrigger: abort.future)
+          ..headers.addAll(_headers);
+    if (body != null) {
+      request.headers['Content-Type'] = 'application/json';
+      request.body = body;
+    }
+    StreamIterator<List<int>>? stream;
+    var finished = false;
+    try {
+      final response = await _client.send(request).then((response) {
+        if (finished) response.stream.listen(null).cancel().ignore();
+        return response;
+      }).timeout(remaining());
+      if (response.statusCode ~/ 100 != 2 ||
+          (response.contentLength ?? 0) > maxResponseBytes) {
+        response.stream.listen(null).cancel().ignore();
+        if (response.statusCode ~/ 100 != 2) {
+          return http.Response('', response.statusCode);
+        }
+        throw const FormatException('Control response too large');
+      }
+      final bytes = BytesBuilder(copy: false);
+      stream = StreamIterator(response.stream);
+      while (await stream.moveNext().timeout(remaining())) {
+        if (stream.current.length > maxResponseBytes - bytes.length) {
+          throw const FormatException('Control response too large');
+        }
+        bytes.add(stream.current);
+      }
+      return http.Response.bytes(bytes.takeBytes(), response.statusCode,
+          headers: response.headers);
+    } finally {
+      finished = true;
+      if (!abort.isCompleted) abort.complete();
+      _pendingRequests.remove(abort);
+      await stream?.cancel();
+    }
+  }
+
   /// Releases the HTTP client, when this object made it.
   void dispose() {
+    _disposed = true;
+    for (final abort in _pendingRequests) {
+      if (!abort.isCompleted) abort.complete();
+    }
     if (_ownsClient) _client.close();
   }
 
@@ -376,7 +469,7 @@ class ClashApiClient {
     if (raw is! List) return const [];
     return [
       for (final item in raw)
-        if (ProxyConnection.fromClash(item) case final c?) c,
+        ?ProxyConnection.fromClash(item),
     ];
   }
 

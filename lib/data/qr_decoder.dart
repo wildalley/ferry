@@ -17,6 +17,8 @@ import 'package:zxing2/qrcode.dart';
 /// a QR code in it is still hundreds of pixels across at this size, while the
 /// decode gets an order of magnitude cheaper.
 const _maxEdge = 1600;
+const maxQrImageBytes = 16 * 1024 * 1024;
+const maxQrImagePixels = 12 * 1024 * 1024;
 
 /// The text in the first QR code found in [bytes], or null when there is none
 /// or the bytes are not an image. Runs off the UI isolate.
@@ -25,7 +27,34 @@ Future<String?> decodeQrImage(Uint8List bytes) =>
 
 /// [decodeQrImage] on the calling isolate, for tests.
 String? decodeQrImageSync(Uint8List bytes) {
-  var image = img.decodeImage(bytes);
+  if (bytes.length > maxQrImageBytes) return null;
+  img.Image? image;
+  try {
+    // Set the allocation budget before reading headers. Only formats the
+    // picker accepts are decoded; each decoder also checks frame dimensions.
+    final decoders = <img.Decoder>[
+      img.PngDecoder(maxPixels: maxQrImagePixels),
+      img.JpegDecoder(maxPixels: maxQrImagePixels),
+      img.GifDecoder()..maxPixels = maxQrImagePixels,
+      img.WebPDecoder()..maxPixels = maxQrImagePixels,
+      img.BmpDecoder(maxPixels: maxQrImagePixels),
+    ];
+    for (final decoder in decoders) {
+      if (!decoder.isValidFile(bytes)) continue;
+      final info = decoder.startDecode(bytes);
+      if (info == null ||
+          info.width <= 0 ||
+          info.height <= 0 ||
+          info.width * info.height > maxQrImagePixels) {
+        return null;
+      }
+      image = decoder.decodeFrame(0);
+      break;
+    }
+  } on Object {
+    // Includes malformed headers and decoder pixel-budget failures.
+    return null;
+  }
   if (image == null) return null;
   final longest = math.max(image.width, image.height);
   if (longest > _maxEdge) {
@@ -38,10 +67,8 @@ String? decodeQrImageSync(Uint8List bytes) {
   final pixels = Int32List(image.width * image.height);
   var i = 0;
   for (final p in image) {
-    pixels[i++] = 0xFF000000 |
-        (p.r.toInt() << 16) |
-        (p.g.toInt() << 8) |
-        p.b.toInt();
+    pixels[i++] =
+        0xFF000000 | (p.r.toInt() << 16) | (p.g.toInt() << 8) | p.b.toInt();
   }
   final source = RGBLuminanceSource(image.width, image.height, pixels);
   // The hybrid binarizer handles screenshots and photos alike; a photo of a
@@ -82,6 +109,7 @@ String? _utf8Repaired(Result result) {
   } on FormatException {
     return null;
   }
-  String ascii(String s) => String.fromCharCodes(s.runes.where((r) => r < 0x80));
+  String ascii(String s) =>
+      String.fromCharCodes(s.runes.where((r) => r < 0x80));
   return ascii(repaired) == ascii(text) ? repaired : null;
 }

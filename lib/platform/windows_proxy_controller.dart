@@ -19,6 +19,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../data/config_builder.dart';
+import '../data/bounded_http.dart';
 import '../models/proxy_state.dart';
 import 'app_paths.dart';
 import 'clash_api.dart' show ClashApiClient;
@@ -537,31 +538,24 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
       path: path,
       queryParameters: query,
     );
-    final deadline = DateTime.now().add(timeout);
-    Duration remaining() {
-      final value = deadline.difference(DateTime.now());
-      if (value <= Duration.zero) {
-        throw TimeoutException('control API timed out');
-      }
-      return value;
-    }
-
-    final request = await _apiClient.openUrl(method, uri).timeout(remaining());
-    request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $secret');
-    if (body != null) {
-      request.headers.contentType = ContentType.json;
-      request.write(body is String ? body : jsonEncode(body));
-    }
-    final response = await request.close().timeout(remaining());
-    final text =
-        await response.transform(utf8.decoder).join().timeout(remaining());
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'control API returned HTTP ${response.statusCode}',
-        uri: uri,
-      );
-    }
-    return text;
+    final bytes = await getBoundedBytes(
+      _apiClient,
+      uri,
+      method: method,
+      timeout: timeout,
+      maxBytes: 8 * 1024 * 1024,
+      acceptAny2xx: true,
+      headers: {
+        HttpHeaders.authorizationHeader: 'Bearer $secret',
+        if (body != null) HttpHeaders.contentTypeHeader: 'application/json',
+      },
+      requestBody: body == null
+          ? null
+          : body is String
+              ? body
+              : jsonEncode(body),
+    );
+    return utf8.decode(bytes);
   }
 
   Future<void> _pollStats({required int session}) async {
@@ -600,13 +594,15 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
         connectionsIn: _connections,
         connectionsOut: _connections,
         memory: _memory,
-        connectionList: ClashApiClient.parseConnections(decoded['connections']),
+        connectionList: trafficVisible
+            ? ClashApiClient.parseConnections(decoded['connections'])
+            : const [],
       ));
     } on Object {
       // A stopped process and a closing API socket are expected during
       // disconnect. Avoid turning a one-second poll into a log flood.
     } finally {
-      _statsInFlight = false;
+      if (sessionId == session) _statsInFlight = false;
     }
   }
 
@@ -663,7 +659,7 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
     } on Object {
       // See [_pollStats]. The next tick retries without retaining an error.
     } finally {
-      _groupsInFlight = false;
+      if (sessionId == session) _groupsInFlight = false;
     }
   }
 
@@ -782,8 +778,8 @@ class WindowsProxyController extends DesktopRuntime implements ProxyController {
 
   Future<Directory> _runtimeDirectory() async {
     final base = await appDataDirectory();
-    final path = base ??
-        '${Directory.current.path}${Platform.pathSeparator}.ferry';
+    final path =
+        base ?? '${Directory.current.path}${Platform.pathSeparator}.ferry';
     final directory = Directory('$path${Platform.pathSeparator}runtime');
     await directory.create(recursive: true);
     return directory;

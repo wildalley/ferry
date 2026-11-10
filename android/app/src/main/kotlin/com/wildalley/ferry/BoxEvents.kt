@@ -87,6 +87,7 @@ object BoxEvents {
         connectionsIn: Int,
         connectionsOut: Int,
         memory: Long,
+        eventSession: Long = session,
     ) {
         emit(
             mapOf(
@@ -98,12 +99,13 @@ object BoxEvents {
                 "connectionsIn" to connectionsIn,
                 "connectionsOut" to connectionsOut,
                 "memory" to memory,
-            )
+            ), eventSession
         )
     }
 
     @Synchronized
-    fun emitLog(message: String) {
+    fun emitLog(message: String, eventSession: Long = session) {
+        if (eventSession != session) return
         val now = SystemClock.elapsedRealtime()
         if (logWindowStartedAt == 0L || now - logWindowStartedAt >= LOG_WINDOW_MILLIS) {
             if (suppressedLogEvents > 0) {
@@ -111,7 +113,7 @@ object BoxEvents {
                     mapOf(
                         "type" to "log",
                         "message" to "WARN log stream: $suppressedLogEvents lines suppressed",
-                    )
+                    ), eventSession
                 )
             }
             logWindowStartedAt = now
@@ -124,7 +126,7 @@ object BoxEvents {
             return
         }
         logEventsInWindow++
-        emit(mapOf("type" to "log", "message" to message))
+        emit(mapOf("type" to "log", "message" to message), eventSession)
     }
 
     /** Resets bridge-side counters after the engine log buffer is cleared. */
@@ -143,11 +145,11 @@ object BoxEvents {
      * iterators it came from are only valid inside the callback that handed them
      * over.
      */
-    fun emitGroups(groups: List<Map<String, Any?>>) {
-        emit(mapOf("type" to "groups", "groups" to groups))
+    fun emitGroups(groups: List<Map<String, Any?>>, eventSession: Long = session) {
+        emit(mapOf("type" to "groups", "groups" to groups), eventSession)
     }
 
-    private fun emit(event: Map<String, Any?>) {
-        listener?.onEvent(event)
+    private fun emit(event: Map<String, Any?>, eventSession: Long = session) {
+        if (eventSession == session) listener?.onEvent(event + ("session" to eventSession))
     }
 }

@@ -25,7 +25,10 @@ import io.nekohasekai.libbox.StatusMessage
 import io.nekohasekai.libbox.StringIterator
 import io.nekohasekai.libbox.SystemProxyStatus
 import java.io.File
-import kotlin.concurrent.thread
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Runs sing-box inside a [VpnService].
@@ -45,19 +48,50 @@ class SingBoxVpnService : VpnService() {
     @Volatile
     private var acceptingLogs = false
 
-    /** Guards start/stop/reload against concurrent intents. */
-    private val lock = Any()
+    private val generation = AtomicLong()
+    // Only short state transitions hold this lock; no engine I/O is inside it.
+    private val stateLock = Any()
+
+    private fun newGeneration(): Long = synchronized(stateLock) {
+        acceptingLogs = false
+        generation.incrementAndGet()
+    }
+
+    private fun transition(token: Long, stage: BoxEvents.Stage, detail: String? = null) {
+        synchronized(stateLock) {
+            if (current(token)) BoxEvents.setStage(stage, detail)
+        }
+    }
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val tunLock = Any()
+    @Volatile private var destroyed = false
+    @Volatile private var serverLease: Any? = null
+
+    private fun current(token: Long) = !destroyed && generation.get() == token
+
+    // All Go calls share one process-wide executor. A replacement Service
+    // cannot start an engine while the destroyed instance is still closing.
+    private fun enqueueCommand(done: (Throwable?) -> Unit, block: () -> Unit) {
+        val token = generation.get()
+        engineExecutor.execute {
+            val error = runCatching {
+                check(current(token)) { "Tunnel operation cancelled" }
+                block()
+                check(current(token)) { "Tunnel operation cancelled" }
+            }.exceptionOrNull()
+            mainHandler.post { done(error) }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         instance = this
-        setupLibbox()
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            stopTunnel()
+            requestStop()
             return START_NOT_STICKY
         }
 
@@ -71,19 +105,30 @@ class SingBoxVpnService : VpnService() {
         startForegroundNotification(getString(R.string.notification_connecting))
         // Engine startup does blocking IO (rule-set downloads, DNS), so keep it
         // off the main thread or the service will ANR.
-        thread(name = "singbox-start") { startTunnel(config) }
+        val token = newGeneration()
+        acceptingLogs = false
+        engineExecutor.execute { runCatching { startTunnel(config, token) } }
         return START_STICKY
     }
 
     override fun onRevoke() {
         // The user revoked VPN permission, or another VPN took over.
         BoxEvents.setStage(BoxEvents.Stage.ERROR, "VPN permission was revoked")
-        stopTunnel()
+        requestStop()
         super.onRevoke()
     }
 
     override fun onDestroy() {
-        stopTunnel()
+        synchronized(stateLock) {
+            destroyed = true
+            generation.incrementAndGet()
+            acceptingLogs = false
+            if (instance === this && BoxEvents.stage != BoxEvents.Stage.ERROR) {
+                BoxEvents.beginSession()
+                BoxEvents.setStage(BoxEvents.Stage.DISCONNECTED)
+            }
+        }
+        engineExecutor.execute { closeEngine() }
         if (instance === this) instance = null
         super.onDestroy()
     }
@@ -94,7 +139,7 @@ class SingBoxVpnService : VpnService() {
         if (libboxReady) return
         val working = File(filesDir, "work").apply { mkdirs() }
         val temp = File(cacheDir, "temp").apply { mkdirs() }
-        runCatching {
+        run {
             Libbox.setup(
                 SetupOptions().apply {
                     basePath = filesDir.absolutePath
@@ -107,141 +152,146 @@ class SingBoxVpnService : VpnService() {
             )
             Libbox.setMemoryLimit(true)
             libboxReady = true
-        }.onFailure { Log.e(TAG, "libbox setup failed", it) }
-    }
-
-    private fun startTunnel(config: String) {
-        synchronized(lock) {
-            // A reload is a new logical generation too. Flutter may receive a
-            // delayed status callback from the previous config after this call.
-            BoxEvents.beginSession()
-            if (commandServer != null) {
-                // Already running: treat this as a config change.
-                acceptingLogs = true
-                runCatching { commandServer?.startOrReloadService(config, OverrideOptions()) }
-                    .onFailure { fail(it) }
-                return
-            }
-
-            BoxEvents.setStage(BoxEvents.Stage.STARTING)
-            acceptingLogs = true
-            try {
-                val server = Libbox.newCommandServer(ServerHandler(), platform)
-                server.start()
-                commandServer = server
-                // This is what actually parses the config and opens the tun.
-                server.startOrReloadService(config, OverrideOptions())
-
-                connectCommandClient()
-
-                BoxEvents.setStage(BoxEvents.Stage.CONNECTED)
-                updateNotification(getString(R.string.notification_connected))
-            } catch (error: Throwable) {
-                fail(error)
-                stopTunnel()
-            }
         }
     }
 
-    private fun stopTunnel() {
-        synchronized(lock) {
-            // libbox may finish a log callback after close/disconnect. Do not
-            // let stale failure output repopulate the viewer or flood the UI.
-            acceptingLogs = false
-            BoxEvents.resetLogThrottle()
-            if (commandServer == null && tunDescriptor == null) {
-                stopForegroundCompat()
-                stopSelf()
-                return
+    private fun startTunnel(config: String, token: Long) {
+        if (!current(token)) return
+        try {
+            setupLibbox()
+            synchronized(stateLock) {
+                if (!current(token)) return
+                BoxEvents.beginSession()
+                BoxEvents.setStage(BoxEvents.Stage.STARTING)
             }
-            // Preserve an error stage so the UI can explain what went wrong.
-            val failed = BoxEvents.stage == BoxEvents.Stage.ERROR
-            if (!failed) BoxEvents.setStage(BoxEvents.Stage.STOPPING)
-
+            acceptingLogs = false
+            // Replace the subscription on reload so old callbacks retain the
+            // old generation and can never be relabelled as current traffic.
             runCatching { commandClient?.disconnect() }
             commandClient = null
+            if (!current(token)) return
+            acceptingLogs = true
+            var server = commandServer
+            if (server == null) {
+                val lease = Any()
+                serverLease = lease
+                server = Libbox.newCommandServer(ServerHandler(lease), platform)
+                commandServer = server // own before the first throwing call
+                server.start()
+            }
+            if (!current(token)) { closeEngine(); return }
+            server.startOrReloadService(config, OverrideOptions())
+            if (!current(token)) { closeEngine(); return }
+            connectCommandClient(token)
+            if (!current(token)) { closeEngine(); return }
+            transition(token, BoxEvents.Stage.CONNECTED)
+            mainHandler.post {
+                if (current(token)) updateNotification(getString(R.string.notification_connected))
+            }
+        } catch (error: Throwable) {
+            fail(error, token)
+            closeEngine()
+            finishStop(token)
+            throw error
+        }
+    }
 
-            runCatching { commandServer?.closeService() }
-            runCatching { commandServer?.close() }
-            commandServer = null
+    private fun requestStop() {
+        val token = synchronized(stateLock) {
+            val next = newGeneration()
+            BoxEvents.beginSession()
+            if (BoxEvents.stage != BoxEvents.Stage.ERROR) {
+                BoxEvents.setStage(BoxEvents.Stage.STOPPING)
+            } else {
+                BoxEvents.setStage(BoxEvents.Stage.ERROR, BoxEvents.message)
+            }
+            next
+        }
+        engineExecutor.execute {
+            if (!current(token)) return@execute
+            closeEngine()
+            if (current(token) && BoxEvents.stage != BoxEvents.Stage.ERROR) {
+                transition(token, BoxEvents.Stage.DISCONNECTED)
+            }
+            finishStop(token)
+        }
+    }
 
+    private fun finishStop(token: Long) {
+        mainHandler.post {
+            // A newer start may already be queued while Go was shutting down.
+            if (current(token)) {
+                stopForegroundCompat()
+                stopSelf()
+            }
+        }
+    }
+
+    /** Only called on the engine executor, including partial-start failures. */
+    private fun closeEngine() {
+        acceptingLogs = false
+        serverLease = null
+        BoxEvents.resetLogThrottle()
+        val client = commandClient
+        commandClient = null
+        runCatching { client?.disconnect() }
+        val server = commandServer
+        commandServer = null
+        runCatching { server?.closeService() }
+        runCatching { server?.close() }
+        synchronized(tunLock) {
             runCatching { tunDescriptor?.close() }
             tunDescriptor = null
-
-            if (!failed) BoxEvents.setStage(BoxEvents.Stage.DISCONNECTED)
-            stopForegroundCompat()
-            stopSelf()
         }
     }
 
-    /** Applies a new config to the running engine without dropping the tun. */
-    fun reload(config: String) {
-        synchronized(lock) {
-            val server = commandServer ?: return
-            // Reload callbacks belong to a new logical runtime generation too.
-            // A fresh Flutter engine must not let a delayed status from the
-            // previous config win over the current one.
-            BoxEvents.beginSession()
-            acceptingLogs = true
-            runCatching { server.startOrReloadService(config, OverrideOptions()) }
-                .onFailure { fail(it) }
+    fun reload(config: String, done: (Throwable?) -> Unit) {
+        val token = newGeneration()
+        acceptingLogs = false
+        engineExecutor.execute {
+            val error = runCatching {
+                check(current(token)) { "Tunnel operation cancelled" }
+                check(commandServer != null) { "Tunnel is not connected" }
+                startTunnel(config, token)
+                check(current(token)) { "Tunnel operation cancelled" }
+            }.exceptionOrNull()
+            mainHandler.post { done(error) }
         }
     }
 
-    fun selectOutbound(group: String, tag: String) {
-        synchronized(lock) {
-            val client = commandClient
-                ?: throw IllegalStateException("not connected")
-            // Let the method-channel caller see a rejected command. Swallowing
-            // this exception made the Dart side commit a node that libbox had
-            // never selected.
+    fun selectOutbound(group: String, tag: String, done: (Throwable?) -> Unit) =
+        enqueueCommand(done) {
+            val client = commandClient ?: error("Tunnel is not connected")
             client.selectOutbound(group, tag)
         }
-    }
 
-    /**
-     * Asks the engine to URL-test every member of [group].
-     *
-     * Returns without waiting: libbox reports the results through the group
-     * subscription, which arrives at [ClientHandler.writeGroups]. Throws when
-     * the tunnel is not running, so the caller can fall back to its own probe.
-     */
-    fun urlTest(group: String) {
-        val client = commandClient ?: throw IllegalStateException("not connected")
+    fun urlTest(group: String, done: (Throwable?) -> Unit) = enqueueCommand(done) {
+        val client = commandClient ?: error("Tunnel is not connected")
         client.urlTest(group)
     }
 
-    /** Clears the command client's retained log buffer when the service exists. */
-    fun clearLogs() {
-        synchronized(lock) {
-            commandClient?.clearLogs()
-        }
+    fun clearLogs(done: (Throwable?) -> Unit) = enqueueCommand(done) {
+        commandClient?.clearLogs()
     }
 
-    private fun connectCommandClient() {
+    private fun connectCommandClient(token: Long) {
         val options = CommandClientOptions().apply {
             statusInterval = STATUS_INTERVAL_NANOS
-            // Subscribe before the client is built, so the first connect already
-            // carries the subscriptions.
             addCommand(Libbox.CommandStatus)
             addCommand(Libbox.CommandLog)
-            // Carries the URL-test delays: the only figures measured through the
-            // tunnel rather than by a TCP handshake from outside it.
             addCommand(Libbox.CommandGroup)
         }
-        val client = Libbox.newCommandClient(ClientHandler(), options)
+        val client = Libbox.newCommandClient(ClientHandler(token), options)
+        commandClient = client // connect can throw after allocating resources
         client.connect()
-        commandClient = client
     }
 
-    private fun fail(error: Throwable) {
+    private fun fail(error: Throwable, token: Long) {
         // Stop forwarding immediately, even when a reload fails and the
         // service is still alive long enough for libbox to flush its queue.
         acceptingLogs = false
-        val detail = error.message ?: error.toString()
-        Log.e(TAG, "sing-box failure: $detail", error)
-        BoxEvents.setStage(BoxEvents.Stage.ERROR, detail)
-        updateNotification(getString(R.string.notification_error))
+        Log.e(TAG, "sing-box failure (${error.javaClass.simpleName})")
+        transition(token, BoxEvents.Stage.ERROR, "Proxy engine operation failed")
     }
 
     // --------------------------------------------------------------- tun state
@@ -254,8 +304,14 @@ class SingBoxVpnService : VpnService() {
 
     /** Called by [BoxPlatform] after `establish()` so the fd stays open. */
     fun retainTunDescriptor(descriptor: ParcelFileDescriptor) {
-        runCatching { tunDescriptor?.close() }
-        tunDescriptor = descriptor
+        synchronized(tunLock) {
+            if (destroyed || !acceptingLogs) {
+                descriptor.close()
+                error("Tunnel start was cancelled")
+            }
+            runCatching { tunDescriptor?.close() }
+            tunDescriptor = descriptor
+        }
     }
 
     // ------------------------------------------------------------- notification
@@ -344,9 +400,9 @@ class SingBoxVpnService : VpnService() {
     // ------------------------------------------------------------- libbox hooks
 
     /** Commands libbox sends back to the platform. */
-    private inner class ServerHandler : CommandServerHandler {
+    private inner class ServerHandler(private val lease: Any) : CommandServerHandler {
         override fun serviceStop() {
-            stopTunnel()
+            if (serverLease === lease && acceptingLogs) requestStop()
         }
 
         override fun serviceReload() {
@@ -369,16 +425,19 @@ class SingBoxVpnService : VpnService() {
     }
 
     /** Status and log streams from the running engine. */
-    private inner class ClientHandler : CommandClientHandler {
+    private inner class ClientHandler(private val token: Long) : CommandClientHandler {
+        private val eventSession = BoxEvents.session
+        private fun active() = acceptingLogs && current(token)
         override fun connected() = Unit
 
         override fun disconnected(message: String) {
-            if (acceptingLogs && message.isNotEmpty()) {
-                BoxEvents.emitLog("disconnected: $message")
+            if (active() && message.isNotEmpty()) {
+                BoxEvents.emitLog("disconnected: $message", eventSession)
             }
         }
 
         override fun writeStatus(message: StatusMessage) {
+            if (!active()) return
             BoxEvents.emitTraffic(
                 uplink = message.uplink,
                 downlink = message.downlink,
@@ -387,16 +446,17 @@ class SingBoxVpnService : VpnService() {
                 connectionsIn = message.connectionsIn,
                 connectionsOut = message.connectionsOut,
                 memory = message.memory,
+                eventSession = eventSession,
             )
         }
 
         override fun writeLogs(messageList: LogIterator) {
-            while (acceptingLogs && messageList.hasNext()) {
-                BoxEvents.emitLog(messageList.next().message)
+            while (active() && messageList.hasNext()) {
+                BoxEvents.emitLog(messageList.next().message, eventSession)
             }
         }
 
-        override fun clearLogs() = BoxEvents.resetLogThrottle()
+        override fun clearLogs() { if (active()) BoxEvents.resetLogThrottle() }
 
         override fun setDefaultLogLevel(level: Int) = Unit
 
@@ -413,6 +473,7 @@ class SingBoxVpnService : VpnService() {
          * channel cannot carry the iterator itself.
          */
         override fun writeGroups(message: OutboundGroupIterator) {
+            if (!active()) return
             val groups = mutableListOf<Map<String, Any?>>()
             while (message.hasNext()) {
                 val group = message.next()
@@ -443,13 +504,16 @@ class SingBoxVpnService : VpnService() {
                     )
                 )
             }
-            if (groups.isNotEmpty()) BoxEvents.emitGroups(groups)
+            if (active() && groups.isNotEmpty()) BoxEvents.emitGroups(groups, eventSession)
         }
 
         override fun writeConnectionEvents(events: ConnectionEvents) = Unit
     }
 
     companion object {
+        private val engineExecutor = Executors.newSingleThreadExecutor { task ->
+            Thread(task, "ferry-engine").apply { isDaemon = true }
+        }
         const val ACTION_STOP = "com.wildalley.ferry.STOP"
         const val EXTRA_CONFIG = "config"
 

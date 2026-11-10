@@ -18,13 +18,18 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../models/proxy_state.dart';
+import 'proxy_controller_base.dart';
 
 /// Streams, session bookkeeping, and the lifecycle queue for a desktop runtime.
 ///
 /// Subclasses own a process and an API client; this owns what surrounds them.
 /// Members are protected by convention rather than by language: Dart has no
 /// `protected`, so the contract is that only a subclass touches them.
-abstract class DesktopRuntime {
+abstract class DesktopRuntime implements TrafficPresentation {
+  bool trafficVisible = true;
+
+  @override
+  void setTrafficVisible(bool visible) => trafficVisible = visible;
   final _stateController = StreamController<ProxyState>.broadcast();
   final _trafficController = StreamController<ProxyTraffic>.broadcast();
   final _logController = StreamController<ProxyLogEntry>.broadcast();
@@ -90,7 +95,7 @@ abstract class DesktopRuntime {
     final result = previous.then((_) => operation());
     _lifecycleTail = result.then<void>(
       (_) {},
-      onError: (Object _, StackTrace __) {},
+      onError: (Object _, StackTrace _) {},
     );
     return result;
   }

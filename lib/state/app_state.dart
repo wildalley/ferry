@@ -191,6 +191,10 @@ class AppState extends ChangeNotifier {
   void setWindowVisible(bool visible) {
     if (_disposed || _windowVisible == visible) return;
     _windowVisible = visible;
+    final controller = _controller;
+    if (controller is TrafficPresentation) {
+      (controller as TrafficPresentation).setTrafficVisible(visible);
+    }
     notifyListeners();
   }
 

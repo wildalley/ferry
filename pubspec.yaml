@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 0.4.1+21
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.8.0 <4.0.0'
   flutter: '>=3.47.0'
 
 dependencies:
@@ -13,7 +13,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   intl: any
-  http: ^1.5.0
+  http: ^1.6.0
   shared_preferences: ^2.5.3
   tray_manager: ^0.5.3
   window_manager: ^0.5.2

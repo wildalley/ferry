@@ -5,6 +5,11 @@ import 'dart:async';
 
 import '../models/proxy_state.dart';
 
+/// Optional presentation hint; the tunnel and counters remain live when hidden.
+abstract interface class TrafficPresentation {
+  void setTrafficVisible(bool visible);
+}
+
 /// The UI-facing contract shared by Android and desktop runtimes.
 abstract interface class ProxyController {
   Stream<ProxyState> get states;

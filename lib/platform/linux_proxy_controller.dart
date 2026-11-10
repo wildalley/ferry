@@ -66,6 +66,8 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
   LinuxSystemProxy? _systemProxy;
 
   Process? _process;
+  File? _configFile;
+  Future<void>? _teardownFuture;
 
   /// The binary the current or last start used: what the capability is asked for
   /// on, and what a permissions failure quotes in the `setcap` line.
@@ -74,6 +76,7 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
   ClashApiClient? _client;
   StreamSubscription<ProxyTraffic>? _trafficSub;
   Timer? _groupPoll;
+  int? _groupPollSession;
 
   /// Line pumps for the child's stdout and stderr, cancelled when it goes.
   final _outputSubs = <StreamSubscription<String>>[];
@@ -131,6 +134,7 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
     final configPath = '$dataDir${Platform.pathSeparator}config.json';
     try {
       final file = File(configPath);
+      _configFile = file;
       await file.writeAsString(configJson, flush: true);
       // Node credentials and the Clash API secret. Written before the engine
       // reads it, so the window where it is world-readable is not one where it
@@ -525,7 +529,8 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
 
   void _watchTraffic(ClashApiClient client, {required int session}) {
     _trafficSub?.cancel();
-    _trafficSub = client.traffic().listen(
+    _trafficSub =
+        client.traffic(includeConnectionDetails: () => trafficVisible).listen(
       (value) {
         if (sessionId == session && identical(_client, client)) {
           emitTraffic(value);
@@ -548,12 +553,17 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
   }
 
   Future<void> _pushGroup({required int session}) async {
-    if (sessionId != session) return;
+    if (sessionId != session || _groupPollSession == session) return;
     final client = _client;
     if (client == null) return;
-    final group = await client.group(ConfigTags.proxy);
-    if (group != null && sessionId == session && identical(_client, client)) {
-      emitGroup(group);
+    _groupPollSession = session;
+    try {
+      final group = await client.group(ConfigTags.proxy);
+      if (group != null && sessionId == session && identical(_client, client)) {
+        emitGroup(group);
+      }
+    } finally {
+      if (_groupPollSession == session) _groupPollSession = null;
     }
   }
 
@@ -593,7 +603,20 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
   /// nothing behind it. So a failure in any earlier step is logged and stepped
   /// over rather than allowed to skip it — which is exactly what the
   /// ConcurrentModificationError above used to do.
-  Future<void> _teardown() async {
+  Future<void> _teardown() {
+    final pending = _teardownFuture;
+    if (pending != null) return pending;
+    final operation = _teardownResources();
+    _teardownFuture = operation;
+    operation.whenComplete(() {
+      if (identical(_teardownFuture, operation)) _teardownFuture = null;
+    }).ignore();
+    return operation;
+  }
+
+  Future<void> _teardownResources() async {
+    final config = _configFile;
+    _configFile = null;
     try {
       _groupPoll?.cancel();
       _groupPoll = null;
@@ -619,6 +642,11 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
       // turn it into a failure notice for a stop that did in fact happen.
       log('teardown: $error');
     } finally {
+      try {
+        if (config != null && await config.exists()) await config.delete();
+      } on FileSystemException {
+        log('could not remove the temporary engine config');
+      }
       final proxy = _systemProxy;
       if (proxy != null) {
         await proxy.restore();

@@ -22,7 +22,8 @@ Uint8List qrPng(
   final matrix = Encoder.encode(
     text,
     ErrorCorrectionLevel.m,
-    hints: EncodeHints()..put(EncodeHintType.characterSet, CharacterSetECI.UTF8),
+    hints: EncodeHints()
+      ..put(EncodeHintType.characterSet, CharacterSetECI.UTF8),
   ).matrix!;
   final page = img.Image(width: width, height: height);
   img.fill(page, color: img.ColorRgb8(255, 255, 255));
@@ -45,6 +46,32 @@ Uint8List qrPng(
 }
 
 void main() {
+  test('rejects oversized input before decoding', () {
+    expect(decodeQrImageSync(Uint8List(maxQrImageBytes + 1)), isNull);
+  });
+
+  test('rejects a tiny BMP declaring a huge pixel allocation', () {
+    final bytes = Uint8List(54);
+    final data = ByteData.sublistView(bytes);
+    bytes[0] = 0x42;
+    bytes[1] = 0x4d;
+    data.setUint32(2, 54, Endian.little);
+    data.setUint32(10, 54, Endian.little);
+    data.setUint32(14, 40, Endian.little);
+    data.setUint32(18, 100000, Endian.little);
+    data.setUint32(22, 100000, Endian.little);
+    data.setUint16(26, 1, Endian.little);
+    data.setUint16(28, 24, Endian.little);
+    expect(decodeQrImageSync(bytes), isNull);
+  });
+
+  test('only decodes the first animation frame', () {
+    const link = 'https://example.invalid/qr';
+    final first = img.decodePng(qrPng(link, width: 300, height: 300))!;
+    first.addFrame(img.Image(width: 300, height: 300));
+    expect(decodeQrImageSync(img.encodeGif(first)), link);
+  });
+
   test('a subscription link round-trips through a screenshot', () {
     const link = 'https://sub.example.net/api/v1/client/subscribe?token=abc123';
     expect(decodeQrImageSync(qrPng(link)), link);

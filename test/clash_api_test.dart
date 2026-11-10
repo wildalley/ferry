@@ -48,7 +48,7 @@ void main() {
         request.uri,
         {
           for (final name in const ['authorization', 'content-type'])
-            if (request.headers.value(name) case final value?) name: value,
+            name: ?request.headers.value(name),
         },
         body,
       ));
@@ -212,7 +212,10 @@ void main() {
       // member instead would make it look like it left the group.
       serve('/proxies', {
         'proxies': {
-          'proxy': {'now': 'Tokyo', 'all': ['Tokyo', 'Osaka', 'Seoul']},
+          'proxy': {
+            'now': 'Tokyo',
+            'all': ['Tokyo', 'Osaka', 'Seoul']
+          },
           'Tokyo': {'history': <Object?>[]},
           'Osaka': {'history': 'nonsense'},
         },
@@ -223,7 +226,8 @@ void main() {
       expect(group!.delays, {'Tokyo': 0, 'Osaka': 0, 'Seoul': 0});
     });
 
-    test('is null for a proxy that is not a group, or an unknown tag', () async {
+    test('is null for a proxy that is not a group, or an unknown tag',
+        () async {
       serve('/proxies', {
         'proxies': {
           'Tokyo': {'type': 'Trojan'},
@@ -237,8 +241,14 @@ void main() {
     test('groupFrom folds an already-fetched map, so one fetch serves many',
         () async {
       final proxies = {
-        'proxy': <String, Object?>{'now': 'Tokyo', 'all': ['Tokyo']},
-        'auto': <String, Object?>{'now': 'Tokyo', 'all': ['Tokyo']},
+        'proxy': <String, Object?>{
+          'now': 'Tokyo',
+          'all': ['Tokyo']
+        },
+        'auto': <String, Object?>{
+          'now': 'Tokyo',
+          'all': ['Tokyo']
+        },
         'Tokyo': <String, Object?>{
           'history': [
             {'delay': 42},
@@ -355,7 +365,8 @@ void main() {
       expect(seen.single.uri.queryParameters['url'], ClashApiClient.testUrl);
     });
 
-    test('omits a member that did not answer rather than reporting 0', () async {
+    test('omits a member that did not answer rather than reporting 0',
+        () async {
       // The engine leaves an unreachable member out of the map entirely. Callers
       // merge this over their previous readings, so a 0 here would blank a
       // latency that was measured a moment ago.
@@ -423,6 +434,44 @@ void main() {
       return (connect: connect, feeds: feeds, closed: closed);
     }
 
+    test('hidden presentation retains counters and releases detail objects',
+        () async {
+      final sockets = fakeSockets();
+      final api = ClashApiClient(
+          port: server.port, secret: 'test', connector: sockets.connect);
+      var visible = true;
+      final snapshots = <dynamic>[];
+      final subscription = api
+          .traffic(includeConnectionDetails: () => visible)
+          .listen(snapshots.add);
+      await pumpEventQueue();
+      final payload = jsonEncode({
+        'uploadTotal': 100,
+        'downloadTotal': 200,
+        'connections': [
+          {
+            'id': 'a',
+            'metadata': {'host': 'example.invalid'}
+          }
+        ]
+      });
+      sockets.feeds['/connections']!.add(payload);
+      await pumpEventQueue();
+      expect(snapshots.last.connectionList, hasLength(1));
+      visible = false;
+      sockets.feeds['/connections']!.add(payload);
+      await pumpEventQueue();
+      expect(snapshots.last.connectionList, isEmpty);
+      expect(snapshots.last.connectionsIn, 1);
+      expect(snapshots.last.downlinkTotal, 200);
+      visible = true;
+      sockets.feeds['/connections']!.add(payload);
+      await pumpEventQueue();
+      expect(snapshots.last.connectionList, hasLength(1));
+      await subscription.cancel();
+      api.dispose();
+    });
+
     test('merges the three feeds into one snapshot', () async {
       final sockets = fakeSockets();
       final api = ClashApiClient(
@@ -483,7 +532,8 @@ void main() {
       final subscription = api.traffic().listen((_) {});
       await pumpEventQueue();
 
-      expect(sockets.feeds.keys, containsAll(['/traffic', '/connections', '/memory']));
+      expect(sockets.feeds.keys,
+          containsAll(['/traffic', '/connections', '/memory']));
 
       await subscription.cancel();
     });
@@ -501,6 +551,108 @@ void main() {
       await subscription.cancel();
 
       expect(sockets.closed, hasLength(3));
+    });
+
+    test('reclaims a handshake completing after timeout and cancellation',
+        () async {
+      final pending = Completer<ClashSocket>();
+      final timedOut = Completer<void>();
+      var opened = 0;
+      var closed = 0;
+      var listened = false;
+      final feed =
+          StreamController<Object?>.broadcast(onListen: () => listened = true);
+      addTearDown(feed.close);
+      final api = ClashApiClient(
+        port: server.port,
+        secret: '',
+        webSocketTimeout: const Duration(milliseconds: 10),
+        connector: (_, _) {
+          opened++;
+          return pending.future;
+        },
+      );
+      addTearDown(api.dispose);
+      final subscription = api.traffic().listen((_) => fail('late traffic'),
+          onError: (Object error) {
+        expect(error, isA<TimeoutException>());
+        timedOut.complete();
+      });
+      await timedOut.future.timeout(const Duration(seconds: 2));
+      await subscription.cancel();
+      pending.complete((
+        frames: feed.stream,
+        close: () async {
+          closed++;
+        },
+      ));
+      await pumpEventQueue();
+
+      expect(closed, 1);
+      expect(opened, 1, reason: 'no further endpoints after timeout');
+      expect(listened, isFalse,
+          reason: 'the abandoned socket is never consumed');
+    });
+
+    test('cancellation detaches listeners even if socket close stalls',
+        () async {
+      final feeds = <StreamController<Object?>>[];
+      var detached = 0;
+      var closed = 0;
+      final api = ClashApiClient(
+        port: server.port,
+        secret: '',
+        webSocketTimeout: const Duration(milliseconds: 10),
+        connector: (_, _) async {
+          final feed = StreamController<Object?>(onCancel: () => detached++);
+          feeds.add(feed);
+          return (
+            frames: feed.stream,
+            close: () {
+              closed++;
+              return Completer<void>().future;
+            },
+          );
+        },
+      );
+      addTearDown(api.dispose);
+      final subscription = api.traffic().listen((_) => fail('late traffic'));
+      await pumpEventQueue();
+      await subscription.cancel().timeout(const Duration(seconds: 2));
+
+      expect(detached, 3);
+      expect(closed, 3);
+      for (final feed in feeds) {
+        feed.add(jsonEncode({'up': 10}));
+        await feed.close();
+      }
+    });
+
+    test('cancellation during handshake closes the eventual socket', () async {
+      final pending = Completer<ClashSocket>();
+      var closed = 0;
+      var opened = 0;
+      final api = ClashApiClient(
+        port: server.port,
+        secret: '',
+        connector: (_, _) {
+          opened++;
+          return pending.future;
+        },
+      );
+      addTearDown(api.dispose);
+      final subscription = api.traffic().listen((_) => fail('late traffic'));
+      await subscription.cancel();
+      pending.complete((
+        frames: const Stream<Object?>.empty(),
+        close: () async {
+          closed++;
+        },
+      ));
+      await pumpEventQueue();
+
+      expect(closed, 1);
+      expect(opened, 1);
     });
 
     test('one feed failing leaves the others reporting', () async {
@@ -551,7 +703,8 @@ void main() {
       final api = ClashApiClient(
         port: server.port,
         secret: '',
-        connector: (uri, headers) async => throw const SocketException('refused'),
+        connector: (uri, headers) async =>
+            throw const SocketException('refused'),
       );
 
       await expectLater(api.traffic(), emitsError(isA<SocketException>()));
