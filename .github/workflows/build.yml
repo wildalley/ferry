@@ -205,10 +205,12 @@ jobs:
 
       - name: Inventory and scan shipped dependencies
         run: |
+          (cd android && ./gradlew :app:exportReleaseDependencies -Ptarget-platform=android-arm64)
           audit_flags=()
           if [[ "$GITHUB_REF" != refs/tags/v* ]]; then audit_flags+=(--report-only); fi
           python3 scripts/dependency-audit.py \
             --go-build-info android/app/libs/libbox.aar.build-info.json --core-version "$SINGBOX_TAG" \
+            --maven build/app/reports/release-runtime-dependencies.json \
             --output dist/dependencies.cdx.json --scan "${audit_flags[@]}"
 
       - name: Retain Android dependency reports
@@ -216,7 +218,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: security-android-${{ github.sha }}
-          path: dist/dependencies*.json
+          path: |
+            dist/dependencies*.json
+            build/app/reports/release-runtime-dependencies.json
           if-no-files-found: warn
 
       - name: Retain Android and Linux Dart symbols

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generate a CycloneDX inventory from pinned Pub/Go dependencies; query OSV.
+"""Generate a CycloneDX inventory from pinned Pub/Go/Maven dependencies; query OSV.
 
 Only public package names/versions are sent. A failed scan fails closed.
-This inventories dependencies, not reachability or Android transitive artifacts.
+This inventories dependency versions, not vulnerable-function reachability.
 """
 import argparse
 import json
@@ -53,12 +53,40 @@ def linked_packages(text):
     return packages
 
 
+def maven_packages(text):
+    report = json.loads(text)
+    if report.get("configuration") != "releaseRuntimeClasspath":
+        raise ValueError("Expected the resolved releaseRuntimeClasspath graph")
+    packages = []
+    for module in report["modules"]:
+        group, name, version = (module[field] for field in ("group", "name", "version"))
+        if not all(isinstance(value, str) and value for value in (group, name, version)):
+            raise ValueError("Incomplete resolved Maven coordinate")
+        if not all(re.fullmatch(r"[\w.-]+", value) for value in (group, name)):
+            raise ValueError("Invalid Maven group or artifact")
+        if (re.search(r"\s|[\[\](),]", version) or version.endswith("+")
+                or version.lower().startswith("latest.")):
+            raise ValueError("Maven version must be resolved, not a selector")
+        packages.append(("Maven", f"{group}:{name}", version))
+    if not packages:
+        raise ValueError("No resolved Maven modules")
+    return packages
+
+
+def package_url(ecosystem, name, version):
+    kind = {"Pub": "pub", "Go": "golang", "Maven": "maven"}[ecosystem]
+    if ecosystem == "Maven":
+        group, artifact = name.split(":")
+        name = f"{group}/{artifact}"
+    return f"pkg:{kind}/{quote(name, safe='/')}@{quote(version, safe='')}"
+
+
 def inventory(packages):
     return {
         "bomFormat": "CycloneDX", "specVersion": "1.6", "version": 1,
         "components": [
             {"type": "library", "name": name, "version": version,
-             "purl": f"pkg:{'pub' if ecosystem == 'Pub' else 'golang'}/{quote(name, safe='/')}@{quote(version, safe='')}",
+             "purl": package_url(ecosystem, name, version),
              "properties": [{"name": "ferry:ecosystem", "value": ecosystem}]}
             for ecosystem, name, version in sorted(set(packages))
         ],
@@ -92,6 +120,7 @@ def main():
     parser.add_argument("--lock", type=Path, default=Path("pubspec.lock"))
     parser.add_argument("--go-modules", type=Path)
     parser.add_argument("--go-build-info", type=Path)
+    parser.add_argument("--maven", type=Path, help="Resolved release Maven graph exported by Gradle")
     parser.add_argument("--core-version", help="Pinned sing-box source/release tag")
     parser.add_argument("--output", type=Path, default=Path("build/dependencies.cdx.json"))
     parser.add_argument("--scan", action="store_true")
@@ -103,6 +132,8 @@ def main():
         packages += go_packages(args.go_modules.read_text())
     if args.go_build_info:
         packages += linked_packages(args.go_build_info.read_text())
+    if args.maven:
+        packages += maven_packages(args.maven.read_text())
     if args.core_version:
         packages.append(("Go", "github.com/sagernet/sing-box", args.core_version))
     args.output.parent.mkdir(parents=True, exist_ok=True)

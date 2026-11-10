@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import unittest
 
@@ -36,3 +37,26 @@ sdks:
         data = audit.inventory([("Pub", "http", "1.6.0")] * 2)
         self.assertEqual(len(data["components"]), 1)
         self.assertEqual(data["components"][0]["purl"], "pkg:pub/http@1.6.0")
+
+    def test_resolved_android_dependencies_use_maven_coordinates(self):
+        report = {"configuration": "releaseRuntimeClasspath", "modules": [
+            {"group": "androidx.core", "name": "core-ktx", "version": "1.15.0"},
+            {"group": "com.google.guava", "name": "guava", "version": "33.4.0-android"},
+        ]}
+        packages = audit.maven_packages(json.dumps(report))
+        self.assertEqual(packages[0], ("Maven", "androidx.core:core-ktx", "1.15.0"))
+        self.assertEqual(audit.inventory(packages)["components"][0]["purl"],
+                         "pkg:maven/androidx.core/core-ktx@1.15.0")
+
+    def test_incomplete_or_unresolved_android_graph_fails_closed(self):
+        invalid = [
+            {"configuration": "debugRuntimeClasspath", "modules": []},
+            {"configuration": "releaseRuntimeClasspath", "modules": []},
+        ]
+        for version in ("", "1.+", "[1,2)", "latest.release", "1.0 bad"):
+            invalid.append({"configuration": "releaseRuntimeClasspath", "modules": [
+                {"group": "example", "name": "library", "version": version},
+            ]})
+        for report in invalid:
+            with self.subTest(report=report), self.assertRaises(ValueError):
+                audit.maven_packages(json.dumps(report))

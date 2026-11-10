@@ -1,4 +1,7 @@
 import java.util.Properties
+import groovy.json.JsonOutput
+import org.gradle.api.artifacts.component.ModuleComponentIdentifier
+import org.gradle.api.artifacts.result.UnresolvedDependencyResult
 
 plugins {
     id("com.android.application")
@@ -120,4 +123,35 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+// Resolve the release graph itself, not the requested versions printed in
+// build files. Flutter plugins contribute transitive Maven dependencies too.
+tasks.register("exportReleaseDependencies") {
+    group = "verification"
+    description = "Write resolved release Maven coordinates for the security scan"
+    notCompatibleWithConfigurationCache("Inspects the Android release dependency graph")
+    val report = layout.buildDirectory.file("reports/release-runtime-dependencies.json")
+    outputs.file(report)
+    outputs.upToDateWhen { false }
+    doLast {
+        val result = configurations.getByName("releaseRuntimeClasspath").incoming.resolutionResult
+        val unresolved = result.allDependencies.filterIsInstance<UnresolvedDependencyResult>()
+        check(unresolved.isEmpty()) {
+            "Release dependencies are unresolved: " + unresolved.joinToString { it.attempted.displayName }
+        }
+        val modules = result.allComponents.mapNotNull { component ->
+            (component.id as? ModuleComponentIdentifier)?.let {
+                mapOf("group" to it.group, "name" to it.module, "version" to it.version)
+            }
+        }.distinct().sortedBy { "${it["group"]}:${it["name"]}:${it["version"]}" }
+        check(modules.isNotEmpty()) { "No resolved release Maven modules" }
+        val destination = report.get().asFile
+        destination.parentFile.mkdirs()
+        destination.writeText(JsonOutput.prettyPrint(JsonOutput.toJson(mapOf(
+            "configuration" to "releaseRuntimeClasspath",
+            "modules" to modules,
+        ))) + "\n")
+        logger.lifecycle("Exported ${modules.size} release Maven modules to $destination")
+    }
 }
