@@ -14,6 +14,11 @@
 该成功运行是单轮热缓存样本：verify 1 分 55 秒、deb/APK 5 分 04 秒、Windows 4 分 26 秒、Arch 1 分 50 秒。
 这些是历史基线，不是修改后流水线或 libbox 冷构建的性能。
 
+修改后提交 `6b5f680` 的远端运行 `42749581155` 已全部成功：verify 1 分 30 秒、
+deb/APK 12 分 39 秒、Windows 4 分 22 秒、Arch 2 分；分支推送的 release 正常跳过。
+这是另一组构建输入下的完整流水线结果，不能把 deb/APK 时间增加直接视为性能退化；
+首次固定输入后的 AAR 构建及新增扫描也在该任务内。正式 tag 的生产签名及发布步骤尚未执行。
+
 ## 已落地
 
 | 范围 | 改动 | 验证 |
@@ -21,6 +26,7 @@
 | 敏感数据 | 使用固定版本 flutter_secure_storage 11.2.0 保存节点、订阅、Clash token 和独立代理密码 | 迁移、部分失败、回读失败、密钥库丢失、损坏数据、写入失败后重试测试 |
 | 迁移保护 | 全部写入并回读确认后才删除旧 SharedPreferences 凭据；迁移标记防止密钥库丢失时静默创建空数据；Android 禁止 resetOnError | 启动失败保留数据，显示重试/退出界面；没有明文回退 |
 | 本地代理 | Android 的 mixed 入口必须有 users；桌面设置可选；应用内订阅、规则、更新和出口 IP 请求携带同一会话的端口与凭据 | 真实 HTTP 407 鉴权、非预期代理拒绝、DIRECT 不发送代理凭据、配置和预览脱敏测试 |
+| 鉴权兼容提示 | 仅在鉴权与系统代理组合启用时显示就地提示，说明不支持认证的客户端可能断网及对应设置；凭据界面说明重连不换密码 | 真实桌面开关交互、两平台文案、大字体/横竖屏/深浅主题等 13 项安全 UI 测试通过；外部应用兼容矩阵仍待验证 |
 | Android 生命周期 | start/stop/reload/选择/测速进入进程内单个后台执行器；主线程不等待 Go I/O；代号取消过期操作，事件保留所属会话并在 UI 分发前过滤 | Kotlin 和 APK release 编译通过；真机慢启动/撤销/连续重连仍需验证 |
 | 部分初始化 | server/client 创建后立即取得所有权，start/connect 抛错也会关闭；停止回调只入队，不重入引擎关闭 | 编译检查；未声称已验证所有 native 故障路径 |
 | Clash HTTP | AbortableRequest，总时限、8 MiB 正文上限、显式取消；错误正文不排空；销毁时取消本对象请求，保留注入 client 所有权 | 真实 socket 的响应头/正文超时、chunked/Content-Length、错误 PUT、dispose 断开测试 |
@@ -54,16 +60,25 @@ Linux 需要正在运行且已解锁的 Secret Service，发行包已补 libsecr
 - Dart、Android 和 Windows 的依赖报告独立上传；扫描失败时仍保留已经生成的清单及告警，供排查下载。
 - 新增 Dependabot 的 Pub、Gradle 和 Actions 受控更新配置。
 - Android/Linux 打包分离 Dart 调试信息，CI 保留符号供崩溃还原。
+- Gradle `exportReleaseDependencies` 在执行阶段解析实际 `releaseRuntimeClasspath`，遇到未解析依赖失败；
+  导出 126 个 Maven 模块并并入 CycloneDX/OSV，CI 保留原始清单。本轮 Pub+Maven 共 219 项未返回公告。
 
 ### 当前发布阻断：Go 依赖告警
 
 实际链接的 Android 核心中，OSV 返回 **9 个模块**存在版本告警：brotli、chi、compress、x/crypto、x/mod、x/net、x/sys、x/text、grpc。
 详情保存在 [`security-advisories-2026-11-10.json`](security-advisories-2026-11-10.json)。这属于版本匹配，**没有完成漏洞函数可达性分析**，也不是整机安全证明。
-本次扫描中 Dart 锁定依赖未返回公告；Gradle/Android 的完整依赖漏洞审计尚未覆盖。
+本次扫描中 Dart 锁定依赖未返回公告；续轮已补齐 Maven 依赖版本审计。
 
 已核实上游最新正式版 v1.14.4（2026-10-24 发布）的 go.mod，仍包含这些模块的部分受影响版本，不能通过简单替换版本号宣称告警全部修复。
-本轮没有擅自拼接一组未经协议回归的 Go 依赖补丁。下一步需选择包含修复的兼容核心，或维护经过上游测试及设备协议验证的固定补丁，再重新扫描；当前正式发布门槛会保持失败。
-Windows 的原生依赖报告由新增 CI 步骤生成，本机没有运行 Windows 构建或它的扫描。
+远端 Windows 实际产物另有 11 个模块命中公告，包括 edwards25519、DHCP 和其 Go 1.26.5 标准库；
+不能只处理 Android 的 9 项。当前默认产物的正式发布门槛继续阻断这些告警。
+
+已在独立目录制作[安全补丁候选](../patches/sing-box/README.md)，固定依赖版本并原样回移上游 Go 1.27 HTTP/2 兼容文件。
+Linux / Windows 编译、Android AAR 和核心单元测试通过，AAR Java/JNI 接口逐字节一致。
+按实际链接清单复扫：Linux+Pub 152 项、Windows+Pub 149 项、Android+Pub+Maven 278 项均未返回已知公告。
+HTTP、Trojan、V2Ray HTTP/HTTP2、TUIC 上游本地自测未失败；Hysteria2 四种场景的大数据 TCP 测试超时，
+原始固定核心在同一工具链下也复现。原因尚未确认，故候选**未接入正式构建**，
+未覆盖当前 AAR，也未替换 Windows 二进制。详细输入、命令、许可和后续验收见候选说明。
 
 ## 体积实测
 
@@ -105,15 +120,42 @@ python3 scripts/sample-memory.py --pid GUI_PID --pid CORE_PID --duration 7200 --
 
 内存采样脚本记录 RSS/PSS/Private_Dirty、FD 和线程数，不读取配置或网络内容。本轮只验证脚本可运行，没有执行 2–8 小时设备压测。
 
+## Gradle 资源对比
+
+新增 `scripts/profile-build.py` 跟踪构建进程及其子进程，包含脱离原进程组的 Java 进程，
+以 PID 和启动时间区分 PID 复用，输出时间序列 CSV 与 JSON 峰值摘要。
+用独立子会话中的 16 MiB 分配检查了子进程采样；最初只采进程组的无效样本已丢弃。
+
+以下均为同一工作区、依赖与 SDK 已缓存、`--no-daemon --rerun-tasks` 的 294 项任务强制重建，
+Kotlin 使用 `-Pkotlin.compiler.execution.strategy=in-process`，采样间隔 0.5 秒。
+没有清除依赖缓存，不是冷下载基准，也不能代表所有 runner 或严格性能显著性。
+
+| heap / metaspace / workers | 总耗时 | 进程树采样峰值 PSS | 峰值 RSS |
+| --- | ---: | ---: | ---: |
+| 8 GiB / 4 GiB / 默认 | 24.214 s | 3,719,732 KiB（3.55 GiB） | 3,802,480 KiB |
+| 4 GiB / 1 GiB / 2（首轮） | 31.369 s | 3,491,929 KiB | 3,535,536 KiB |
+| 4 GiB / 1 GiB / 2（复测） | 29.847 s | 2,889,639 KiB | 2,933,292 KiB |
+| 4 GiB / 1 GiB / 默认 | 23.560 s | 3,527,249 KiB（3.36 GiB） | 3,607,816 KiB |
+
+采用 **4 GiB heap / 1 GiB metaspace、Kotlin 进程内编译、默认 worker 数量**。
+限 2 workers 在本机降低并发但慢约 6–7 秒，内存峰值也有波动，保留为低内存机器的显式参数。
+这限制构建 JVM 的预算，不等于所有进程总内存不超过 4 GiB；仍需观察远端首次 AAR/APK 构建。
+
+```sh
+cd android
+python3 -B ../scripts/profile-build.py --interval 0.5 --output ../build/profiles/gradle.json -- \
+  ./gradlew --no-daemon --rerun-tasks -Ptarget-platform=android-arm64 :app:assembleRelease
+```
+
 ## 验收与仍需执行
 
-- Flutter：静态分析无问题；685 项测试通过、21 项按原有条件跳过；新增安全界面布局和凭据主动展示测试通过。
-- Python：14 项通过；actionlint v1.7.7 和 shell 语法检查通过。
+- Flutter：静态分析无问题；续轮全量 694 项测试通过、21 项按原有条件跳过；新增安全界面布局和凭据主动展示测试通过。
+- Python：16 项通过；actionlint v1.7.7 和 shell 语法检查通过。
 - Android arm64 release、Linux release 构建成功；APK 原生库、ELF LOAD 与 ZIP 16 KiB 对齐、签名有效性通过。
 - 本地验收没有安装应用、切换真实 VPN 或发布版本。根目录遗留 cache.db 已移出工作区，Python 字节码已清理并加入忽略规则。
 - 未进行真实 Android Keystore/Windows 凭据库/Linux Secret Service 的多设备迁移验收。仅编译和模拟存储测试不能替代这些验证。
 - 尚需真机 Android 慢启动/立刻停止/连续重载/撤销 VPN/进程重建、至少 100 轮连接循环，以及 2–8 小时 native 内存/FD 测量。
 - Android 停止不再阻塞主线程，但仍需等待正在执行的 Go 调用返回；没有宣称能够强制中断任意 native I/O。
-- R8 继续保持可选；Gradle 4 GiB/1 GiB/2 workers 资源实验、规则集签名清单、受限权限 helper、固定 Arch 镜像等仍未实施。
+- R8 继续保持可选；Gradle 资源实验及默认 JVM 限额已完成，远端内存/耗时仍需持续观察。规则集签名清单、受限权限 helper、固定 Arch 镜像等仍未实施。
 - Linux 文件 capability 依然属于整个可执行文件，首次授权不等于仅向本 GUI 授权。多用户隔离需要后续受控 helper/服务方案。
-- 此处记录本地验收；远端构建结果以提交对应的 GitHub Actions 为准。生产 environment 规则、9 项 Go 模块告警、跨平台真机验收仍是发布前待办。
+- 远端构建结果以提交对应的 GitHub Actions 为准。生产 environment 规则、默认核心 Go 告警、候选协议验收和跨平台真机验收仍是发布前待办。
