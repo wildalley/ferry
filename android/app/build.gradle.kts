@@ -109,7 +109,7 @@ android {
 
 dependencies {
     implementation(files("libs/libbox.aar"))
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.19.1")
 }
 
 kotlin {
