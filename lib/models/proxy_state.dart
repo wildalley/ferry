@@ -65,6 +65,15 @@ enum EngineProblem {
   /// nothing on Windows, where the fix is the UAC prompt rather than a path.
   unprivileged,
 
+  /// Linux TUN preflight and authorization failures with distinct remedies.
+  tunToolsMissing,
+  tunAuthenticationFailed,
+  tunUnsafePath,
+  tunNixosSetup,
+  tunCapabilityCheckFailed,
+  tunGrantFailed,
+  tunCancelled,
+
   /// The elevation handoff itself broke: UAC was accepted, or could not even be
   /// asked, but no elevated instance took over. Distinct from [unprivileged],
   /// where the user simply said no and re-connecting is the whole fix.

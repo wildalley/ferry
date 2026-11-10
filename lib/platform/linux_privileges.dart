@@ -29,20 +29,16 @@ import 'linux_system_proxy.dart' show CommandRunner;
 /// them itself.
 const tunCapabilities = 'cap_net_admin,cap_net_raw';
 
-/// What came of asking for [tunCapabilities].
+/// Results stay structured until the UI translates a recovery instruction.
 enum TunAuthorization {
-  /// Set on the binary — either already, or by the command just run.
   granted,
-
-  /// The dialog was dismissed, or authentication failed. The user's answer, so
-  /// nothing retries on its own.
+  required,
   declined,
-
-  /// Nothing to ask with: no `pkexec`, no `setcap`, or a binary this will not
-  /// elevate. The manual command is the only route left.
-  unavailable,
-
-  /// The command ran and failed for some other reason.
+  missingTools,
+  authenticationFailed,
+  unsafePath,
+  nixosSetupRequired,
+  checkFailed,
   failed,
 }
 
@@ -54,11 +50,14 @@ class LinuxPrivileges {
     Iterable<String>? searchPaths,
     bool Function(String path)? exists,
     Future<String?> Function(String path)? securePath,
-  })  : _run = runner ?? _runProcess,
-        _exists = exists ?? _fileExists,
-        _securePath = securePath ?? resolveSecurePath,
-        _trustedRoots = List.unmodifiable(trustedRoots ?? defaultTrustedRoots),
-        _searchPaths = List.unmodifiable(searchPaths ?? defaultSearchPaths);
+    Future<String> Function(String path)? resolvePath,
+  }) : _run = runner ?? _runProcess,
+       _exists = exists ?? _fileExists,
+       _securePath = securePath ?? resolveSecurePath,
+       _resolvePath =
+           resolvePath ?? ((path) => File(path).resolveSymbolicLinks()),
+       _trustedRoots = List.unmodifiable(trustedRoots ?? defaultTrustedRoots),
+       _searchPaths = List.unmodifiable(searchPaths ?? defaultSearchPaths);
 
   /// Directories whose contents may be handed to an elevated `setcap`.
   ///
@@ -85,6 +84,8 @@ class LinuxPrivileges {
   /// root, and resolving that argument through an environment variable the
   /// caller controls is how a PATH-injection bug is written.
   static const defaultSearchPaths = [
+    '/run/wrappers/bin',
+    '/run/current-system/sw/bin',
     '/usr/bin',
     '/usr/sbin',
     '/bin',
@@ -92,6 +93,7 @@ class LinuxPrivileges {
   ];
 
   final CommandRunner _run;
+  final Future<String> Function(String) _resolvePath;
   final Future<String?> Function(String) _securePath;
 
   /// Whether a tool is installed. Injectable so the argv can be asserted on a
@@ -101,54 +103,88 @@ class LinuxPrivileges {
   final List<String> _trustedRoots;
   final List<String> _searchPaths;
 
-  /// Whether [binary] already carries [tunCapabilities].
-  ///
-  /// Null means the question could not be answered — no `getcap` on the system.
-  /// Callers treat that as "start anyway": `getcap` and `setcap` ship in the same
-  /// package, so where one is missing the other cannot fix anything either, and a
-  /// polkit prompt that leads nowhere is worse than the engine's own error.
-  Future<bool?> hasTunCapabilities(String binary) async {
+  /// Checks the actual target: getcap does not follow a symlink to a wrapper.
+  Future<TunAuthorization> inspectTunCapabilities(String binary) async {
     final getcap = _locate('getcap');
-    if (getcap == null) return null;
+    if (getcap == null) return TunAuthorization.missingTools;
+    final trustedGetcap = await _securePath(getcap);
+    if (trustedGetcap == null) return TunAuthorization.unsafePath;
     try {
-      final result = await _run(getcap, [binary]);
-      if (result.exitCode != 0) return null;
-      return capabilitiesPresent('${result.stdout}');
+      final target = await _resolvePath(binary);
+      final result = await _run(trustedGetcap, [target]);
+      if (result.exitCode != 0) return TunAuthorization.checkFailed;
+      final output = '${result.stdout}'.trimRight();
+      final prefix = '$target ';
+      final capabilities = output.startsWith(prefix)
+          ? output.substring(prefix.length)
+          : '';
+      return capabilitiesPresent(capabilities)
+          ? TunAuthorization.granted
+          : TunAuthorization.required;
     } on Object {
-      return null;
+      return TunAuthorization.checkFailed;
     }
   }
 
-  /// Asks polkit to set [tunCapabilities] on [binary].
+  Future<bool?> hasTunCapabilities(String binary) async =>
+      switch (await inspectTunCapabilities(binary)) {
+        TunAuthorization.granted => true,
+        TunAuthorization.required => false,
+        _ => null,
+      };
+
+  /// Asks polkit once, then verifies the capability on the same canonical file.
+  /// NixOS wrappers are configured declaratively; never mutate the Nix store.
   Future<TunAuthorization> grantTunCapabilities(String binary) async {
-    if (!mayElevate(binary)) return TunAuthorization.unavailable;
+    String target;
+    try {
+      target = await _resolvePath(binary);
+    } on Object {
+      return TunAuthorization.unsafePath;
+    }
+    if (isNixPath(binary) || isNixPath(target)) {
+      return TunAuthorization.nixosSetupRequired;
+    }
+    if (!mayElevate(binary)) return TunAuthorization.unsafePath;
     final canonical = await _securePath(binary);
     if (canonical == null || !mayElevate(canonical)) {
-      return TunAuthorization.unavailable;
+      return TunAuthorization.unsafePath;
     }
     final argv = elevationCommand(canonical);
-    if (argv == null) return TunAuthorization.unavailable;
-    // Check tools too: a writable /usr/local or a symlink is not a trust root.
+    if (argv == null) return TunAuthorization.missingTools;
     final pkexec = await _securePath(argv[0]);
-    final setcap = await _securePath(argv[1]);
-    if (pkexec == null || setcap == null) return TunAuthorization.unavailable;
+    final setcap = await _securePath(argv[2]);
+    if (pkexec == null || setcap == null) return TunAuthorization.unsafePath;
     try {
-      final result = await _run(pkexec, [setcap, ...argv.sublist(2)]);
-      return outcomeOf(result.exitCode);
+      final result = await _run(pkexec, [argv[1], setcap, ...argv.sublist(3)]);
+      final outcome = outcomeOf(result.exitCode);
+      if (outcome != TunAuthorization.granted) return outcome;
+      return await inspectTunCapabilities(canonical) == TunAuthorization.granted
+          ? TunAuthorization.granted
+          : TunAuthorization.failed;
     } on Object {
-      return TunAuthorization.unavailable;
+      return TunAuthorization.failed;
     }
   }
 
-  /// The full argv for the grant, or null when a tool is missing.
-  ///
-  /// Fixed positions, no shell: the path goes in as one argument, so a name with
-  /// a space or a `;` in it is a filename and cannot be anything else.
+  static bool isNixPath(String path) =>
+      path.startsWith('/nix/store/') ||
+      path.startsWith('/run/current-system/') ||
+      path.startsWith('/run/wrappers/') ||
+      path.startsWith('/run/wrappers.');
+
+  /// Absolute argv, no shell; disable the terminal fallback in a GUI process.
   List<String>? elevationCommand(String binary) {
     final pkexec = _locate('pkexec');
     final setcap = _locate('setcap');
     if (pkexec == null || setcap == null) return null;
-    return [pkexec, setcap, '$tunCapabilities+ep', binary];
+    return [
+      pkexec,
+      '--disable-internal-agent',
+      setcap,
+      '$tunCapabilities+ep',
+      binary,
+    ];
   }
 
   /// Whether [binary] is one this will run an elevated `setcap` against.
@@ -181,16 +217,30 @@ class LinuxPrivileges {
         if (parent.path == '/') break;
         parent = parent.parent;
       }
-      final stat =
-          await Process.run('/usr/bin/stat', ['-Lc', '%u:%a', '--', ...paths]);
+      final statPath = defaultSearchPaths
+          .map((dir) => '$dir/stat')
+          .where(_fileExists)
+          .firstOrNull;
+      if (statPath == null) return null;
+      final stat = await Process.run(statPath, [
+        '-Lc',
+        '%u:%a',
+        '--',
+        ...paths,
+      ]);
       if (stat.exitCode != 0) return null;
       final lines = '${stat.stdout}'.trim().split('\n');
       if (lines.length != paths.length) return null;
-      for (final line in lines) {
-        final fields = line.split(':');
-        if (fields.length != 2 || fields[0] != '0') return null;
+      for (var index = 0; index < lines.length; index++) {
+        final fields = lines[index].split(':');
+        if (fields.length != 2) return null;
+        final owner = int.tryParse(fields[0]);
         final mode = int.tryParse(fields[1], radix: 8);
-        if (mode == null || mode & 0x12 != 0) return null; // 0022 octal
+        if (owner == null ||
+            mode == null ||
+            !ownershipSafe(paths[index], owner, mode, directory: index > 0)) {
+          return null;
+        }
       }
       return canonical;
     } on Object {
@@ -198,34 +248,56 @@ class LinuxPrivileges {
     }
   }
 
-  /// Reads a `getcap` line.
-  ///
-  /// Two formats over libcap's life — `file cap_net_admin,cap_net_raw=ep` since
-  /// 2.60, `file = cap_net_admin,cap_net_raw+ep` before it — so this looks for
-  /// the names and for the effective flag rather than matching a whole line.
-  /// Empty output is what an unprivileged binary produces.
-  static bool capabilitiesPresent(String getcapOutput) {
-    final text = getcapOutput.toLowerCase();
-    if (!text.contains('cap_net_admin') || !text.contains('cap_net_raw')) {
-      return false;
-    }
-    // Permitted but not effective (`=p`) would leave sing-box unable to use the
-    // capabilities without raising them itself, which it does not do. Matching
-    // the flag rather than a bare `ep` keeps a path like /opt/step/sing-box from
-    // reading as one.
-    return RegExp(r'[=+][a-z]*e').hasMatch(text);
+  /// Nix's store can be group-writable with the sticky bit. Root-owned children
+  /// remain protected there; no other writable directory gets this exception.
+  static bool ownershipSafe(
+    String path,
+    int owner,
+    int mode, {
+    bool directory = false,
+  }) {
+    if (owner != 0) return false;
+    if (mode & 0x12 == 0) return true; // 0022 octal
+    return directory &&
+        path == '/nix/store' &&
+        mode & 0x200 != 0 &&
+        mode & 0x2 == 0; // sticky, never world-writable
   }
 
-  /// What `pkexec`'s exit code means.
-  ///
-  /// 126 is a dismissed dialog and 127 is authorization it could not obtain —
-  /// both the user's answer, not a fault. Anything else non-zero came from
-  /// `setcap` itself.
+  /// Track flags per capability; an effective flag on an unrelated capability
+  /// must not make a permitted-only TUN capability look usable.
+  static bool capabilitiesPresent(String output) {
+    final lines = output.trim().split('\n');
+    if (lines.length != 1) return false;
+    final flags = <String, Set<String>>{};
+    final clauses = RegExp(
+      r'(?:^|\s)(cap_[a-z0-9_]+(?:,cap_[a-z0-9_]+)*)([=+\-])([eip]+)(?=\s|$)',
+    );
+    for (final match in clauses.allMatches(lines.single)) {
+      for (final name in match[1]!.split(',')) {
+        final current = flags.putIfAbsent(name, () => <String>{});
+        if (match[2] == '=') current.clear();
+        if (match[2] == '-') {
+          current.removeAll(match[3]!.split(''));
+        } else {
+          current.addAll(match[3]!.split(''));
+        }
+      }
+    }
+    return [
+      'cap_net_admin',
+      'cap_net_raw',
+    ].every((name) => flags[name]?.containsAll(['e', 'p']) ?? false);
+  }
+
+  /// pkexec distinguishes a dismissed dialog (126) from inability to obtain
+  /// authentication (127), which can also mean a missing agent or denied policy.
   static TunAuthorization outcomeOf(int exitCode) => switch (exitCode) {
-        0 => TunAuthorization.granted,
-        126 || 127 => TunAuthorization.declined,
-        _ => TunAuthorization.failed,
-      };
+    0 => TunAuthorization.granted,
+    126 => TunAuthorization.declined,
+    127 => TunAuthorization.authenticationFailed,
+    _ => TunAuthorization.failed,
+  };
 
   /// First existing `dir/name` from [_searchPaths].
   String? _locate(String name) {
@@ -241,6 +313,5 @@ class LinuxPrivileges {
   static Future<ProcessResult> _runProcess(
     String executable,
     List<String> arguments,
-  ) =>
-      Process.run(executable, arguments);
+  ) => Process.run(executable, arguments);
 }

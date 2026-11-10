@@ -41,12 +41,18 @@ String noticeText(L10n l10n, AppNotice notice) {
     NoticeKind.updateCheckFailed => l10n.noticeUpdateCheckFailed,
     NoticeKind.engineMissing => l10n.noticeEngineMissing,
     NoticeKind.engineTooOld => l10n.noticeEngineTooOld(detail),
-    // Two different fixes behind one condition. Where the runtime named a
-    // binary, the fix is a one-line `setcap` on it; where it named nothing, the
-    // platform grants the right through a prompt and a path would be noise.
+    // Runtime permission errors name the Linux executable; Windows reports
+    // the same condition without a path and requires a UAC relaunch.
     NoticeKind.tunUnprivileged => detail.isEmpty
         ? l10n.noticeTunNeedsAdmin
         : l10n.noticeTunUnprivileged(detail),
+    NoticeKind.tunToolsMissing => l10n.noticeTunToolsMissing,
+    NoticeKind.tunAuthenticationFailed => l10n.noticeTunAuthenticationFailed,
+    NoticeKind.tunUnsafePath => l10n.noticeTunUnsafePath,
+    NoticeKind.tunNixosSetup => l10n.noticeTunNixosSetup,
+    NoticeKind.tunCapabilityCheckFailed => l10n.noticeTunCapabilityCheckFailed,
+    NoticeKind.tunGrantFailed => l10n.noticeTunGrantFailed,
+    NoticeKind.tunCancelled => l10n.noticeTunCancelled,
     NoticeKind.elevationFailed => l10n.noticeElevationFailed,
     NoticeKind.configRejected => l10n.noticeConfigRejected(detail),
     NoticeKind.configInvalid => l10n.noticeConfigInvalid(detail),

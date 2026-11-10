@@ -29,6 +29,13 @@ enum NoticeKind {
   /// [AppNotice.detail] carries the binary to grant the capability to, on the
   /// platform where a path is the fix. Empty where the fix is a prompt.
   tunUnprivileged,
+  tunToolsMissing,
+  tunAuthenticationFailed,
+  tunUnsafePath,
+  tunNixosSetup,
+  tunCapabilityCheckFailed,
+  tunGrantFailed,
+  tunCancelled,
 
   /// The elevated instance never took over, so nothing is running.
   elevationFailed,

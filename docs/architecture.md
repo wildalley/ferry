@@ -147,22 +147,24 @@ all and points the desktop at the loopback inbound — `gsettings` under GNOME,
 `kwriteconfig6/5` under KDE — which needs no privileges. The previous settings
 are restored on stop, and on next launch if the process was killed.
 
-`ProxyMode.tun` renders the config Android uses, and pays for it with one
-authorization. Before spawning the engine, `start` reads the binary's file
-capabilities with `getcap`; if they are absent it emits
-`ProxyStage.requestingPermission` and runs `pkexec setcap
-cap_net_admin,cap_net_raw+ep <binary>`, which is the same polkit dialog the
-desktop uses for mounting a disk. The kernel applies file capabilities at
-`execve`, and the controller spawns `sing-box` as its own child, so one attribute
-on one file is the whole mechanism — nothing elevates the app, and no privileged
-helper is installed. Two consequences: a package upgrade replaces the binary and
-strips the attribute with it — which is why the Arch package ships a libalpm hook
-that re-runs the `setcap` whenever pacman installs or upgrades `sing-box`, and the
-deb's `postinst` re-applies it when this package itself is installed or upgraded
-— and only a `sing-box` under a system prefix is eligible,
-since the path can arrive from `SINGBOX_BINARY` and an elevated `setcap` against
-an arbitrary path would be a capability grant on a file of the caller's choosing.
-A declined or unavailable prompt reports the `setcap` line instead.
+`ProxyMode.tun` requires file capabilities on the core. Before starting it,
+`LinuxPrivileges` resolves the actual target and reads its capabilities with a
+trusted `getcap`. Missing capabilities trigger a single polkit request using
+absolute argv (`pkexec --disable-internal-agent setcap ...`), followed by a
+capability recheck. Only root-owned, protected system binaries named `sing-box`
+may be elevated; tools and canonical target paths are checked too. No install
+hook or postinst grants capabilities automatically. Replacing the executable
+may require another authorization.
+
+Structured failures distinguish missing tools, cancellation, inability to
+authenticate, unsafe paths, NixOS configuration and verification errors. The
+controller stops before writing a config or launching a core on failure, and
+ignores authorization results after disposal. System proxy mode skips this flow.
+
+NixOS's trusted `/run/wrappers/bin/sing-box` wins over the bundled location and
+`PATH`, unless explicitly overridden. Its capability is managed declaratively,
+never by mutating `/nix/store`; fixed tool lookup includes NixOS system paths.
+See the [Linux TUN guide](linux-tun.md) for dependencies and configuration.
 
 Android ignores `ProxyMode` and always renders a tun: its VpnService has nothing
 else to carry, and the settings page offers no second mode there. That check

@@ -122,7 +122,7 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
     }
 
     final settings = ConfigFacts.parse(configJson);
-    if (settings.hasTun && !await _authorizeTun(binary)) return;
+    if (settings.hasTun && !await _authorizeTun(binary, session)) return;
     if (!isCurrentSession(session)) return;
 
     final dataDir = await appDataDirectory();
@@ -439,34 +439,33 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
 
   // --- privileges -----------------------------------------------------------
 
-  /// Makes sure [binary] can create a tun, asking the user once if it cannot.
-  ///
-  /// Reports the failure itself and returns false, so a caller can `return` on
-  /// it. Three ways this ends without a prompt: the capability is already there
-  /// (the common case, since it survives on the file), `getcap` cannot say — in
-  /// which case the engine is left to try and its own error stands — or there is
-  /// no way to ask, which reads the same as a refusal because the outcome is.
-  Future<bool> _authorizeTun(String binary) async {
-    final present = await _privileges.hasTunCapabilities(binary);
-    // Null is "cannot tell": see LinuxPrivileges.hasTunCapabilities.
-    if (present != false) return true;
-
-    emitState(ProxyState(
-      stage: ProxyStage.requestingPermission,
-      sessionId: sessionId,
-    ));
-    log('tun mode: asking for $tunCapabilities on $binary');
-    final outcome = await _privileges.grantTunCapabilities(binary);
+  /// A late authorization result must not change a disposed/replaced session.
+  Future<bool> _authorizeTun(String binary, int session) async {
+    var outcome = await _privileges.inspectTunCapabilities(binary);
+    if (!isCurrentSession(session)) return false;
+    if (outcome == TunAuthorization.granted) return true;
+    if (outcome == TunAuthorization.required) {
+      emitState(
+        ProxyState(stage: ProxyStage.requestingPermission, sessionId: session),
+      );
+      outcome = await _privileges.grantTunCapabilities(binary);
+      if (!isCurrentSession(session)) return false;
+    }
     if (outcome == TunAuthorization.granted) {
-      log('tun mode: $tunCapabilities granted');
-      emitState(ProxyState(stage: ProxyStage.starting, sessionId: sessionId));
+      emitState(ProxyState(stage: ProxyStage.starting, sessionId: session));
       return true;
     }
-    // One message for every way it did not happen — dismissed, failed, or
-    // nothing to ask with — because the fix the user is offered is the same:
-    // authorize it, grant it by hand, or use the mode that needs neither.
-    log('tun mode: not authorized (${outcome.name})');
-    fail(EngineProblem.unprivileged, binary);
+    log('tun mode: authorization ${outcome.name}');
+    fail(switch (outcome) {
+      TunAuthorization.declined => EngineProblem.tunCancelled,
+      TunAuthorization.missingTools => EngineProblem.tunToolsMissing,
+      TunAuthorization.authenticationFailed =>
+        EngineProblem.tunAuthenticationFailed,
+      TunAuthorization.unsafePath => EngineProblem.tunUnsafePath,
+      TunAuthorization.nixosSetupRequired => EngineProblem.tunNixosSetup,
+      TunAuthorization.checkFailed => EngineProblem.tunCapabilityCheckFailed,
+      _ => EngineProblem.tunGrantFailed,
+    });
     return false;
   }
 
@@ -684,13 +683,20 @@ class LinuxProxyController extends DesktopRuntime implements ProxyController {
   /// Where the `sing-box` binary is, or null.
   ///
   /// In order: an explicit override or `SINGBOX_BINARY`, a copy installed
-  /// beside the app under `/usr/lib/ferry`, then `PATH`. The middle
-  /// one is a hook for a future package that ships its own engine; nothing
+  /// through NixOS's trusted capability wrapper, then a copy under
+  /// `/usr/lib/ferry`, then `PATH`. The bundled
+  /// copy is a hook for a future package that ships its own engine; nothing
   /// installs there today.
   static Future<String?> resolveBinary({String? override}) async {
     final explicit = override ?? Platform.environment['SINGBOX_BINARY'];
     if (explicit != null && explicit.isNotEmpty) {
       return File(explicit).existsSync() ? explicit : null;
+    }
+    // A NixOS capability wrapper must win over the unprivileged store binary.
+    const wrapper = '/run/wrappers/bin/sing-box';
+    if (File(wrapper).existsSync() &&
+        await LinuxPrivileges.resolveSecurePath(wrapper) != null) {
+      return wrapper;
     }
     const bundled = '/usr/lib/ferry/sing-box';
     if (File(bundled).existsSync()) return bundled;

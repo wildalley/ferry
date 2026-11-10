@@ -34,7 +34,7 @@
 **代理运行时（Linux）**
 
 - 托管系统已安装的 `sing-box`（≥ 1.12），通过 Clash API 控制：切换节点、逐个节点测速、流量、连接数和内存
-- 两种模式。默认是系统代理，完全不需要权限，会把 GNOME 或 KDE 指向本地入站；TUN 接管全部流量，会通过 polkit 弹窗为内核程序申请 `CAP_NET_ADMIN`，每个程序文件只需要一次
+- 两种模式。默认是系统代理，完全不需要权限，会把 GNOME 或 KDE 指向本地入站；TUN 接管全部流量，缺少权限时通过 polkit 为内核申请文件 capability，弹窗依赖桌面认证代理
 - 在断开、退出，以及异常退出后的下一次启动时，恢复桌面原来的代理设置
 - 内核的标准输出和错误输出会进入日志页，启动失败时能看到原因
 - 找不到内核、内核版本太旧、内核拒绝创建 TUN，都会用用户的语言说明原因和解决办法
@@ -172,7 +172,7 @@ Ubuntu 任务配置 JDK 17，并使用 runner 的 Android SDK 安装固定版本
 
 Arch 包单独一个任务，因为写 `.PKGINFO`、`.MTREE` 和 `.BUILDINFO` 的 `makepkg` 只存在于 Arch 上；而且在 Arch 上打的 deb 会链接比 Debian 更新的 glibc。容器里的一切都以普通用户运行：`makepkg` 和 `flutter` 都拒绝以 root 运行。
 
-构建成功的任务各自上传产物；正式发布要求全部前置任务通过，包括依赖扫描与 APK 校验。Go 告警在开发构建中记录，在版本 tag 上阻断发布。扫描失败仍保留已生成的依赖报告；发布附带摘要和构建来源证明，Android/Linux 的 Dart 调试符号单独保存。
+构建成功的任务各自上传产物；正式发布要求全部前置任务通过，包括依赖扫描与 APK 校验。Go 告警及扫描失败在普通分支和版本 tag 上均阻断构建。扫描失败仍保留已生成的依赖报告；发布附带摘要和构建来源证明，Android/Linux 的 Dart 调试符号单独保存。
 
 **签名**：只有版本 tag 从受保护的 `release` environment 还原 4 个 secret：`FERRY_KEYSTORE_BASE64`（`.jks` 文件的 base64）、`FERRY_KEYSTORE_PASSWORD`、`FERRY_KEY_ALIAS` 和 `FERRY_KEY_PASSWORD`。维护者须配置该环境的 refs 限制和审批，并将这些 secret 移出仓库级作用域。其他 CI 构建使用 debug 密钥；tag 缺少签名配置或证书与固定的正式签名不匹配时会失败。本地构建时，把同样的 4 个值以 `storeFile`、`storePassword`、`keyAlias`、`keyPassword` 写进 `android/key.properties`（已被 git 忽略）。请务必备份密钥库：用其他密钥签名的版本无法升级已安装的应用。
 
@@ -183,7 +183,7 @@ flutter analyze
 flutter test
 ```
 
-截至 2026-11-10，685 个测试通过、21 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
+截至 2026-11-10，715 个测试通过、21 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
 
 视觉回归截图需要设置环境变量才会运行，因为它们依赖本机字体渲染，只在录制它们的机器上有意义：
 
@@ -231,21 +231,20 @@ Linux 需要 `PATH` 上有 1.12 或更新的 `sing-box`——生成的配置使�
 | 系统代理 | 不需要 | 遵守桌面代理设置的应用；仅 TCP |
 | TUN | `CAP_NET_ADMIN` | 全部流量，包括 UDP |
 
-**默认是系统代理**，所以全新安装后不需要任何授权就能连接。切换到 TUN 需要一次授权：启动内核前，应用会检查程序文件的权限，缺少时通过 polkit 申请——就是桌面挂载磁盘时弹出的那个密码框——实际执行的是：
+**默认是系统代理**，连接不需要提权。首次开启 TUN 会先检查实际内核文件的
+`cap_net_admin`、`cap_net_raw`。已有权限直接连接；缺少权限时，通过系统 `pkexec` 和
+`setcap` 请求授权。能否显示密码框取决于桌面认证代理和 polkit 策略，不能保证每次都弹窗。
 
-```bash
-pkexec setcap cap_net_admin,cap_net_raw+ep /usr/bin/sing-box
-```
+应用校验工具和目标的 root 所有权及父目录权限，授权后再复查。缺工具、取消、认证未完成、
+不可信路径和复查失败分别给出恢复提示。权限对整个可执行文件有效，核心升级替换文件后可能
+需要重新授权；Ferry 安装包不自动执行 `setcap`。
 
-权限挂在程序文件上，而 `sing-box` 是应用自己启动的子进程，所以只需要授权一次，而不是每次连接都要：不安装任何特权辅助程序，应用本身也不提权。升级 `sing-box` 包会替换文件，权限也随之丢失，下次连接 TUN 时会重新申请。安装包不会在安装或升级时自动授予 capability；授权范围是整个可执行文件，并不只属于本 GUI。
+Debian/Ubuntu 包补齐授权工具依赖并推荐桌面认证代理；Arch 包依赖 polkit 和 libcap。
+NixOS 优先使用 `/run/wrappers/bin/sing-box`，通过系统声明式配置授予权限，不修改
+`/nix/store`；显式 `SINGBOX_BINARY` 仍优先。
 
-只有位于系统目录（`/usr`、`/opt`、`/bin`、`/sbin`）下的 `sing-box` 才能申请。程序会解析符号链接，并检查文件及每级父目录均为 root 所有、组和其他用户不可写；提权工具也会校验，传给 `setcap` 的是规范路径。其他位置的程序依然可以运行，请手动授权：
-
-```bash
-sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
-```
-
-如果弹窗被取消，或者系统没有 polkit 代理，TUN 模式会提示并给出手动命令；系统代理模式不受影响。各运行时如何分担同一个 `ProxyController` 接口，见 [`docs/architecture.md`](docs/architecture.md)。
+发行版差异、错误恢复与 NixOS 示例见 [Linux TUN 指南](docs/linux-tun.md)，运行时设计见
+[架构文档](docs/architecture.md)。
 
 ## 已知不足
 
@@ -257,7 +256,7 @@ sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
 - 两种 Linux 安装包都做过结构检查——deb 成员顺序和 control 字段、`pacman -Qip` 元数据、root 所有权、`/usr/bin` 软链接、桌面启动项。Arch 包有日常使用经验；deb 还没有在真实系统上安装过。
 - Linux 运行时只有基于模拟对象的单元测试，没有真实隧道测试：没有自动化测试会启动真实的 `sing-box`、创建 TUN 或写入真实的桌面代理设置。
 - Windows 运行时只有静态检查和单元测试，没有真实的 UAC/TUN 会话；仍需要一台 Windows 机器来端到端验证网卡创建和路由回滚。
-- Linux 没有特权辅助程序。TUN 依赖 `sing-box` 程序文件上的权限，通过 polkit 授予，包升级会清除它，弹窗会再次出现。用 systemd 或 polkit 安装的辅助程序可以避免这一点。
+- Linux 没有特权辅助程序。TUN 依赖 `sing-box` 程序文件上的权限，通过 polkit 授予，包升级可能清除它，下次 TUN 连接会重新检查和申请。用 systemd 或 polkit 安装的辅助程序可以避免这一点。
 - 只实现了 GNOME 和 KDE 的系统代理后端。在其他桌面上，该模式会启动内核，并在日志页说明无法设置桌面代理。
 - 托盘需要面板上有东西来承载。GNOME 上这是 AppIndicator 扩展，默认没有安装；没有它图标就不会出现，关闭按钮会改为退出而不是隐藏。
 - 托盘提示文字和点击事件只在 Windows 上有。Linux 的 AppIndicator 把菜单交给面板，不报告点击，所以菜单第一项就是唤回窗口的方式。

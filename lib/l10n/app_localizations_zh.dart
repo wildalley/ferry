@@ -832,7 +832,7 @@ class L10nZh extends L10n {
 
   @override
   String noticeTunUnprivileged(String binary) {
-    return 'TUN 未获授权。可重新连接再次弹出授权框,或执行 sudo setcap cap_net_admin,cap_net_raw+ep $binary,也可改用系统代理模式。';
+    return '$binary 无法使用 TUN 权限。请检查文件 capabilities 和文件系统挂载选项，或使用系统代理模式。';
   }
 
   @override
@@ -1188,4 +1188,31 @@ class L10nZh extends L10n {
   @override
   String get settingsProxyCompatibilityDesktop =>
       '系统代理已启用鉴权。浏览器可能要求输入凭据，不支持鉴权的软件可能无法联网；关闭“本地代理鉴权”可恢复兼容模式。';
+
+  @override
+  String get noticeTunToolsMissing =>
+      '缺少 TUN 授权工具。Debian/Ubuntu 请安装 pkexec、libcap2-bin；Arch/Fedora 请安装 polkit、libcap，并启动桌面 polkit 认证代理。';
+
+  @override
+  String get noticeTunAuthenticationFailed =>
+      '未能完成 TUN 认证。请确认桌面 polkit 认证代理已启动、当前账户可进行管理员认证，再重新连接；也可使用系统代理模式。';
+
+  @override
+  String get noticeTunUnsafePath =>
+      '无法安全授权当前内核或工具。请将 sing-box 和授权工具安装到 root 所有、其他用户不可写的系统目录，或使用系统代理模式。';
+
+  @override
+  String get noticeTunNixosSetup =>
+      'NixOS 需要声明式权限包装器。请按 Linux TUN 指南配置 security.wrappers.sing-box、重新构建系统，并移除指向 /nix/store 的 SINGBOX_BINARY 覆盖。';
+
+  @override
+  String get noticeTunCapabilityCheckFailed =>
+      '无法读取 TUN 权限。请确认 sing-box 文件存在、libcap 提供的 getcap 可正常运行，再重新连接。';
+
+  @override
+  String get noticeTunGrantFailed =>
+      'TUN 权限设置失败或复查未通过。请确认文件系统支持文件 capabilities，且内核安装在系统目录，再重新连接。';
+
+  @override
+  String get noticeTunCancelled => '已取消 TUN 授权。可重新连接进行授权，或使用系统代理模式。';
 }

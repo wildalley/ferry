@@ -902,7 +902,7 @@ class L10nEn extends L10n {
 
   @override
   String noticeTunUnprivileged(String binary) {
-    return 'TUN was not authorized. Connect again to get the prompt, grant it with: sudo setcap cap_net_admin,cap_net_raw+ep $binary — or switch to system proxy mode.';
+    return 'TUN permissions are unavailable for $binary. Check its file capabilities and the filesystem mount options, or use system proxy mode.';
   }
 
   @override
@@ -1277,4 +1277,32 @@ class L10nEn extends L10n {
   @override
   String get settingsProxyCompatibilityDesktop =>
       'System proxy authentication is enabled. Browsers may ask for credentials; apps that cannot authenticate may lose internet access. Turn Local proxy authentication off to restore compatibility.';
+
+  @override
+  String get noticeTunToolsMissing =>
+      'TUN authorization tools are missing. Install pkexec and libcap2-bin on Debian/Ubuntu, or polkit and libcap on Arch/Fedora. A desktop polkit authentication agent must also be running.';
+
+  @override
+  String get noticeTunAuthenticationFailed =>
+      'TUN authentication could not be completed. Check that the desktop polkit agent is running and your account can authenticate as an administrator, then reconnect. System proxy mode remains available.';
+
+  @override
+  String get noticeTunUnsafePath =>
+      'Ferry cannot safely authorize this executable or its tools. Install sing-box and the authorization tools in system directories owned by root and not writable by other users, or use system proxy mode.';
+
+  @override
+  String get noticeTunNixosSetup =>
+      'NixOS needs a declarative sing-box capability wrapper. Configure security.wrappers.sing-box as described in the Linux TUN guide, rebuild the system, and remove any SINGBOX_BINARY override pointing into /nix/store.';
+
+  @override
+  String get noticeTunCapabilityCheckFailed =>
+      'Could not read the TUN capabilities. Check that sing-box exists and getcap from libcap works, then reconnect.';
+
+  @override
+  String get noticeTunGrantFailed =>
+      'TUN capabilities were not applied or did not pass verification. Check that the filesystem supports file capabilities and the executable is installed in a system directory, then reconnect.';
+
+  @override
+  String get noticeTunCancelled =>
+      'TUN authorization was cancelled. Reconnect when ready to authorize, or use system proxy mode.';
 }

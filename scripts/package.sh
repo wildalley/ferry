@@ -167,8 +167,8 @@ Version: $VERSION-$BUILD
 Section: net
 Priority: optional
 Architecture: amd64
-Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libayatana-appindicator3-1, libdbusmenu-glib4, libsecret-1-0
-Recommends: sing-box (>= 1.12)
+Depends: libc6, libstdc++6, libgtk-3-0, libglib2.0-0, libayatana-appindicator3-1, libdbusmenu-glib4, libsecret-1-0, pkexec | policykit-1, libcap2-bin
+Recommends: sing-box (>= 1.12), polkit-1-auth-agent
 Replaces: singbox-client
 Conflicts: singbox-client
 Provides: singbox-client
@@ -235,7 +235,7 @@ if wants arch; then
     # where closing the window is supposed to leave it running.
     # sing-box is different: nothing links it, the app runs it. A hard depend
     # rather than an optdepend because without it the app cannot proxy at all,
-    # which is the only thing it is for. Arch ships 1.13; the config needs 1.12.
+    # which is the only thing it is for. The generated config requires at least 1.12.
     # license: GPL-3.0-or-later, because the Android build links libbox built
     # from sing-box, which is GPLv3+. Arch's own copy lives in
     # /usr/share/licenses/common/GPL3, so only the verbatim text is installed.
@@ -248,7 +248,8 @@ arch=('x86_64')
 url='$URL'
 license=('GPL-3.0-or-later')
 depends=('libsecret' 'gtk3' 'gcc-libs' 'glibc' 'zlib' 'libayatana-appindicator'
-         'libdbusmenu-glib' 'sing-box>=1.12')
+         'libdbusmenu-glib' 'sing-box>=1.12' 'polkit' 'libcap')
+optdepends=('polkit-gnome: graphical TUN authentication agent for desktops without one')
 # The package was called singbox-client before the rename; pacman swaps it
 # out on upgrade instead of installing the two side by side.
 replaces=('singbox-client')

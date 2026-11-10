@@ -57,7 +57,7 @@ elevation.
   switching, per-node URL tests, traffic, connection count, and memory
 - Two modes. System proxy is the default and needs no privileges at all, pointing
   GNOME or KDE at the loopback inbound; TUN captures everything and asks for
-  `CAP_NET_ADMIN` through a polkit prompt, once per binary
+  file capabilities through polkit when needed (see the Linux TUN guide)
 - Restores the desktop's previous proxy settings on stop, on quit, and on next
   launch after an unclean exit
 - Engine stdout/stderr streams into the log page, so a failed start is readable
@@ -309,7 +309,7 @@ flutter analyze
 flutter test
 ```
 
-As of 2026-11-10, 685 tests pass and 21 are skipped: share-link parsing — including the uTLS
+As of 2026-11-10, 715 tests pass and 21 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
 placement, policy-group rendering, live switching and rule-sets, Clash YAML import (with
@@ -398,37 +398,28 @@ schema. `SINGBOX_BINARY` overrides the lookup. Which mode to run:
 | System proxy | none | applications that honour the desktop proxy settings; TCP only |
 | TUN | `CAP_NET_ADMIN` | everything, UDP included |
 
-**System proxy is the default**, so a fresh install connects without asking for
-anything. Switching to TUN costs one authorization: before starting the engine the
-app checks the binary's file capabilities and, if they are missing, asks for them
-through polkit — the same password dialog the desktop uses for mounting a disk —
-by running
+**System proxy is the default**, so connecting in that mode needs no elevation.
+TUN first checks `cap_net_admin` and `cap_net_raw` on the actual core executable.
+If they are absent, trusted system installations can request them through
+`pkexec --disable-internal-agent` and `setcap`. A running desktop polkit agent
+and suitable administrator policy are required for a graphical prompt. Existing
+capabilities or cached authorization may mean no password dialog appears.
 
-```bash
-pkexec setcap cap_net_admin,cap_net_raw+ep /usr/bin/sing-box
-```
+The app validates root ownership and directory permissions before granting,
+then rechecks the capabilities. Missing tools, cancellation, authentication
+failure, unsafe paths and failed verification have separate recovery messages.
+The capability applies to the executable and can be lost when it is replaced;
+Ferry's packages do not grant it automatically during installation.
 
-The capability lives on the binary, and the app spawns `sing-box` as its own
-child, so this is asked once rather than per connection: no privileged helper is
-installed and nothing elevates the app itself. A `sing-box` package upgrade
-replaces the file and strips the capability with it. The next TUN connection asks
-again; packages do not grant capabilities automatically during installation or
-upgrade. The grant applies to the executable, not exclusively to this GUI.
+Debian/Ubuntu packages include the authorization tools and recommend a desktop
+authentication agent; Arch packages depend on polkit and libcap. NixOS uses a
+trusted `/run/wrappers/bin/sing-box` capability wrapper ahead of `PATH`, while
+an explicit `SINGBOX_BINARY` still takes precedence. Configure that wrapper in
+NixOS instead of modifying `/nix/store`.
 
-Only a `sing-box` under a system prefix (`/usr`, `/opt`, `/bin`, `/sbin`) is
-eligible. The app resolves symlinks and checks that the file and every ancestor
-are root-owned and not writable by group or others; it also validates the
-privilege tools and passes the canonical path to `setcap`. A binary elsewhere
-still runs — grant it by hand:
-
-```bash
-sudo setcap cap_net_admin,cap_net_raw+ep /path/to/sing-box
-```
-
-If the prompt is dismissed, or the system has no polkit agent, TUN mode reports
-that with the manual command; system-proxy mode works untouched. See
-[`docs/architecture.md`](docs/architecture.md) for how the runtimes divide up
-the same `ProxyController` interface.
+See the [Linux TUN guide](docs/linux-tun.md) for distribution differences,
+recovery instructions and a NixOS configuration example, and
+[architecture](docs/architecture.md) for the runtime interface.
 
 ## Known gaps
 

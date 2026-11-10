@@ -22,6 +22,8 @@ class _Runner {
   /// Tools that are not installed. Consulted both by the lookup and — for the
   /// ones that get as far as running — by the call itself, as `Process.run` does.
   Set<String> missing = {};
+  bool grantEffective = true;
+  bool granted = false;
 
   Future<ProcessResult> call(String executable, List<String> arguments) async {
     final argv = [executable, ...arguments];
@@ -29,7 +31,12 @@ class _Runner {
     if (missing.contains(executable)) {
       throw ProcessException(executable, arguments, 'No such file', 2);
     }
-    return ProcessResult(1, exitCode(argv), stdout(argv), '');
+    final code = exitCode(argv);
+    if (executable.endsWith('/pkexec') && code == 0) granted = grantEffective;
+    final output = granted && executable.endsWith('/getcap')
+        ? '${arguments.single} cap_net_admin,cap_net_raw=ep'
+        : stdout(argv);
+    return ProcessResult(1, code, output, '');
   }
 }
 
@@ -47,6 +54,8 @@ void main() {
   LinuxPrivileges privileges({Iterable<String>? trustedRoots}) =>
       LinuxPrivileges(
         runner: runner.call,
+        resolvePath: (path) async => path,
+        searchPaths: const ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
         securePath: (path) async => path,
         trustedRoots: trustedRoots,
         exists: (path) => !runner.missing.contains(path),
@@ -80,7 +89,8 @@ void main() {
       // the engine fail on its own, which is the failure the prompt replaces.
       expect(
         LinuxPrivileges.capabilitiesPresent(
-            '/usr/bin/sing-box cap_net_admin=ep'),
+          '/usr/bin/sing-box cap_net_admin=ep',
+        ),
         isFalse,
       );
     });
@@ -117,8 +127,7 @@ void main() {
     });
 
     test('an unreadable answer is null, not false', () async {
-      // Null means "cannot tell", and the controller starts the engine anyway
-      // rather than putting up a prompt that cannot help.
+      // A failed check is distinct from known missing capabilities.
       runner.exitCode = (_) => 1;
       expect(await privileges().hasTunCapabilities(trusted), isNull);
 
@@ -127,7 +136,7 @@ void main() {
         '/usr/sbin/getcap',
         '/usr/bin/getcap',
         '/sbin/getcap',
-        '/bin/getcap'
+        '/bin/getcap',
       };
       expect(await privileges().hasTunCapabilities(trusted), isNull);
     });
@@ -171,19 +180,27 @@ void main() {
     test('an untrusted path is refused without running anything', () async {
       final outcome = await privileges().grantTunCapabilities('/tmp/sing-box');
 
-      expect(outcome, TunAuthorization.unavailable);
-      expect(runner.calls, isEmpty,
-          reason: 'nothing may reach pkexec before the path is vetted');
+      expect(outcome, TunAuthorization.unsafePath);
+      expect(
+        runner.calls,
+        isEmpty,
+        reason: 'nothing may reach pkexec before the path is vetted',
+      );
     });
   });
 
   test('an unsafe canonical target never reaches pkexec', () async {
     final subject = LinuxPrivileges(
-        runner: runner.call,
-        exists: (_) => true,
-        securePath: (_) async => '/tmp/sing-box');
-    expect(await subject.grantTunCapabilities(trusted),
-        TunAuthorization.unavailable);
+      runner: runner.call,
+      resolvePath: (path) async => path,
+      searchPaths: const ['/usr/bin', '/usr/sbin', '/bin', '/sbin'],
+      exists: (_) => true,
+      securePath: (_) async => '/tmp/sing-box',
+    );
+    expect(
+      await subject.grantTunCapabilities(trusted),
+      TunAuthorization.unsafePath,
+    );
     expect(runner.calls, isEmpty);
   });
 
@@ -201,22 +218,29 @@ void main() {
     test('is pkexec, setcap, the capability set, and the binary', () async {
       await privileges().grantTunCapabilities(trusted);
 
-      expect(runner.calls, hasLength(1));
-      final argv = runner.calls.single;
-      expect(argv[0], endsWith('/pkexec'),
-          reason: 'polkit is what puts the dialog up');
-      expect(argv[1], endsWith('/setcap'));
-      expect(argv[2], 'cap_net_admin,cap_net_raw+ep');
-      expect(argv[3], trusted);
-      expect(argv, hasLength(4),
-          reason: 'no shell, no extra words: the path is one argument');
+      expect(runner.calls, hasLength(2));
+      final argv = runner.calls.first;
+      expect(
+        argv[0],
+        endsWith('/pkexec'),
+        reason: 'polkit is what puts the dialog up',
+      );
+      expect(argv[1], '--disable-internal-agent');
+      expect(argv[2], endsWith('/setcap'));
+      expect(argv[3], 'cap_net_admin,cap_net_raw+ep');
+      expect(argv[4], trusted);
+      expect(
+        argv,
+        hasLength(5),
+        reason: 'no shell, no extra words: the path is one argument',
+      );
     });
 
     test('the tools are absolute paths, not names to look up', () async {
       // pkexec runs its argument as root. Resolving that through PATH is how a
       // PATH-injection bug gets written.
       await privileges().grantTunCapabilities(trusted);
-      for (final argument in runner.calls.single.take(2)) {
+      for (final argument in [runner.calls.first[0], runner.calls.first[2]]) {
         expect(argument, startsWith('/'));
       }
     });
@@ -228,11 +252,13 @@ void main() {
       );
     });
 
-    test('a dismissed dialog and a failed authentication are declined', () {
-      // 126 and 127 are pkexec's own codes for "the user did not authorize
-      // this". The user's answer, so nothing retries on its own.
+    test('cancellation and authentication failures remain distinct', () {
+      // No automatic retry for either result, but recovery text differs.
       expect(LinuxPrivileges.outcomeOf(126), TunAuthorization.declined);
-      expect(LinuxPrivileges.outcomeOf(127), TunAuthorization.declined);
+      expect(
+        LinuxPrivileges.outcomeOf(127),
+        TunAuthorization.authenticationFailed,
+      );
     });
 
     test('any other non-zero code is a failure', () {
@@ -245,12 +271,12 @@ void main() {
         '/usr/bin/pkexec',
         '/usr/sbin/pkexec',
         '/bin/pkexec',
-        '/sbin/pkexec'
+        '/sbin/pkexec',
       };
 
       expect(
         await privileges().grantTunCapabilities(trusted),
-        TunAuthorization.unavailable,
+        TunAuthorization.missingTools,
       );
     });
 
@@ -262,5 +288,140 @@ void main() {
       expect(subject.mayElevate('/srv/sing-box'), isTrue);
       expect(subject.mayElevate('/usr/bin/sing-box'), isFalse);
     });
+  });
+  test('an effective flag on another capability cannot satisfy TUN', () {
+    expect(
+      LinuxPrivileges.capabilitiesPresent(
+        '$trusted cap_net_admin,cap_net_raw=p cap_chown=ep',
+      ),
+      isFalse,
+    );
+    expect(
+      LinuxPrivileges.capabilitiesPresent(
+        '$trusted cap_net_admin=ep cap_net_raw=ep',
+      ),
+      isTrue,
+    );
+    expect(
+      LinuxPrivileges.capabilitiesPresent(
+        '$trusted cap_net_admin,cap_net_raw=e',
+      ),
+      isFalse,
+    );
+    expect(
+      LinuxPrivileges.capabilitiesPresent(
+        '$trusted cap_net_admin,cap_net_raw=ep\n/other cap_chown=ep',
+      ),
+      isFalse,
+    );
+  });
+
+  test('exit zero with no effective capability fails verification', () async {
+    runner.grantEffective = false;
+    expect(
+      await privileges().grantTunCapabilities(trusted),
+      TunAuthorization.failed,
+    );
+    expect(runner.calls.last.first, endsWith('/getcap'));
+  });
+
+  test('Nix store and wrapper targets never reach setcap', () async {
+    for (final path in [
+      '/nix/store/hash-sing-box/bin/sing-box',
+      '/run/wrappers/bin/sing-box',
+      '/run/current-system/sw/bin/sing-box',
+    ]) {
+      expect(
+        await privileges().grantTunCapabilities(path),
+        TunAuthorization.nixosSetupRequired,
+      );
+    }
+    expect(runner.calls, isEmpty);
+  });
+
+  test(
+    'NixOS tools and capability wrapper are resolved before inspection',
+    () async {
+      const target = '/run/wrappers.abc/sing-box';
+      final subject = LinuxPrivileges(
+        runner: runner.call,
+        exists: (path) => path == '/run/current-system/sw/bin/getcap',
+        securePath: (_) async => '/nix/store/libcap/bin/getcap',
+        resolvePath: (_) async => target,
+      );
+      runner.stdout = (_) =>
+          '$target cap_net_admin,cap_net_raw,cap_setpcap=eip';
+      expect(
+        await subject.inspectTunCapabilities('/run/wrappers/bin/sing-box'),
+        TunAuthorization.granted,
+      );
+      expect(runner.calls.single, ['/nix/store/libcap/bin/getcap', target]);
+    },
+  );
+
+  test(
+    'a system symlink into the Nix store needs declarative configuration',
+    () async {
+      final subject = LinuxPrivileges(
+        runner: runner.call,
+        exists: (_) => true,
+        resolvePath: (_) async => '/nix/store/hash-sing-box/bin/sing-box',
+      );
+      expect(
+        await subject.grantTunCapabilities(trusted),
+        TunAuthorization.nixosSetupRequired,
+      );
+      expect(runner.calls, isEmpty);
+    },
+  );
+
+  test('missing and broken capability readers are distinct', () async {
+    final absent = LinuxPrivileges(exists: (_) => false);
+    expect(
+      await absent.inspectTunCapabilities(trusted),
+      TunAuthorization.missingTools,
+    );
+    runner.exitCode = (_) => 1;
+    expect(
+      await privileges().inspectTunCapabilities(trusted),
+      TunAuthorization.checkFailed,
+    );
+  });
+
+  test('capability names in a filename cannot bypass the check', () async {
+    const path = '/opt/cap_net_admin,cap_net_raw=ep /sing-box';
+    runner.stdout = (_) => '$path cap_chown=ep';
+    expect(
+      await privileges().inspectTunCapabilities(path),
+      TunAuthorization.required,
+    );
+  });
+
+  test('only root-owned sticky Nix store may be a group-writable ancestor', () {
+    expect(
+      LinuxPrivileges.ownershipSafe('/nix/store', 0, 0x3fd, directory: true),
+      isTrue,
+    ); // 01775
+    expect(
+      LinuxPrivileges.ownershipSafe('/nix/store', 0, 0x1fd, directory: true),
+      isFalse,
+    ); // 0775
+    expect(
+      LinuxPrivileges.ownershipSafe('/tmp', 0, 0x3fd, directory: true),
+      isFalse,
+    );
+    expect(
+      LinuxPrivileges.ownershipSafe('/nix/store', 1000, 0x3fd, directory: true),
+      isFalse,
+    );
+    expect(
+      LinuxPrivileges.ownershipSafe('/nix/store', 0, 0x3ff, directory: true),
+      isFalse,
+    );
+    expect(LinuxPrivileges.ownershipSafe('/nix/store', 0, 0x3fd), isFalse);
+    expect(
+      LinuxPrivileges.ownershipSafe('/usr/bin/sing-box', 0, 0x1ed),
+      isTrue,
+    ); // 0755
   });
 }

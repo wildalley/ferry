@@ -265,7 +265,7 @@
   "noticeRuleSetsUnavailable": "当前平台没有本地规则集可更新",
   "noticeEngineMissing": "找不到 sing-box 可执行文件。请先安装 sing-box,或用 SINGBOX_BINARY 指向一个。",
   "noticeEngineTooOld": "sing-box {version} 版本过旧,当前配置需要 1.12 或更新的版本。",
-  "noticeTunUnprivileged": "TUN 未获授权。可重新连接再次弹出授权框,或执行 sudo setcap cap_net_admin,cap_net_raw+ep {binary},也可改用系统代理模式。",
+  "noticeTunUnprivileged": "{binary} 无法使用 TUN 权限。请检查文件 capabilities 和文件系统挂载选项，或使用系统代理模式。",
   "noticeTunNeedsAdmin": "TUN 模式需要管理员权限。请重新连接并在弹出的 UAC 提示中允许,也可改用系统代理模式。",
   "noticeElevationFailed": "无法以管理员权限启动。请重试,或改用系统代理模式。",
   "noticeConfigRejected": "代理内核拒绝了生成的配置(退出码 {code})。请检查节点设置和自定义规则。",
@@ -363,5 +363,12 @@
   "proxyPassword": "密码",
   "settingsSystemProxyAndroidBody": "向应用提供本地 HTTP 代理；普通 VPN/TUN 使用无需开启。",
   "settingsProxyCompatibilityAndroid": "系统 HTTP 代理已开启，使用它的应用需要提供密码。不支持鉴权的应用可能无法联网；此时请关闭“系统 HTTP 代理”，继续使用 VPN/TUN。",
-  "settingsProxyCompatibilityDesktop": "系统代理已启用鉴权。浏览器可能要求输入凭据，不支持鉴权的软件可能无法联网；关闭“本地代理鉴权”可恢复兼容模式。"
+  "settingsProxyCompatibilityDesktop": "系统代理已启用鉴权。浏览器可能要求输入凭据，不支持鉴权的软件可能无法联网；关闭“本地代理鉴权”可恢复兼容模式。",
+  "noticeTunToolsMissing": "缺少 TUN 授权工具。Debian/Ubuntu 请安装 pkexec、libcap2-bin；Arch/Fedora 请安装 polkit、libcap，并启动桌面 polkit 认证代理。",
+  "noticeTunAuthenticationFailed": "未能完成 TUN 认证。请确认桌面 polkit 认证代理已启动、当前账户可进行管理员认证，再重新连接；也可使用系统代理模式。",
+  "noticeTunUnsafePath": "无法安全授权当前内核或工具。请将 sing-box 和授权工具安装到 root 所有、其他用户不可写的系统目录，或使用系统代理模式。",
+  "noticeTunNixosSetup": "NixOS 需要声明式权限包装器。请按 Linux TUN 指南配置 security.wrappers.sing-box、重新构建系统，并移除指向 /nix/store 的 SINGBOX_BINARY 覆盖。",
+  "noticeTunCapabilityCheckFailed": "无法读取 TUN 权限。请确认 sing-box 文件存在、libcap 提供的 getcap 可正常运行，再重新连接。",
+  "noticeTunGrantFailed": "TUN 权限设置失败或复查未通过。请确认文件系统支持文件 capabilities，且内核安装在系统目录，再重新连接。",
+  "noticeTunCancelled": "已取消 TUN 授权。可重新连接进行授权，或使用系统代理模式。"
 }

@@ -568,6 +568,20 @@ class AppState extends ChangeNotifier {
             NoticeKind.tunUnprivileged,
             detail: EngineProblem.detailOf(message),
           ),
+        EngineProblem.tunToolsMissing =>
+          const AppNotice.error(NoticeKind.tunToolsMissing),
+        EngineProblem.tunAuthenticationFailed =>
+          const AppNotice.error(NoticeKind.tunAuthenticationFailed),
+        EngineProblem.tunUnsafePath =>
+          const AppNotice.error(NoticeKind.tunUnsafePath),
+        EngineProblem.tunNixosSetup =>
+          const AppNotice.error(NoticeKind.tunNixosSetup),
+        EngineProblem.tunCapabilityCheckFailed =>
+          const AppNotice.error(NoticeKind.tunCapabilityCheckFailed),
+        EngineProblem.tunGrantFailed =>
+          const AppNotice.error(NoticeKind.tunGrantFailed),
+        EngineProblem.tunCancelled =>
+          const AppNotice.error(NoticeKind.tunCancelled),
         EngineProblem.elevationFailed =>
           const AppNotice.error(NoticeKind.elevationFailed),
         EngineProblem.configRejected => AppNotice.error(

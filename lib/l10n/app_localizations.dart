@@ -1648,7 +1648,7 @@ abstract class L10n {
   /// No description provided for @noticeTunUnprivileged.
   ///
   /// In en, this message translates to:
-  /// **'TUN was not authorized. Connect again to get the prompt, grant it with: sudo setcap cap_net_admin,cap_net_raw+ep {binary} — or switch to system proxy mode.'**
+  /// **'TUN permissions are unavailable for {binary}. Check its file capabilities and the filesystem mount options, or use system proxy mode.'**
   String noticeTunUnprivileged(String binary);
 
   /// Windows: the same missing privilege as noticeTunUnprivileged, but the fix is the UAC prompt rather than granting a capability to a path.
@@ -2238,6 +2238,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'System proxy authentication is enabled. Browsers may ask for credentials; apps that cannot authenticate may lose internet access. Turn Local proxy authentication off to restore compatibility.'**
   String get settingsProxyCompatibilityDesktop;
+
+  /// No description provided for @noticeTunToolsMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'TUN authorization tools are missing. Install pkexec and libcap2-bin on Debian/Ubuntu, or polkit and libcap on Arch/Fedora. A desktop polkit authentication agent must also be running.'**
+  String get noticeTunToolsMissing;
+
+  /// No description provided for @noticeTunAuthenticationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'TUN authentication could not be completed. Check that the desktop polkit agent is running and your account can authenticate as an administrator, then reconnect. System proxy mode remains available.'**
+  String get noticeTunAuthenticationFailed;
+
+  /// No description provided for @noticeTunUnsafePath.
+  ///
+  /// In en, this message translates to:
+  /// **'Ferry cannot safely authorize this executable or its tools. Install sing-box and the authorization tools in system directories owned by root and not writable by other users, or use system proxy mode.'**
+  String get noticeTunUnsafePath;
+
+  /// No description provided for @noticeTunNixosSetup.
+  ///
+  /// In en, this message translates to:
+  /// **'NixOS needs a declarative sing-box capability wrapper. Configure security.wrappers.sing-box as described in the Linux TUN guide, rebuild the system, and remove any SINGBOX_BINARY override pointing into /nix/store.'**
+  String get noticeTunNixosSetup;
+
+  /// No description provided for @noticeTunCapabilityCheckFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the TUN capabilities. Check that sing-box exists and getcap from libcap works, then reconnect.'**
+  String get noticeTunCapabilityCheckFailed;
+
+  /// No description provided for @noticeTunGrantFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'TUN capabilities were not applied or did not pass verification. Check that the filesystem supports file capabilities and the executable is installed in a system directory, then reconnect.'**
+  String get noticeTunGrantFailed;
+
+  /// No description provided for @noticeTunCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'TUN authorization was cancelled. Reconnect when ready to authorize, or use system proxy mode.'**
+  String get noticeTunCancelled;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
