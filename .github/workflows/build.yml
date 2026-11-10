@@ -75,7 +75,7 @@ jobs:
         run: python3 scripts/dependency-audit.py --scan
       - name: Retain Dart dependency reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: security-dart-${{ github.sha }}
           path: build/dependencies*.json
@@ -218,7 +218,7 @@ jobs:
 
       - name: Retain Android dependency reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: security-android-${{ github.sha }}
           path: |
@@ -230,7 +230,7 @@ jobs:
 
       - name: Retain Android and Linux Dart symbols
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: debug-symbols-deb-apk-${{ github.sha }}
           path: build/symbols/
@@ -280,7 +280,7 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/ferry-release.jks"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-deb-apk-${{ github.sha }}
           path: dist/*
@@ -321,7 +321,7 @@ jobs:
 
       - name: Retain Windows dependency reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: security-windows-${{ github.sha }}
           path: dist/windows-*.json
@@ -349,7 +349,7 @@ jobs:
             -Path "build/windows/x64/runner/Release/*" `
             -DestinationPath "dist/ferry-windows-x64-${{ github.sha }}.zip"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-windows-${{ github.sha }}
           path: |
@@ -421,7 +421,7 @@ jobs:
           ls -l dist
           compgen -G 'dist/*.pkg.tar.zst' >/dev/null || { echo missing; exit 1; }
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-arch-${{ github.sha }}
           path: dist/*
