@@ -102,6 +102,9 @@ android {
         jniLibs {
             // libbox.so is large; keeping it uncompressed lets the loader mmap it.
             useLegacyPackaging = false
+            // Go already strips libbox with -s -w. Preserve its exact bytes so
+            // the APK can be checked against the audited source manifest.
+            keepDebugSymbols += "**/libbox.so"
             // libbox exists for arm64 only, so other ABIs can never run. The
             // QR scanner's bundled ML Kit still ships its native barcode
             // library for them — about 9 MB that only ever sat in the APK.

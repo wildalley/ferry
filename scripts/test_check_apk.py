@@ -1,8 +1,10 @@
 """Release guard regressions, using synthetic APKs without an Android SDK."""
 
 import contextlib
+import hashlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import struct
 import tempfile
@@ -35,12 +37,21 @@ class ApkChecks(unittest.TestCase):
             for name in ('libbox.so', 'libapp.so', 'libflutter.so')
         }
 
-    def check(self):
+    def check(self, core_provenance=None):
         with zipfile.ZipFile(self.path, 'w') as archive:
             for name, body in self.entries.items():
                 archive.writestr(name, body)
         with contextlib.redirect_stdout(io.StringIO()):
-            check_apk.check(self.path)
+            check_apk.check(self.path, core_provenance)
+
+    def test_packaged_core_matches_audited_provenance(self):
+        provenance = Path(self.directory.name) / 'sources.json'
+        provenance.write_text(json.dumps({'schemaVersion': 1,
+            'nativeBinarySha256': hashlib.sha256(self.entries['lib/arm64-v8a/libbox.so']).hexdigest()}))
+        self.check(provenance)
+        self.entries['lib/arm64-v8a/libbox.so'] += b'altered'
+        with self.assertRaisesRegex(ValueError, 'does not match'):
+            self.check(provenance)
 
     def test_complete_runtime(self):
         self.check()

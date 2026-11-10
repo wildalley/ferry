@@ -27,16 +27,13 @@ env:
   FLUTTER_VERSION: 3.47.2
   FLUTTER_LINUX_SHA256: 447878859d01ca9bfdb99a85f245af07ed8a15fedcd9d189c4749e8e92d1f185
   FLUTTER_SUPPRESS_ANALYTICS: 'true'
-  # Must match the default in scripts/build-libbox.sh — it is also the cache key.
+  # Must match scripts/core-pins.json; these inputs also identify the AAR cache.
   SINGBOX_TAG: v1.13.19
   SINGBOX_COMMIT: b5ebaa1fc0f2b94256180b95468e73ef53caa27d
   GOMOBILE_VERSION: b2c30f47825831593d6980af8191527490f9c968
-  GO_VERSION: '1.25.14'
+  GO_VERSION: '1.27.3'
   ANDROID_NDK_VERSION: '28.2.13676358'
   GOEXPERIMENT: nojsonv2
-  # Official Windows archive, pinned so a future upstream replacement cannot
-  # silently change the binary shipped by this client.
-  SINGBOX_WINDOWS_SHA256: e011a4def2f5e2b143ed54adb2b1a20a6be407806ab4442f3667f1dd817a2c8d
 
 jobs:
   verify:
@@ -150,7 +147,8 @@ jobs:
           path: |
             android/app/libs/libbox.aar
             android/app/libs/libbox.aar.build-info.json
-          key: libbox-${{ runner.os }}-${{ runner.arch }}-${{ env.SINGBOX_TAG }}-${{ env.SINGBOX_COMMIT }}-${{ env.GOMOBILE_VERSION }}-arm64-go${{ env.GO_VERSION }}-ndk${{ env.ANDROID_NDK_VERSION }}-${{ env.GOEXPERIMENT }}-${{ hashFiles('scripts/build-libbox.sh') }}
+            android/app/libs/libbox.aar.sources.json
+          key: libbox-${{ runner.os }}-${{ runner.arch }}-${{ env.SINGBOX_TAG }}-${{ env.SINGBOX_COMMIT }}-${{ env.GOMOBILE_VERSION }}-arm64-go${{ env.GO_VERSION }}-ndk${{ env.ANDROID_NDK_VERSION }}-${{ env.GOEXPERIMENT }}-${{ hashFiles('scripts/build-libbox.sh', 'scripts/core-*', 'scripts/prepare-core.py', 'scripts/test-core.py', 'scripts/core-tests/**', 'patches/sing-box/*.patch') }}
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         if: steps.libbox.outputs.cache-hit != 'true'
@@ -206,12 +204,12 @@ jobs:
       - name: Inventory and scan shipped dependencies
         run: |
           (cd android && ./gradlew :app:exportReleaseDependencies -Ptarget-platform=android-arm64)
-          audit_flags=()
-          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then audit_flags+=(--report-only); fi
           python3 scripts/dependency-audit.py \
             --go-build-info android/app/libs/libbox.aar.build-info.json --core-version "$SINGBOX_TAG" \
+            --go-provenance android/app/libs/libbox.aar.sources.json \
             --maven build/app/reports/release-runtime-dependencies.json \
-            --output dist/dependencies.cdx.json --scan "${audit_flags[@]}"
+            --output dist/dependencies.cdx.json --scan
+          cp android/app/libs/libbox.aar.sources.json dist/android-core.sources.json
 
       - name: Retain Android dependency reports
         if: always()
@@ -221,6 +219,8 @@ jobs:
           path: |
             dist/dependencies*.json
             build/app/reports/release-runtime-dependencies.json
+            android/app/libs/libbox.aar.sources.json
+            android/app/libs/libbox.aar.build-info.json
           if-no-files-found: warn
 
       - name: Retain Android and Linux Dart symbols
@@ -262,7 +262,7 @@ jobs:
           exit $fail
 
       - name: Check APK contents and report size
-        run: python3 scripts/check-apk.py dist/*.apk
+        run: python3 scripts/check-apk.py --core-provenance android/app/libs/libbox.aar.sources.json dist/*.apk
 
       - name: Check APK 16 KiB ZIP alignment
         run: |
@@ -290,54 +290,36 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Download sing-box runtime
-        shell: pwsh
-        run: |
-          $tag = "${{ env.SINGBOX_TAG }}"
-          $version = $tag.TrimStart('v')
-          $asset = "sing-box-$version-windows-amd64.zip"
-          $archive = Join-Path $env:RUNNER_TEMP $asset
-          $url = "https://github.com/SagerNet/sing-box/releases/download/$tag/$asset"
-          Invoke-WebRequest -Uri $url -OutFile $archive
-          $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          $expected = "${{ env.SINGBOX_WINDOWS_SHA256 }}".ToLowerInvariant()
-          if ($actual -ne $expected) {
-            throw "sing-box checksum mismatch: expected $expected, got $actual"
-          }
-          $extract = Join-Path $env:RUNNER_TEMP "sing-box-extract"
-          Expand-Archive -Path $archive -DestinationPath $extract -Force
-          $core = Get-ChildItem -Path $extract -Recurse -Filter sing-box.exe |
-            Select-Object -First 1
-          if ($null -eq $core) { throw "sing-box.exe was not found in the archive" }
-          $resources = Join-Path $env:GITHUB_WORKSPACE "windows/runner/resources"
-          New-Item -ItemType Directory -Force -Path $resources | Out-Null
-          Copy-Item -Path $core.FullName -Destination (Join-Path $resources "sing-box.exe")
-          Get-ChildItem -Path $core.DirectoryName -Filter *.dll -ErrorAction SilentlyContinue |
-            ForEach-Object { Copy-Item -Path $_.FullName -Destination $resources -Force }
-          & (Join-Path $resources "sing-box.exe") version
-
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
+      - name: Build the patched Windows core
+        shell: bash
+        env:
+          CORE_PYTHON: python
+        run: |
+          scripts/build-windows-core.sh
+          windows/runner/resources/sing-box.exe version
+
       - name: Scan the shipped Windows core
         shell: bash
         run: |
           mkdir -p dist
-          go version -m -json windows/runner/resources/sing-box.exe > "$RUNNER_TEMP/windows-core.json"
-          audit_flags=()
-          if [[ "$GITHUB_REF" != refs/tags/v* ]]; then audit_flags+=(--report-only); fi
-          python scripts/dependency-audit.py --go-build-info "$RUNNER_TEMP/windows-core.json" \
+          cp windows/runner/resources/sing-box.exe.sources.json dist/windows-core.sources.json
+          cp windows/runner/resources/sing-box.exe.build-info.json dist/windows-core.build-info.json
+          python scripts/dependency-audit.py --go-build-info dist/windows-core.build-info.json \
+            --go-provenance dist/windows-core.sources.json \
             --core-version "$SINGBOX_TAG" --output dist/windows-dependencies.cdx.json \
-            --scan "${audit_flags[@]}"
+            --scan
 
       - name: Retain Windows dependency reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: security-windows-${{ github.sha }}
-          path: dist/windows-dependencies*.json
+          path: dist/windows-*.json
           if-no-files-found: warn
 
       # Windows runners already contain the Visual Studio C++ toolchain that
@@ -367,7 +349,7 @@ jobs:
           name: ferry-windows-${{ github.sha }}
           path: |
             dist/*.zip
-            dist/windows-dependencies*.json
+            dist/windows-*.json
           if-no-files-found: error
 
   arch:

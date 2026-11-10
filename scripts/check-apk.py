@@ -2,6 +2,8 @@
 """Check the arm64 runtime is complete and expose APK size regressions in CI."""
 
 import argparse
+import hashlib
+import json
 from pathlib import Path
 import struct
 import zipfile
@@ -34,7 +36,7 @@ def check_native_alignment(archive: zipfile.ZipFile, entry: zipfile.ZipInfo) -> 
             raise ValueError(f'{entry.filename}: no ELF LOAD segments')
 
 
-def check(path: Path) -> None:
+def check(path: Path, core_provenance: Path | None = None) -> None:
     with zipfile.ZipFile(path) as archive:
         entries = archive.infolist()
         names = {entry.filename for entry in entries}
@@ -58,6 +60,13 @@ def check(path: Path) -> None:
         for entry in entries:
             if entry.filename.startswith('lib/') and entry.filename.endswith('.so'):
                 check_native_alignment(archive, entry)
+        if core_provenance is not None:
+            manifest = json.loads(core_provenance.read_text())
+            with archive.open('lib/arm64-v8a/libbox.so') as library:
+                actual = hashlib.file_digest(library, 'sha256').hexdigest()
+            if manifest.get('schemaVersion') != 1 or actual != manifest.get('nativeBinarySha256'):
+                raise ValueError('packaged core does not match the audited source manifest')
+            print('  packaged core matches the audited source manifest')
         print(f'{path.name}: {path.stat().st_size / 2**20:.2f} MiB APK')
         print('  arm64 runtime complete; all ELF LOAD segments support 16 KiB pages')
         print('  MiB in APK / unpacked MiB / entry')
@@ -68,11 +77,12 @@ def check(path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--core-provenance', type=Path)
     parser.add_argument('apks', type=Path, nargs='+')
     args = parser.parse_args()
     for path in args.apks:
         try:
-            check(path)
+            check(path, args.core_provenance)
         except (OSError, ValueError, zipfile.BadZipFile) as error:
             parser.exit(1, f'{path.name}: {error}\n')
 
