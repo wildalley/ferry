@@ -37,6 +37,23 @@
 - 应用版本与界面常量统一为 `0.4.2`，Android 构建号 23；沿用既有正式签名，未创建新密钥。
 - 一次性迁移流程仅输出 release 环境公钥加密的密文，迁移完成后删除该流程和临时产物。
 
+### 正式发布验收
+
+- `v0.4.2` 指向 `f1fcc52f089e7678acd649c2af7260f92bf8ab40`，于 **2026-11-10 16:31:35（UTC+8）** 发布；
+  GitHub latest 已为该版本，非草稿、非预发布。发布说明与本仓库更新日志一致。
+- 标签流水线 **42782310549 全部成功**：analyze/test、deb/APK、Windows、Arch、release。
+  本地 Flutter **713 通过、21 跳过**，标签 CI **715 通过、19 跳过**；Python 本地与 CI 均为 **32 通过**。
+  已移除废弃组件对应的两项测试；本地和 CI 的通过/跳过数量分别保留各自日志结果。
+- 正式发布包含 Android APK、deb、Arch 包、Windows ZIP，以及 SHA256SUMS、依赖清单和核心来源记录，共 **13 个附件**。
+  下载后逐一复核 SHA256SUMS 的 **12 项全部匹配**；四个安装包与摘要文件的 GitHub 来源证明均通过，
+  验证时限定本仓库发布工作流、`refs/tags/v0.4.2`、上述提交及 GitHub 托管 runner。
+- 正式 APK **93,555,823 字节（89.22 MiB）**，版本 `0.4.2+23`；签名证书与 v0.4.1 相同，
+  ELF LOAD 和 ZIP 16 KiB 对齐通过，包内 libbox 摘要与来源清单一致。
+- Android/Windows 核心均为 **1.14.4-ferry.1**，补丁来源树一致；Windows ZIP 内核心摘要也与清单一致。
+  发布的 Android **314** 项、Windows **171** 项依赖清单对应 OSV 报告均无告警。
+- `release` 环境仅允许 `v*` 标签，四项签名配置已在正式构建中使用；仓库级副本、一次性迁移工作流、
+  远端密文产物及本地临时密文/公钥文件均已删除。实机迁移、发行版授权和长时内存验收仍保留在待办中。
+
 ## CI 故障证据
 
 初次审计时查到的最近成功运行是 2026-11-05 的 `41984483533`（`d18c4a2`），verify、deb/APK、Windows、Arch 均成功。
@@ -50,7 +67,7 @@
 修改后提交 `6b5f680` 的远端运行 `42749581155` 已全部成功：verify 1 分 30 秒、
 deb/APK 12 分 39 秒、Windows 4 分 22 秒、Arch 2 分；分支推送的 release 正常跳过。
 这是另一组构建输入下的完整流水线结果，不能把 deb/APK 时间增加直接视为性能退化；
-首次固定输入后的 AAR 构建及新增扫描也在该任务内。正式 tag 的生产签名及发布步骤尚未执行。
+首次固定输入后的 AAR 构建及新增扫描也在该任务内。当时尚未执行正式 tag；本次结果见上方正式发布验收。
 
 后续提交 `4471ee4` 的运行 `42757334709` 也已全部成功，包含实际 Maven 审计和 Gradle 资源调整。
 补丁核心提交 `8981ed1` 的运行 `42768295287` 已全部成功：verify 1 分 31 秒、
@@ -74,7 +91,7 @@ deb/APK 8 分 31 秒、Windows 5 分 25 秒、Arch 2 分 02 秒；release 正常
 | Android 生命周期 | start/stop/reload/选择/测速进入进程内单个后台执行器；主线程不等待 Go I/O；代号取消过期操作，事件保留所属会话并在 UI 分发前过滤 | Kotlin 和 APK release 编译通过；真机慢启动/撤销/连续重连仍需验证 |
 | 部分初始化 | server/client 创建后立即取得所有权，start/connect 抛错也会关闭；停止回调只入队，不重入引擎关闭 | 编译检查；未声称已验证所有 native 故障路径 |
 | Clash HTTP | AbortableRequest，总时限、8 MiB 正文上限、显式取消；错误正文不排空；销毁时取消本对象请求，保留注入 client 所有权 | 真实 socket 的响应头/正文超时、chunked/Content-Length、错误 PUT、dispose 断开测试 |
-| Windows HTTP | 使用同一有界传输辅助函数；轮询 finally 只清除对应会话的并发标记 | Dart 分析/测试通过；Windows 本机构建待 CI |
+| Windows HTTP | 使用同一有界传输辅助函数；轮询 finally 只清除对应会话的并发标记 | Dart 分析/测试及 Windows CI 构建通过；系统交互仍需实机验证 |
 | Linux 轮询 | 每个会话最多一个 group 请求，旧完成不能释放新会话的保护 | 临时假引擎和慢 API 的跨会话回归测试 |
 | 隐藏窗口 | Linux/Windows 不再重建或保留连接明细模型，继续采集流量总数与连接数量 | 隐藏/恢复时计数、列表回归；JSON 正文仍需解码，未声称消除了全部解析开销 |
 | 订阅导入 | 紧凑字节缓冲、网络总时限与取消、文件及粘贴输入 4 MiB 上限、64 KiB 起使用后台 isolate 解析 | 超限文件、1k 节点回归及 1k/10k 基准 |
@@ -95,7 +112,7 @@ Linux 需要正在运行且已解锁的 Secret Service，发行包已补 libsecr
 ## CI 和发布
 
 - Linux Flutter 3.47.2 下载增加官方 SHA-256；Gradle 9.3.1 wrapper 增加发行包摘要。
-- sing-box v1.13.19 固定提交 `b5ebaa1fc0f2b94256180b95468e73ef53caa27d`；gomobile 固定提交 `b2c30f47825831593d6980af8191527490f9c968`，缓存包含这些构建输入和脚本。
+- 当前 sing-box v1.14.4 固定提交 `c005f35300ce76427dc285481ec5695f5b179cd2`；gomobile 固定提交 `9f03b8f25789099c5c8abef4a02085da783ba923`，缓存包含这些构建输入和脚本。
 - 发布要求 verify、deb/APK、Windows、Arch 全部成功，取消部分平台发布。
 - 正式 tag 使用 `release` environment；其他构建不恢复发布签名。2026-11-10 已创建仅允许 `v*` 标签的 `release` 环境，将四项 FERRY_KEY* 配置加密迁入并删除仓库级副本；普通分支使用不含签名配置的 `build` 环境。管理员仍能修改仓库及保护规则，这不是对管理员的隔离。
 - 已从现有 v0.4.1 公开发行 APK 核实发布证书 SHA-256：`2e414a31434c01f6ad7cd0ed80dcdca3f9de9c3983644a150f5110ea6c7ebbcc`。签名验证成功后才匹配证书，兼容新旧 apksigner 展示格式，换钥需显式审查。
@@ -202,15 +219,15 @@ python3 -B ../scripts/profile-build.py --interval 0.5 --output ../build/profiles
   ./gradlew --no-daemon --rerun-tasks -Ptarget-platform=android-arm64 :app:assembleRelease
 ```
 
-## 验收与仍需执行
+## 早期验收记录与仍需执行
 
-- Flutter：静态分析无问题；续轮全量 694 项测试通过、21 项按原有条件跳过；新增安全界面布局和凭据主动展示测试通过。
-- Python：28 项通过；actionlint v1.7.7 和 shell 语法检查通过。
-- Android arm64 release、Linux release 构建成功；APK 原生库、ELF LOAD 与 ZIP 16 KiB 对齐、签名有效性通过。
-- 本地验收没有安装应用、切换真实 VPN 或发布版本。根目录遗留 cache.db 已移出工作区，Python 字节码已清理并加入忽略规则。
+- 早期 Flutter：静态分析无问题；当时全量 694 项测试通过、21 项按原有条件跳过；新增安全界面布局和凭据主动展示测试通过。
+- 早期 Python：28 项通过；actionlint v1.7.7 和 shell 语法检查通过。本次发布的测试数量见上方正式发布验收。
+- 早期 Android arm64 release、Linux release 构建成功；APK 原生库、ELF LOAD 与 ZIP 16 KiB 对齐、签名有效性通过。
+- 早期本地验收未安装应用或发布版本；后续本机安装与正式发布结果分别见上方记录。始终未切换真实 VPN。根目录遗留 cache.db 已移出工作区，Python 字节码已清理并加入忽略规则。
 - 未进行真实 Android Keystore/Windows 凭据库/Linux Secret Service 的多设备迁移验收。仅编译和模拟存储测试不能替代这些验证。
 - 尚需真机 Android 慢启动/立刻停止/连续重载/撤销 VPN/进程重建、至少 100 轮连接循环，以及 2–8 小时 native 内存/FD 测量。
 - Android 停止不再阻塞主线程，但仍需等待正在执行的 Go 调用返回；没有宣称能够强制中断任意 native I/O。
 - R8 继续保持可选；Gradle 资源实验及默认 JVM 限额已完成，远端内存/耗时仍需持续观察。规则集签名清单、受限权限 helper、固定 Arch 镜像等仍未实施。
 - Linux 文件 capability 依然属于整个可执行文件，首次授权不等于仅向本 GUI 授权。多用户隔离需要后续受控 helper/服务方案。
-- 远端构建结果以提交对应的 GitHub Actions 为准。生产 environment 规则、正式 tag 验收、跨平台真机与长时内存验证仍是发布前待办。
+- 远端构建结果以提交对应的 GitHub Actions 为准。生产 environment 规则和正式 tag 验收已完成；跨平台真机与长时内存验证仍需继续。
