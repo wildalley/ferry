@@ -18,9 +18,9 @@ elevation.
 
 ## Current release
 
-**v0.4.2** upgrades the Android/Windows core to **1.14.4-ferry.1**, improves
-credential protection and Linux TUN authorization, and removes obsolete assets.
-See [upgrade notes and compatibility limits](CHANGELOG.md#042--2026-11-10).
+**v0.4.3** fixes Android installs that stopped at "Secure storage is unavailable"
+when the device Keystore cannot be used. It builds on v0.4.2, which upgraded the
+Android/Windows core to **1.14.4-ferry.1**. See the [changelog](CHANGELOG.md#043--2026-11-10).
 Linux continues to use the system-installed core.
 
 ## Features
@@ -188,7 +188,10 @@ sudo pacman -S --needed libayatana-appindicator libsecret           # Arch
 
 At runtime, credential storage needs an unlocked Secret Service, such as GNOME
 Keyring or a compatible KWallet service. If it is unavailable, startup offers a
-retry and preserves the data; it does not fall back to plaintext storage.
+retry and preserves the data; it does not fall back to plaintext storage. On
+Android, an install whose Keystore fails before it ever held data uses
+app-private, backup-excluded storage instead, since a broken OEM Keystore cannot
+be fixed by the user.
 
 ## Build
 
@@ -316,7 +319,7 @@ flutter analyze
 flutter test
 ```
 
-As of 2026-11-10, 713 tests pass and 21 are skipped: share-link parsing — including the uTLS
+As of 2026-11-10, 719 tests pass and 19 are skipped: share-link parsing — including the uTLS
 fingerprint whitelist — config rendering, chain-proxy detours and loop
 protection, duplicate endpoint-tag handling, custom-rule validation and
 placement, policy-group rendering, live switching and rule-sets, Clash YAML import (with

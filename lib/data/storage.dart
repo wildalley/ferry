@@ -4,8 +4,10 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
@@ -38,14 +40,53 @@ class Storage {
   static const _kUpdateCheckedAt = 'update_checked_at.v1';
   static const _kUpdateDismissed = 'update_dismissed.v1';
 
-  static Future<Storage> open({SecretStore? secrets}) async {
-    final storage = Storage._(
-      await SharedPreferences.getInstance(),
-      secrets ?? const PlatformSecretStore(),
-    );
-    await storage._migrateSecrets();
-    return storage;
+  /// Which store holds the credentials on this install. Absent means the
+  /// platform vault; [_backendDevice] is written once, when the Android
+  /// Keystore failed before it ever held data, and is never changed back.
+  static const _kSecretBackend = 'secret_backend.v1';
+  static const _backendDevice = 'device';
+
+  /// Opens storage and moves any legacy plaintext credentials into the vault.
+  ///
+  /// [deviceFallback] builds the store used when the platform vault is
+  /// unusable on first use. It defaults to [DeviceSecretStore] on Android only:
+  /// there a broken OEM Keystore cannot be fixed by the user, whereas a locked
+  /// desktop keyring can be unlocked and retried from the recovery screen.
+  static Future<Storage> open({
+    SecretStore? secrets,
+    SecretStore Function(SharedPreferences prefs)? deviceFallback,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final fallback =
+        deviceFallback ?? (Platform.isAndroid ? DeviceSecretStore.new : null);
+    if (fallback != null && prefs.getString(_kSecretBackend) == _backendDevice) {
+      final storage = Storage._(prefs, fallback(prefs));
+      await storage._migrateSecrets();
+      return storage;
+    }
+    final storage = Storage._(prefs, secrets ?? const PlatformSecretStore());
+    try {
+      await storage._migrateSecrets();
+      return storage;
+    } on SecureStorageUnavailable catch (error) {
+      // Once the vault has held the data, switching stores would present an
+      // empty installation; keep failing closed so it can be recovered.
+      // Invalid legacy data is not a vault problem either.
+      if (fallback == null ||
+          prefs.getBool(_kVaultInitialized) == true ||
+          error.detail == _invalidData) {
+        rethrow;
+      }
+      if (!await prefs.setString(_kSecretBackend, _backendDevice)) {
+        rethrow;
+      }
+      final device = Storage._(prefs, fallback(prefs));
+      await device._migrateSecrets();
+      return device;
+    }
   }
+
+  static const _invalidData = 'invalid-data';
 
   Future<void> _migrateSecrets() async {
     const keys = [_kNodes, _kSubscriptions, _kClashSecret, _kProxySecret];
@@ -57,7 +98,7 @@ class Storage {
         var value = await _secrets.read(key);
         if (value == null) {
           if (_prefs.getBool(_kVaultInitialized) == true) {
-            throw const SecureStorageUnavailable();
+            throw const SecureStorageUnavailable('vault-missing');
           }
           value = _prefs.getString(key) ??
               (key == _kNodes || key == _kSubscriptions ? '[]' : _newSecret());
@@ -66,37 +107,52 @@ class Storage {
         }
         _validateSecret(key, value);
         if (await _secrets.read(key) != value) {
-          throw const SecureStorageUnavailable();
+          throw const SecureStorageUnavailable('readback-mismatch');
         }
         _secretCache[key] = value;
       }
       if (!await _prefs.setBool(_kVaultInitialized, true)) {
-        throw const SecureStorageUnavailable();
+        throw const SecureStorageUnavailable('prefs-write-failed');
       }
       for (final key in keys) {
         if (_prefs.containsKey(key) && !await _prefs.remove(key)) {
-          throw const SecureStorageUnavailable();
+          throw const SecureStorageUnavailable('prefs-write-failed');
         }
       }
-    } on Object {
-      throw const SecureStorageUnavailable();
+    } on SecureStorageUnavailable {
+      rethrow;
+    } on Object catch (error) {
+      throw SecureStorageUnavailable(_describe(error));
     }
   }
 
+  /// A diagnosable summary of a vault failure. Platform messages come from
+  /// the keystore and name no value; anything else is reduced to its type,
+  /// since e.g. a FormatException quotes the text it failed to parse.
+  static String _describe(Object error) => switch (error) {
+        PlatformException(:final code, :final message) =>
+          '$code: ${message ?? 'no message'}',
+        _ => error.runtimeType.toString(),
+      };
+
   static void _validateSecret(String key, String value) {
-    if (key == _kNodes || key == _kSubscriptions) {
-      final decoded = jsonDecode(value);
-      if (decoded is! List) throw const SecureStorageUnavailable();
-      for (final item in decoded) {
-        final data = Map<String, dynamic>.from(item as Map);
-        if (key == _kNodes) {
-          ProxyNode.fromJson(data);
-        } else {
-          Subscription.fromJson(data);
+    try {
+      if (key == _kNodes || key == _kSubscriptions) {
+        final decoded = jsonDecode(value);
+        if (decoded is! List) throw const FormatException();
+        for (final item in decoded) {
+          final data = Map<String, dynamic>.from(item as Map);
+          if (key == _kNodes) {
+            ProxyNode.fromJson(data);
+          } else {
+            Subscription.fromJson(data);
+          }
         }
+      } else if (value.isEmpty) {
+        throw const FormatException();
       }
-    } else if (value.isEmpty) {
-      throw const SecureStorageUnavailable();
+    } on Object {
+      throw const SecureStorageUnavailable(_invalidData);
     }
   }
 
@@ -111,11 +167,13 @@ class Storage {
       try {
         await _secrets.write(key, value);
         if (await _secrets.read(key) != value) {
-          throw const SecureStorageUnavailable();
+          throw const SecureStorageUnavailable('readback-mismatch');
         }
         _secretCache[key] = value;
-      } on Object {
-        throw const SecureStorageUnavailable();
+      } on SecureStorageUnavailable {
+        rethrow;
+      } on Object catch (error) {
+        throw SecureStorageUnavailable(_describe(error));
       }
     });
     // A failed write must not prevent retrying after the keyring is unlocked.

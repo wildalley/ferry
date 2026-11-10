@@ -57,9 +57,9 @@ Future<void> main(List<String> args) async {
   late final Storage storage;
   try {
     storage = await Storage.open();
-  } on SecureStorageUnavailable {
+  } on SecureStorageUnavailable catch (error) {
     final recovered = Completer<Storage>();
-    runApp(StorageRecovery(onReady: recovered.complete));
+    runApp(StorageRecovery(onReady: recovered.complete, detail: error.detail));
     storage = await recovered.future;
   }
   // Before the first config is rendered: with the rule-sets on disk the engine

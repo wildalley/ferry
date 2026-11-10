@@ -12,8 +12,8 @@
 
 ## 当前版本
 
-**v0.4.2** 将 Android/Windows 内核升级至 **1.14.4-ferry.1**，补齐凭据保护、
-Linux TUN 授权并清理旧素材。升级说明和兼容性边界见 [更新日志](CHANGELOG.md#042--2026-11-10)。
+**v0.4.3** 修复部分 Android 设备因系统 Keystore 不可用而启动即停在“无法打开安全存储”的问题。
+v0.4.2 已将 Android/Windows 内核升级至 **1.14.4-ferry.1**。详见 [更新日志](CHANGELOG.md#043--2026-11-10)。
 Linux 继续使用系统安装的内核。
 
 ## 功能
@@ -108,7 +108,7 @@ sudo apt-get install libayatana-appindicator3-dev libsecret-1-dev   # Debian、U
 sudo pacman -S --needed libayatana-appindicator libsecret           # Arch
 ```
 
-运行时需要已解锁的 Secret Service，例如 GNOME Keyring 或兼容的 KWallet 服务。不可用时程序会保留数据并提供重试，不会退回明文存储。
+运行时需要已解锁的 Secret Service，例如 GNOME Keyring 或兼容的 KWallet 服务。不可用时程序会保留数据并提供重试，不会退回明文存储。Android 上若 Keystore 在首次使用时就失败（尚未保存过数据），该安装改用应用私有且排除备份的存储，因为用户无法修复设备厂商的 Keystore 故障。
 
 ## 构建
 
@@ -189,7 +189,7 @@ flutter analyze
 flutter test
 ```
 
-截至 2026-11-10，713 个测试通过、21 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
+截至 2026-11-10，719 个测试通过、19 个跳过，覆盖：分享链接解析（包括 uTLS 指纹白名单）、配置生成、链式代理与防环、重复出站标签处理、自定义规则校验与位置、策略组的配置生成、实时切换与规则集、Clash YAML 导入（开发时用 `sing-box check` 校验过输出）、二维码识别、节点列表按需构建、检查更新、从 SingBox Client 迁移桌面数据、导入格式识别、两个桌面运行时共用的 Clash API 客户端、polkit 授权、基于模拟对象的 Linux 系统代理后端、退出流程、单实例 socket、托盘菜单构建、后台暂停动画与日志跟随回调上限、基于模拟控制器的界面交互，以及包含配色对比度在内的本地化与主题检查。Windows 的提权判断有单元测试；它的 WinINet 桥接、Job Object 和真实 TUN 网卡仍需要在 Windows 上验证。
 
 视觉回归截图需要设置环境变量才会运行，因为它们依赖本机字体渲染，只在录制它们的机器上有意义：
 
