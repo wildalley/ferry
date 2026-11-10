@@ -169,7 +169,7 @@ Dart 3.8+
 ```
 
 For Android builds: JDK 17, Android SDK with NDK, and Go to build
-`libbox.aar`. CI pins Go 1.25.14 and NDK 28.2.13676358.
+`libbox.aar`. Native builds pin Go 1.27.3 and NDK 28.2.13676358 and require Python 3.11+.
 
 For Linux builds, install appindicator and libsecret headers on top of Flutter's
 usual desktop toolchain:
@@ -192,10 +192,17 @@ source and measured about 13.5 MiB in the current arm64 build. Build it first:
 ./scripts/build-libbox.sh
 ```
 
-The script pins sing-box and its gomobile fork to exact commits and writes the
-aar to `android/app/libs/`. Tailscale is disabled by default because the node
+The script applies the reviewed security and Hysteria congestion patches from
+[`scripts/core-pins.json`](scripts/core-pins.json), runs loopback protocol tests,
+and writes the AAR plus build/source manifests to `android/app/libs/`.
+Tailscale is disabled by default because the node
 model does not support it; `WITH_TAILSCALE=1` restores it for comparison. It needs
 `ANDROID_HOME` and `ANDROID_NDK_HOME` set, or a standard SDK location it can discover.
+
+For Windows, run `scripts/build-windows-core.sh` in Git Bash before the Flutter
+build. It uses the same patched sources and writes `sing-box.exe` and its
+manifests to `windows/runner/resources/`. Linux continues to use the separately
+installed system core. See [patch provenance and validation](patches/sing-box/README.md).
 
 Then:
 
@@ -235,7 +242,7 @@ scripts/package.sh deb apk    # or a named subset
 | `ferry_<version>-<build>_amd64.deb` | nothing past the Linux toolchain above — `dpkg-deb` when present, otherwise `ar` + `tar` |
 | `ferry-<version>-<build>-x86_64.pkg.tar.zst` | `makepkg` and `fakeroot`, so an Arch host |
 | `ferry-<version>-<build>-arm64.apk` | a JDK, an Android SDK, and `android/app/libs/libbox.aar` |
-| `ferry-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the pinned sing-box archive |
+| `ferry-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the patched core built with Go 1.27.3 |
 
 Whatever is missing a tool is skipped with the reason printed; the rest still
 build. Every icon — launcher, tray, Windows, and the Linux hicolor sizes in
@@ -268,8 +275,8 @@ installing the two side by side.
 | `release` | `ubuntu-24.04` | on a `v*` tag, one GitHub Release after all four prerequisite jobs succeed |
 
 The Ubuntu job configures JDK 17 and the pinned NDK using the runner's Android
-SDK. The AAR cache key includes source commits, toolchain versions, and the build
-script. Both Linux jobs install their distribution's appindicator and libsecret
+SDK. The AAR cache key includes source commits, toolchain versions, patches,
+build scripts, and core tests. Both Linux jobs install their distribution's appindicator and libsecret
 development packages. Flutter downloads and the Gradle wrapper are checksum-verified.
 
 The Arch package gets its own job because `makepkg` — which is what writes
@@ -280,7 +287,7 @@ run as root.
 
 Successful build jobs upload their own artifacts. A release requires every
 prerequisite job to pass, including dependency scans and APK validation. Go
-advisories are reported on development builds and block version tags. Dependency
+advisories and scan failures block both development builds and version tags. Dependency
 reports are retained even when a scan fails; releases include checksums and
 build provenance. Android/Linux Dart symbols are retained separately.
 
@@ -483,8 +490,12 @@ Settings exposes credentials only on explicit request; external clients must
 support authentication when it is enabled. Android backup and device transfer
 exclude application credentials.
 
-The 2026-11-10 scan found advisories in nine linked Go modules; formal releases
-remain blocked until they are addressed. See the
+The patched Android and Windows cores use the same pinned sources, with
+security dependency upgrades and the Hysteria low-RTT window fix. Their actual
+linked inventories returned no known OSV advisories in the 2026-11-10 local
+rescan. Local module patches retain their original identity in scans, and CI
+checks that the packaged APK core matches its source manifest. This does not
+replace device, reachability, or long-running memory validation. See the
 [implementation and verification record](docs/optimization-implementation-2026-11-10.md)
 for measured size/performance changes and outstanding device and memory checks.
 

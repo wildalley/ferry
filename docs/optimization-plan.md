@@ -7,16 +7,17 @@
 
 | 优先级 | 工作 | 完成标准 |
 | --- | --- | --- |
-| P0 | 原生核心依赖告警 | 默认 Android / Windows 产物分别有 9 / 11 个模块命中 OSV。候选固定补丁已通过三平台编译、JNI 对比和复扫；Hysteria2 原版/候选均有大数据超时，定位并完成协议回归后才接入构建。见[候选说明](../patches/sing-box/README.md) |
 | P0 | 生产签名隔离 | 配置 GitHub `release` environment 的允许 refs/审批，把 FERRY_KEY* 从仓库级迁入该环境；验证非发布构建无法取得生产密钥 |
-| P1 | 发布流水线验收 | `6b5f680` 的 verify、deb/APK、Windows、Arch 已成功；继续检查本轮提交。正式 tag 的生产证书、发布摘要与来源证明仍需受保护发布验收 |
+| P1 | 发布流水线验收 | `4471ee4` 的 verify、deb/APK、Windows、Arch 已成功；本轮补丁核心仍需远端全平台验收。正式 tag 的生产证书、发布摘要与来源证明仍需受保护发布验收 |
 | P1 | 真实凭据库迁移 | Android Keystore、Windows 凭据库、Linux Secret Service 分别验证旧数据迁移、锁定/解锁、部分失败重试、密钥丢失、升级和备份/设备迁移行为 |
-| P1 | Android 生命周期与协议 | 慢启动后立即停止、连续重载、VPN 撤销、服务重建及部分初始化失败；至少 100 轮连接循环，检查 QUIC/WireGuard/TUN/DNS 和 JNI 绑定 |
+| P1 | Android 生命周期与协议 | 本地 HTTP/2、gRPC、WebSocket、Hysteria2、TUIC、DNS 回归已通过；仍须实机验证慢启动后立即停止、连续重载、VPN 撤销、服务重建及部分初始化失败，至少 100 轮连接循环，检查 QUIC/WireGuard/TUN/DNS 和 JNI 绑定 |
 | P1 | Windows 实机回归 | UAC 接管成功/拒绝/超时、第二实例激活、Job Object 清理、TUN 创建、核心异常退出和 WinINet 恢复；单元测试不能代替系统验收 |
 | P1 | 长时内存验证 | 固定负载和构建，分别记录 GUI/core 的 RSS、PSS、Private_Dirty、FD、线程数；可见/日志页/托盘场景运行 2–8 小时，必要时做 Dart heap diff 和 native 分配追踪 |
 
 版本告警不是漏洞函数可达性结论。不得仅把扫描改成警告或移除检查来满足发布条件。
-告警快照见 [security-advisories-2026-11-10.json](security-advisories-2026-11-10.json)。
+历史未修补产物的告警快照见 [security-advisories-2026-11-10.json](security-advisories-2026-11-10.json)。
+当前补丁核心的 Windows+Pub 149 项、Android+Pub+Maven 278 项本地复扫均未返回公告；
+两平台普通分支与正式 tag 均阻断告警和扫描失败，后续依赖变更仍需持续扫描。
 
 ## 后续优化与兼容性
 
@@ -46,5 +47,6 @@ Android 后台串行化消除了主线程等待，但停止仍需等待正在执
 - 核心裁剪、Dart 符号分离、工具链/源码固定、签名/对齐检查、SBOM/OSV 与发布门槛。
 - 代理鉴权与系统代理组合提示、凭据持久性说明；实际 Maven 依赖清单导出和 CI 审计。
 - Gradle JVM 限额与进程树采样；2 workers 本机耗时回退，未设为默认。
+- 原生依赖安全升级、Go 1.27 HTTP/2 兼容、Hysteria2 低 RTT 窗口修复；Android/Windows 同源构建、补丁来源和 APK 摘要校验。见[核心补丁说明](../patches/sing-box/README.md)。
 
 OpenVPN、新桌面代理后端等属于独立功能评估，不作为本轮缺陷修复的未完成项。
