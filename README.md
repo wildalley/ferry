@@ -177,7 +177,7 @@ Dart 3.8+
 ```
 
 For Android builds: JDK 17, Android SDK with NDK, and Go to build
-`libbox.aar`. Native builds pin Go 1.27.3 and NDK 28.2.13676358 and require Python 3.11+.
+`libbox.aar`. Native builds pin Go 1.27.4 and NDK 28.2.13676358 and require Python 3.11+.
 
 For Linux builds, install appindicator and libsecret headers on top of Flutter's
 usual desktop toolchain:
@@ -253,7 +253,7 @@ scripts/package.sh deb apk    # or a named subset
 | `ferry_<version>-<build>_amd64.deb` | nothing past the Linux toolchain above — `dpkg-deb` when present, otherwise `ar` + `tar` |
 | `ferry-<version>-<build>-x86_64.pkg.tar.zst` | `makepkg` and `fakeroot`, so an Arch host |
 | `ferry-<version>-<build>-arm64.apk` | a JDK, an Android SDK, and `android/app/libs/libbox.aar` |
-| `ferry-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the patched core built with Go 1.27.3 |
+| `ferry-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the patched core built with Go 1.27.4 |
 
 Whatever is missing a tool is skipped with the reason printed; the rest still
 build. Every icon — launcher, tray, Windows, and the Linux hicolor sizes in

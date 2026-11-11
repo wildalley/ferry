@@ -4,7 +4,7 @@
 # The .aar is generated and not committed. Its size depends on ABIs and build
 # tags. Rebuild whenever the pinned sources, toolchain, or flags change.
 #
-# Requirements: Go 1.27.3, Python 3, JDK 17, Android SDK with NDK, git.
+# Requirements: Go 1.27.4, Python 3, JDK 17, Android SDK with NDK, git.
 # Point JAVA_HOME / ANDROID_HOME at your own installs, or let the script probe
 # the usual locations.
 #
