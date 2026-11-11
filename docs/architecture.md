@@ -230,7 +230,7 @@ traffic histories, and tray status continue updating.
    exception by design: a `fp=` uTLS fingerprint sing-box does not accept is
    dropped at the door, because the engine rejects the whole config over one
    unknown value and panels emit junk there (`unsafe` is in the wild).
-3. Render a full sing-box 1.13 config (`lib/data/config_builder.dart`): typed
+3. Render a full sing-box config in the 1.12 schema (`lib/data/config_builder.dart`): typed
    DNS servers, rule `action` verbs, one `address` list on the TUN inbound. The
    same fingerprint rule sweeps every outbound again here, so nodes stored
    before the parser filtered it render clean too.

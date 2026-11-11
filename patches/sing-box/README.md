@@ -11,7 +11,7 @@ Linux 使用发行版安装的核心，内置核心补丁不会自动修改系�
 
 - sing-box：`v1.14.4`，提交 `c005f35300ce76427dc285481ec5695f5b179cd2`。
 - gomobile：`v0.1.13` 对应提交 `9f03b8f25789099c5c8abef4a02085da783ba923`，与上游构建入口一致。
-- Go 1.27.3、`GOEXPERIMENT=nojsonv2`，JDK 17、NDK 28.2.13676358。
+- Go 1.27.4、`GOEXPERIMENT=nojsonv2`，JDK 17、NDK 28.2.13676358。
 - sing-quic：`v0.7.2-0.20261020082049-7e0a5869a5f4`，模块校验和
   `h1:QuhAb8QW0pKYmSvfj/nK91libunBwVJiWb852yidlxI=`。
 - Hysteria 窗口函数来源：apernet/hysteria（现 HyNetworks/hysteria）提交

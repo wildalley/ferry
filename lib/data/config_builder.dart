@@ -1,4 +1,5 @@
-/// Renders a sing-box 1.13 configuration from app state.
+/// Renders a sing-box configuration from app state, in the 1.12 schema every
+/// supported core accepts.
 ///
 /// The output shape follows the 1.12+ schema: typed DNS servers, rule `action`
 /// verbs instead of `block`/`dns-out` outbounds, and a single `address` list on
