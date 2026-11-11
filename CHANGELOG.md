@@ -1,5 +1,25 @@
 # Changelog / 更新日志
 
+## 0.4.5 — 2026-11-11
+
+### 中文
+
+- **安全更新**：Android 和 Windows 内核改用 Go 1.27.4 编译，修复 Go 标准库 `net/http` 的 GO-2026-6859（CVE-2026-97054）：HTTP/1 服务端可能因 `MaxBytesReader` 头部竞争而崩溃。内核的 Clash API 服务只监听本机，实际风险较低。内核版本仍为 1.14.4-ferry.1。
+- **更新检查**的 User-Agent 改为 `ferry-update-check`，不再沿用改名前的名称。
+- 功能和界面无变化。Linux 使用系统安装的内核，不受此次重编译影响。
+
+**升级说明**：可直接覆盖安装 0.4.4。
+
+### English
+
+- **Security update**: the Android and Windows cores are now built with Go 1.27.4, fixing GO-2026-6859 (CVE-2026-97054) in the standard library's `net/http`, an HTTP/1 server crash from a `MaxBytesReader` header race. The core's Clash API server listens only on loopback, so the practical exposure is low. The core version stays 1.14.4-ferry.1.
+- **Update check** now identifies itself as `ferry-update-check` instead of the pre-rename name.
+- No feature or UI changes. Linux uses the system-installed core and is unaffected by the rebuild.
+
+**Upgrading**: installs over 0.4.4.
+
+Downloads: Android arm64 APK, Linux amd64 deb, Arch Linux x86_64 package, Windows x64 ZIP.
+
 ## 0.4.4 — 2026-11-10
 
 ### 中文
