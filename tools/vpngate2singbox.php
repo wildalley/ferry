@@ -17,7 +17,7 @@
  *
  * 内核要求:
  *   sing-box >= 1.14.0。openvpn-client endpoint 是 1.14 引入的，更早的内核会直接
- *   拒绝这份配置。注意 SingBox Client 当前的 singBoxMinimumVersion 是 (1, 12)，
+ *   拒绝这份配置。注意渡 Ferry 当前的 singBoxMinimumVersion 是 (1, 12)，
  *   要用这份订阅得先把内核升到 1.14+。
  *
  * 链式代理:

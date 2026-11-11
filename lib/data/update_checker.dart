@@ -96,7 +96,7 @@ class UpdateChecker {
       maxBytes: _maxBytes,
       headers: {
         HttpHeaders.acceptHeader: 'application/vnd.github+json',
-        HttpHeaders.userAgentHeader: 'singbox-client-update-check',
+        HttpHeaders.userAgentHeader: 'ferry-update-check',
       },
     );
     return parseRelease(utf8.decode(bytes), repository: repository);
