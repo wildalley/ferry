@@ -12,9 +12,9 @@
 
 ## 当前版本
 
-**v0.4.4** 升级依赖、Android 构建工具链（Gradle 9.9.0、AGP 9.5.1）和 CI Actions，功能无变化。
-v0.4.3 修复了 Android 启动即停在“无法打开安全存储”的问题；v0.4.2 已将 Android/Windows 内核升级至 **1.14.4-ferry.1**。
-详见 [更新日志](CHANGELOG.md#044--2026-11-10)。
+**v0.4.5** 用 Go 1.27.4 重新编译 Android/Windows 内核，修复 Go `net/http` 安全公告 GO-2026-6859，功能无变化。
+v0.4.4 升级了依赖和 Android 构建工具链；v0.4.3 修复了 Android 启动即停在“无法打开安全存储”的问题；v0.4.2 已将 Android/Windows 内核升级至 **1.14.4-ferry.1**。
+详见 [更新日志](CHANGELOG.md#045--2026-11-11)。
 Linux 继续使用系统安装的内核。
 
 ## 功能

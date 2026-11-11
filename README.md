@@ -18,10 +18,12 @@ elevation.
 
 ## Current release
 
-**v0.4.4** updates dependencies, the Android toolchain (Gradle 9.9.0, AGP 9.5.1)
-and CI actions, with no feature changes. v0.4.3 fixed Android installs that stopped
-at "Secure storage is unavailable", and v0.4.2 upgraded the Android/Windows core to
-**1.14.4-ferry.1**. See the [changelog](CHANGELOG.md#044--2026-11-10).
+**v0.4.5** rebuilds the Android and Windows cores with Go 1.27.4 for the
+GO-2026-6859 `net/http` advisory, with no feature changes. v0.4.4 updated
+dependencies and the Android toolchain, v0.4.3 fixed Android installs that
+stopped at "Secure storage is unavailable", and v0.4.2 upgraded the
+Android/Windows core to **1.14.4-ferry.1**. See the
+[changelog](CHANGELOG.md#045--2026-11-11).
 Linux continues to use the system-installed core.
 
 ## Features
