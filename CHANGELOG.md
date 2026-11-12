@@ -1,5 +1,23 @@
 # Changelog / 更新日志
 
+## 0.4.6 — 2026-11-12
+
+### 中文
+
+- **Windows 安装版**：用 `.exe` 安装程序替代 ZIP，包含 C++ 运行库、开始菜单入口和可选桌面快捷方式，支持覆盖升级和保留用户数据的卸载；CI 验证安装、修复和卸载。
+- **精简发布附件**：Release 只保留四个平台安装包和 `SHA256SUMS`。依赖清单与内核构建记录保留在 CI artifacts，继续执行依赖扫描并记录 GitHub 构建来源证明。
+
+**升级说明**：Windows ZIP 用户先从托盘菜单退出旧版，再运行安装程序；设置和凭据沿用原有数据。Android 和 Linux 可直接覆盖升级 0.4.5。代理内核和应用功能无变化。
+
+### English
+
+- **Windows installer**: replace the ZIP with an `.exe` installer, including the C++ runtime, a Start menu entry and an optional desktop shortcut. Support upgrades and uninstall without deleting user data; CI checks installation, repair and removal.
+- **Release downloads**: keep only the four platform packages and `SHA256SUMS`. Retain dependency inventories and core build records in CI artifacts, with dependency scans and GitHub provenance attestations still required.
+
+**Upgrading**: Windows ZIP users should exit the old copy from its tray menu before running the installer; existing settings and credentials are retained. Android and Linux packages can update 0.4.5 directly. No proxy core or application feature changes.
+
+Downloads: Android arm64 APK, Linux amd64 deb, Arch Linux x86_64 package, Windows x64 EXE installer.
+
 ## 0.4.5 — 2026-11-11
 
 ### 中文

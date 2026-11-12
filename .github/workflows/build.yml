@@ -1,7 +1,7 @@
 name: build
 
 # Produces the artifacts the README documents — a deb, an Arch .pkg.tar.zst, an
-# arm64 APK, and a Windows x64 bundle — on runners with the platform toolchains
+# arm64 APK, and a Windows x64 installer — on runners with the platform toolchains
 # a desktop checkout usually does not.
 #
 # The APK is signed with FERRY_KEY* secrets in the protected release
@@ -213,8 +213,6 @@ jobs:
             --go-provenance android/app/libs/libbox.aar.sources.json \
             --maven build/app/reports/release-runtime-dependencies.json \
             --output dist/dependencies.cdx.json --scan
-          cp android/app/libs/libbox.aar.sources.json dist/android-core.sources.json
-          cp android/app/libs/libbox.aar.build-info.json dist/android-core.build-info.json
 
       - name: Retain Android dependency reports
         if: always()
@@ -283,7 +281,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-deb-apk-${{ github.sha }}
-          path: dist/*
+          path: |
+            dist/*.deb
+            dist/*.apk
           if-no-files-found: error
 
   windows:
@@ -341,21 +341,27 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - run: flutter build windows --release
 
-      - name: Package Windows bundle
+      - name: Package Windows installer
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Compress-Archive `
-            -Path "build/windows/x64/runner/Release/*" `
-            -DestinationPath "dist/ferry-windows-x64-${{ github.sha }}.zip"
+        run: ./scripts/package-windows.ps1
+
+      - name: Check Windows install, repair and uninstall
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-windows-${{ github.sha }}
-          path: |
-            dist/*.zip
-            dist/windows-*.json
+          path: dist/*-setup.exe
           if-no-files-found: error
+
+      - name: Retain Windows installer logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installer-logs-windows-${{ github.sha }}
+          path: build/installer-logs/*.log
+          if-no-files-found: ignore
 
   arch:
     name: pkg.tar.zst
@@ -424,7 +430,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-arch-${{ github.sha }}
-          path: dist/*
+          path: dist/*.pkg.tar.zst
           if-no-files-found: error
 
   release:
@@ -457,8 +463,16 @@ jobs:
         run: |
           cd dist
           shopt -s nullglob
-          files=(*.apk *.deb *.pkg.tar.zst *.zip *.json)
-          (( ${#files[@]} > 0 )) || { echo "nothing to release"; exit 1; }
+          # Only end-user installers reach the release. Reports and symbols
+          # stay in their dedicated CI artifacts.
+          for pattern in '*.apk' '*.deb' '*.pkg.tar.zst' '*-setup.exe'; do
+            mapfile -t matches < <(compgen -G "$pattern")
+            (( ${#matches[@]} == 1 )) || { echo "expected one $pattern"; exit 1; }
+          done
+          files=(*.apk *.deb *.pkg.tar.zst *-setup.exe)
+          (( ${#files[@]} == 4 && $(find . -maxdepth 1 -type f | wc -l) == 4 )) || {
+            echo "unexpected release assets"; exit 1;
+          }
           sha256sum -- "${files[@]}" > SHA256SUMS
 
       - name: Attest release provenance

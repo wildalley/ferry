@@ -18,12 +18,12 @@ elevation.
 
 ## Current release
 
-**v0.4.5** rebuilds the Android and Windows cores with Go 1.27.4 for the
-GO-2026-6859 `net/http` advisory, with no feature changes. v0.4.4 updated
-dependencies and the Android toolchain, v0.4.3 fixed Android installs that
-stopped at "Secure storage is unavailable", and v0.4.2 upgraded the
-Android/Windows core to **1.14.4-ferry.1**. See the
-[changelog](CHANGELOG.md#045--2026-11-11).
+**v0.4.6** adds a Windows EXE installer with shortcuts, upgrades and uninstallation,
+and reduces Release downloads to the four platform packages and `SHA256SUMS`.
+Dependency reports and core build records remain available in CI artifacts.
+The Android/Windows core stays at **1.14.4-ferry.1**, built with Go 1.27.4 for the
+GO-2026-6859 `net/http` fix included in v0.4.5. See the
+[changelog](CHANGELOG.md#046--2026-11-12).
 Linux continues to use the system-installed core.
 
 ## Features
@@ -243,7 +243,7 @@ will continue the requested connection automatically.
 
 ### Packaging
 
-`scripts/package.sh` builds the distributables in one pass, into `dist/`:
+`scripts/package.sh` builds the Linux and Android packages into `dist/`:
 
 ```bash
 scripts/package.sh            # everything this host can manage
@@ -255,7 +255,16 @@ scripts/package.sh deb apk    # or a named subset
 | `ferry_<version>-<build>_amd64.deb` | nothing past the Linux toolchain above — `dpkg-deb` when present, otherwise `ar` + `tar` |
 | `ferry-<version>-<build>-x86_64.pkg.tar.zst` | `makepkg` and `fakeroot`, so an Arch host |
 | `ferry-<version>-<build>-arm64.apk` | a JDK, an Android SDK, and `android/app/libs/libbox.aar` |
-| `ferry-windows-x64-<sha>.zip` | a Windows runner with Visual Studio's C++ toolchain and the patched core built with Go 1.27.4 |
+| `ferry-windows-x64-<version>-<build>-setup.exe` | Windows with Visual Studio's C++ toolchain, Inno Setup 6, and the patched core built with Go 1.27.4 |
+
+On Windows, after building the core and running `flutter build windows --release`,
+run `pwsh -File scripts/package-windows.ps1`. The installer includes the Flutter
+bundle, sing-box and the app-local Visual C++ runtime. It installs for the current
+user under `%LOCALAPPDATA%\Programs\Ferry`, adds a Start menu entry and an optional
+desktop shortcut, supports upgrades in place, and preserves settings and
+credentials when uninstalled. Exit Ferry from its tray menu before upgrading or
+uninstalling. CI checks silent installation, payload hashes, shortcuts,
+registration, repair and uninstallation on its Windows runner.
 
 Whatever is missing a tool is skipped with the reason printed; the rest still
 build. Every icon — launcher, tray, Windows, and the Linux hicolor sizes in
@@ -283,7 +292,7 @@ installing the two side by side.
 | --- | --- | --- |
 | `verify` | `ubuntu-24.04` | static analysis, Flutter/Python tests, locked Dart dependency scan |
 | `package` | `ubuntu-24.04` | the deb and the arm64 APK |
-| `windows` | `windows-latest` | the Windows x64 release bundle (`.zip`) |
+| `windows` | `windows-latest` | the Windows x64 installer (`.exe`), with install/repair/uninstall checks |
 | `arch` | `archlinux:base-devel` container | the `.pkg.tar.zst` |
 | `release` | `ubuntu-24.04` | on a `v*` tag, one GitHub Release after all four prerequisite jobs succeed |
 
@@ -301,8 +310,11 @@ run as root.
 Successful build jobs upload their own artifacts. A release requires every
 prerequisite job to pass, including dependency scans and APK validation. Go
 advisories and scan failures block both development builds and version tags. Dependency
-reports are retained even when a scan fails; releases include checksums and
-build provenance. Android/Linux Dart symbols are retained separately.
+reports are retained even when a scan fails. Release downloads contain only the
+APK, deb, Arch package, Windows installer and `SHA256SUMS`; build provenance is
+recorded through GitHub attestations. Dependency inventories, core source/build
+records, installer test logs and Android/Linux Dart symbols are retained in
+separate CI artifacts.
 
 **Signing.** Only version tags restore the release key from four secrets in the
 protected `release` environment: `FERRY_KEYSTORE_BASE64` (the `.jks`, base64-encoded),
