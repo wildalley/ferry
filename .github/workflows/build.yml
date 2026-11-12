@@ -1,7 +1,7 @@
 name: build
 
 # Produces the artifacts the README documents — a deb, an Arch .pkg.tar.zst, an
-# arm64 APK, and a Windows x64 installer — on runners with the platform toolchains
+# arm64 APK, and Windows x64 ZIP/EXE packages — on runners with the platform toolchains
 # a desktop checkout usually does not.
 #
 # The APK is signed with FERRY_KEY* secrets in the protected release
@@ -341,7 +341,7 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - run: flutter build windows --release
 
-      - name: Package Windows installer
+      - name: Package Windows ZIP and installer
         shell: pwsh
         run: ./scripts/package-windows.ps1
 
@@ -352,7 +352,9 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ferry-windows-${{ github.sha }}
-          path: dist/*-setup.exe
+          path: |
+            dist/*-setup.exe
+            dist/ferry-windows-x64-*.zip
           if-no-files-found: error
 
       - name: Retain Windows installer logs
@@ -463,14 +465,14 @@ jobs:
         run: |
           cd dist
           shopt -s nullglob
-          # Only end-user installers reach the release. Reports and symbols
+          # Only end-user packages reach the release. Reports and symbols
           # stay in their dedicated CI artifacts.
-          for pattern in '*.apk' '*.deb' '*.pkg.tar.zst' '*-setup.exe'; do
+          for pattern in '*.apk' '*.deb' '*.pkg.tar.zst' '*-setup.exe' 'ferry-windows-x64-*.zip'; do
             mapfile -t matches < <(compgen -G "$pattern")
             (( ${#matches[@]} == 1 )) || { echo "expected one $pattern"; exit 1; }
           done
-          files=(*.apk *.deb *.pkg.tar.zst *-setup.exe)
-          (( ${#files[@]} == 4 && $(find . -maxdepth 1 -type f | wc -l) == 4 )) || {
+          files=(*.apk *.deb *.pkg.tar.zst *-setup.exe ferry-windows-x64-*.zip)
+          (( ${#files[@]} == 5 && $(find . -maxdepth 1 -type f | wc -l) == 5 )) || {
             echo "unexpected release assets"; exit 1;
           }
           sha256sum -- "${files[@]}" > SHA256SUMS

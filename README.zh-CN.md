@@ -12,7 +12,7 @@
 
 ## 当前版本
 
-**v0.4.6** 新增 Windows EXE 安装版，支持快捷方式、覆盖升级和卸载；Release 下载区精简为四个平台安装包和 `SHA256SUMS`，依赖报告与内核构建记录保留在 CI artifacts。
+**v0.4.6** 新增 Windows EXE 安装版，支持快捷方式、覆盖升级和卸载；同时保留 Windows ZIP 压缩包；Release 下载区保留五个发行包和 `SHA256SUMS`，依赖报告与内核构建记录保留在 CI artifacts。
 Android/Windows 内核仍为 **1.14.4-ferry.1**，沿用 v0.4.5 的 Go 1.27.4 构建和 GO-2026-6859 `net/http` 安全修复。
 详见 [更新日志](CHANGELOG.md#046--2026-11-12)。
 Linux 继续使用系统安装的内核。
@@ -154,13 +154,15 @@ scripts/package.sh deb apk    # 或指定其中几个
 | `ferry-<版本>-<构建号>-x86_64.pkg.tar.zst` | `makepkg` 和 `fakeroot`，也就是需要 Arch 系统 |
 | `ferry-<版本>-<构建号>-arm64.apk` | JDK、Android SDK，以及 `android/app/libs/libbox.aar` |
 | `ferry-windows-x64-<版本>-<构建号>-setup.exe` | Windows、Visual Studio C++ 工具链、Inno Setup 6，以及用 Go 1.27.4 编译的补丁内核 |
+| `ferry-windows-x64-<版本>-<构建号>.zip` | 与 EXE 安装版从同一份 Windows 程序目录生成 |
 
 Windows 上先构建内核并运行 `flutter build windows --release`，再运行
-`pwsh -File scripts/package-windows.ps1`。安装版包含 Flutter 程序、sing-box
+`pwsh -File scripts/package-windows.ps1`，同时生成 ZIP 和 EXE。ZIP 解压后运行
+`ferry.exe`，保留旁边的 DLL 和 data 目录。安装版包含 Flutter 程序、sing-box
 和应用目录内的 Visual C++ 运行库，默认安装到当前用户的
 `%LOCALAPPDATA%\Programs\Ferry`，创建开始菜单入口，可选桌面快捷方式，支持覆盖升级；
 卸载保留设置和凭据。升级或卸载前，请从托盘菜单退出 Ferry。
-CI 会在 Windows runner 上检查静默安装、文件摘要、快捷方式、卸载注册、修复安装和卸载。
+CI 会在 Windows runner 上检查 ZIP 解压后的文件摘要、静默安装、快捷方式、卸载注册、修复安装和卸载。
 
 缺少工具的产物会被跳过并打印原因，其余照常构建。所有图标——启动图标、托盘图标、Windows 图标，以及 `docs/design/icon/linux/` 里 Linux 桌面用的各尺寸图标——都由应用绘制标志的同一段代码生成：
 
@@ -178,7 +180,7 @@ RENDER_ICONS=1 flutter test test/render_icons_test.dart
 | --- | --- | --- |
 | `verify` | `ubuntu-24.04` | 静态分析、Flutter/Python 测试、锁定 Dart 依赖扫描 |
 | `package` | `ubuntu-24.04` | deb 和 arm64 APK |
-| `windows` | `windows-latest` | Windows x64 安装版（`.exe`），含安装、修复和卸载检查 |
+| `windows` | `windows-latest` | Windows x64 ZIP 和 EXE 安装版，含 ZIP、安装、修复和卸载检查 |
 | `arch` | `archlinux:base-devel` 容器 | `.pkg.tar.zst` |
 | `release` | `ubuntu-24.04` | 推送 `v*` tag 且四个前置任务全部成功后发布 GitHub Release |
 
@@ -186,7 +188,7 @@ Ubuntu 任务配置 JDK 17，并使用 runner 的 Android SDK 安装固定版本
 
 Arch 包单独一个任务，因为写 `.PKGINFO`、`.MTREE` 和 `.BUILDINFO` 的 `makepkg` 只存在于 Arch 上；而且在 Arch 上打的 deb 会链接比 Debian 更新的 glibc。容器里的一切都以普通用户运行：`makepkg` 和 `flutter` 都拒绝以 root 运行。
 
-构建成功的任务各自上传产物；正式发布要求全部前置任务通过，包括依赖扫描与 APK 校验。Go 告警及扫描失败在普通分支和版本 tag 上均阻断构建。Release 下载区只保留 APK、deb、Arch 包、Windows 安装版和 `SHA256SUMS`；构建来源证明通过 GitHub attestations 记录。依赖清单、内核来源与构建记录、安装测试日志以及 Android/Linux 的 Dart 调试符号分别保留在 CI artifacts 中，扫描失败也保留已生成的报告。
+构建成功的任务各自上传产物；正式发布要求全部前置任务通过，包括依赖扫描与 APK 校验。Go 告警及扫描失败在普通分支和版本 tag 上均阻断构建。Release 下载区只保留 APK、deb、Arch 包、Windows ZIP、Windows EXE 安装版和 `SHA256SUMS`；构建来源证明通过 GitHub attestations 记录。依赖清单、内核来源与构建记录、安装测试日志以及 Android/Linux 的 Dart 调试符号分别保留在 CI artifacts 中，扫描失败也保留已生成的报告。
 
 **签名**：只有版本 tag 从受保护的 `release` environment 还原 4 个 secret：`FERRY_KEYSTORE_BASE64`（`.jks` 文件的 base64）、`FERRY_KEYSTORE_PASSWORD`、`FERRY_KEY_ALIAS` 和 `FERRY_KEY_PASSWORD`。维护者须配置该环境的 refs 限制和审批，并将这些 secret 移出仓库级作用域。其他 CI 构建使用 debug 密钥；tag 缺少签名配置或证书与固定的正式签名不匹配时会失败。本地构建时，把同样的 4 个值以 `storeFile`、`storePassword`、`keyAlias`、`keyPassword` 写进 `android/key.properties`（已被 git 忽略）。请务必备份密钥库：用其他密钥签名的版本无法升级已安装的应用。
 

@@ -19,7 +19,7 @@ elevation.
 ## Current release
 
 **v0.4.6** adds a Windows EXE installer with shortcuts, upgrades and uninstallation,
-and reduces Release downloads to the four platform packages and `SHA256SUMS`.
+alongside the Windows ZIP. Release downloads contain the five packages and `SHA256SUMS`.
 Dependency reports and core build records remain available in CI artifacts.
 The Android/Windows core stays at **1.14.4-ferry.1**, built with Go 1.27.4 for the
 GO-2026-6859 `net/http` fix included in v0.4.5. See the
@@ -256,15 +256,19 @@ scripts/package.sh deb apk    # or a named subset
 | `ferry-<version>-<build>-x86_64.pkg.tar.zst` | `makepkg` and `fakeroot`, so an Arch host |
 | `ferry-<version>-<build>-arm64.apk` | a JDK, an Android SDK, and `android/app/libs/libbox.aar` |
 | `ferry-windows-x64-<version>-<build>-setup.exe` | Windows with Visual Studio's C++ toolchain, Inno Setup 6, and the patched core built with Go 1.27.4 |
+| `ferry-windows-x64-<version>-<build>.zip` | produced alongside the EXE from the same Windows release bundle |
 
 On Windows, after building the core and running `flutter build windows --release`,
-run `pwsh -File scripts/package-windows.ps1`. The installer includes the Flutter
+run `pwsh -File scripts/package-windows.ps1` to produce both the ZIP and EXE.
+Extract the ZIP and run `ferry.exe`, keeping its DLLs and data directory together.
+The installer includes the Flutter
 bundle, sing-box and the app-local Visual C++ runtime. It installs for the current
 user under `%LOCALAPPDATA%\Programs\Ferry`, adds a Start menu entry and an optional
 desktop shortcut, supports upgrades in place, and preserves settings and
 credentials when uninstalled. Exit Ferry from its tray menu before upgrading or
 uninstalling. CI checks silent installation, payload hashes, shortcuts,
-registration, repair and uninstallation on its Windows runner.
+registration, repair and uninstallation, and compares the extracted ZIP against
+the release bundle on its Windows runner.
 
 Whatever is missing a tool is skipped with the reason printed; the rest still
 build. Every icon — launcher, tray, Windows, and the Linux hicolor sizes in
@@ -292,7 +296,7 @@ installing the two side by side.
 | --- | --- | --- |
 | `verify` | `ubuntu-24.04` | static analysis, Flutter/Python tests, locked Dart dependency scan |
 | `package` | `ubuntu-24.04` | the deb and the arm64 APK |
-| `windows` | `windows-latest` | the Windows x64 installer (`.exe`), with install/repair/uninstall checks |
+| `windows` | `windows-latest` | Windows x64 ZIP and EXE installer, with ZIP/install/repair/uninstall checks |
 | `arch` | `archlinux:base-devel` container | the `.pkg.tar.zst` |
 | `release` | `ubuntu-24.04` | on a `v*` tag, one GitHub Release after all four prerequisite jobs succeed |
 
@@ -311,7 +315,7 @@ Successful build jobs upload their own artifacts. A release requires every
 prerequisite job to pass, including dependency scans and APK validation. Go
 advisories and scan failures block both development builds and version tags. Dependency
 reports are retained even when a scan fails. Release downloads contain only the
-APK, deb, Arch package, Windows installer and `SHA256SUMS`; build provenance is
+APK, deb, Arch package, Windows ZIP, Windows installer and `SHA256SUMS`; build provenance is
 recorded through GitHub attestations. Dependency inventories, core source/build
 records, installer test logs and Android/Linux Dart symbols are retained in
 separate CI artifacts.

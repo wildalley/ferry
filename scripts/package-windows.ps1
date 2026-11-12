@@ -1,3 +1,4 @@
+# Build both Windows distributions from the same release bundle.
 # Run after scripts/build-windows-core.sh and flutter build windows --release.
 [CmdletBinding()]
 param()
@@ -51,8 +52,14 @@ if ($compiler) {
 }
 if (-not (Test-Path $iscc -PathType Leaf)) { throw 'Install Inno Setup 6 or add ISCC.exe to PATH' }
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+Copy-Item (Join-Path $repoRoot 'LICENSE') (Join-Path $bundle 'LICENSE.txt') -Force
 & $iscc '/Qp' "/DAppVersion=$appVersion" "/DAppBuild=$appBuild" "/DBundleDir=$bundle" "/DOutputDir=$outputDir" (Join-Path $repoRoot 'windows/installer/ferry.iss')
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
 $installer = Join-Path $outputDir "ferry-windows-x64-$appVersion-$appBuild-setup.exe"
 if (-not (Test-Path $installer -PathType Leaf)) { throw "Installer was not generated: $installer" }
 Write-Host "Built $installer"
+
+$archive = Join-Path $outputDir "ferry-windows-x64-$appVersion-$appBuild.zip"
+Compress-Archive -Path (Join-Path $bundle '*') -DestinationPath $archive -Force
+if (-not (Test-Path $archive -PathType Leaf)) { throw "ZIP was not generated: $archive" }
+Write-Host "Built $archive"
